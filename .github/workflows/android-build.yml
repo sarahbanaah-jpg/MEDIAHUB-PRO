@@ -130,10 +130,31 @@ jobs:
         run: gradle --no-daemon :app:assembleRelease
 
       - name: Verify APK signature
+        shell: bash
         run: |
+          set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
-          test -f "$APK"
-          apksigner verify --verbose "$APK"
+          test -s "$APK" || { echo "Release APK is missing or empty: $APK"; exit 1; }
+
+          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
+          APKSIGNER=""
+          if [ -n "$SDK_ROOT" ] && [ -x "$SDK_ROOT/build-tools/35.0.0/apksigner" ]; then
+            APKSIGNER="$SDK_ROOT/build-tools/35.0.0/apksigner"
+          else
+            APKSIGNER="$(find "${SDK_ROOT:-/usr/local/lib/android}" -type f -path '*/build-tools/*/apksigner' -print -quit 2>/dev/null || true)"
+          fi
+
+          if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
+            echo "Android apksigner was not found. Installed SDK build-tools:"
+            find "${SDK_ROOT:-/usr/local/lib/android}" -maxdepth 4 -type f -name apksigner -print 2>/dev/null || true
+            exit 1
+          fi
+
+          echo "Using APK signature verifier: $APKSIGNER"
+          "$APKSIGNER" version
+          "$APKSIGNER" verify --verbose --print-certs "$APK"
+          echo "APK signature verification passed."
+          sha256sum "$APK"
 
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
