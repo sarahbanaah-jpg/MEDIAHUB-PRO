@@ -26,3 +26,8 @@ This project is a development build, not yet a verified production release. Some
 ## Build verification
 
 A full Android Gradle build and physical-device test have not yet been completed in the available environment because an Android SDK/Gradle toolchain is unavailable here. Import and build in CodeAssist. Share the first build error if one appears so it can be corrected. Do not treat an APK as available until a successful build is confirmed.
+
+
+## GitHub Actions build workflow
+
+A workflow is configured at `.github/workflows/android-build.yml`. It builds a debug APK and uploads it as a workflow artifact after a successful run. **The Android source project still needs to be committed to this repository before that workflow can produce an APK.** At present, the source archive is supplied separately in this conversation.
