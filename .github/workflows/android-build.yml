@@ -34,11 +34,12 @@ jobs:
       - name: Extract Android project source archive
         run: |
           unzip -q MEDIAHUB_PRO_NO_LOGO_BUILD_READY.zip -d /tmp/mediahub-source
-          PROJECT_DIR="$(find /tmp/mediahub-source -name settings.gradle -printf '%h\\n' | head -n 1)"
-          if [ -z "$PROJECT_DIR" ]; then
+          SETTINGS_FILE="$(find /tmp/mediahub-source -name settings.gradle -print -quit)"
+          if [ -z "$SETTINGS_FILE" ]; then
             echo "Could not find settings.gradle inside the uploaded source archive."
             exit 1
           fi
+          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           cp -a "$PROJECT_DIR"/. .
       - name: Build debug APK
         run: gradle --no-daemon :app:assembleDebug
