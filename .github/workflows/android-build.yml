@@ -3,34 +3,39 @@ name: Android APK build
 on:
   push:
     branches: [ main ]
-  pull_request:
-    branches: [ main ]
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
 
 jobs:
-  build-debug-apk:
+  build-release-apk:
     runs-on: ubuntu-latest
     steps:
       - name: Check out source
         uses: actions/checkout@v4
+        with:
+          persist-credentials: true
+
       - name: Set up JDK 17
         uses: actions/setup-java@v4
         with:
           distribution: temurin
           java-version: '17'
+
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
         with:
           packages: platform-tools
+
       - name: Install Android build packages
         run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
       - name: Set up Gradle 8.7
         uses: gradle/actions/setup-gradle@v4
         with:
           gradle-version: '8.7'
+
       - name: Extract Android project source archive
         run: |
           unzip -q MEDIAHUB_PRO_NO_LOGO_BUILD_READY.zip -d /tmp/mediahub-source
@@ -41,12 +46,99 @@ jobs:
           fi
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           cp -a "$PROJECT_DIR"/. .
-      - name: Build debug APK
-        run: gradle --no-daemon :app:assembleDebug
-      - name: Upload APK
+
+      - name: Validate signing secrets
+        env:
+          STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          test -n "$STORE_PASSWORD" || { echo "Missing MEDIAHUB_KEYSTORE_PASSWORD repository secret."; exit 1; }
+          test -n "$ENCRYPTION_PASSWORD" || { echo "Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD repository secret."; exit 1; }
+
+      - name: Create permanent signing key once, encrypted in repository
+        env:
+          STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          mkdir -p signing
+          if [ ! -f signing/mediahub-release.jks.enc ]; then
+            keytool -genkeypair -v \
+              -keystore /tmp/mediahub-release.jks \
+              -storetype JKS \
+              -alias mediahub \
+              -keyalg RSA -keysize 4096 -validity 10000 \
+              -storepass "$STORE_PASSWORD" -keypass "$STORE_PASSWORD" \
+              -dname "CN=MEDIAHUB PRO, OU=Android, O=MEDIAHUB, L=Eldoret, ST=Uasin Gishu, C=KE"
+            openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
+              -in /tmp/mediahub-release.jks \
+              -out signing/mediahub-release.jks.enc \
+              -pass env:ENCRYPTION_PASSWORD
+            rm -f /tmp/mediahub-release.jks
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add signing/mediahub-release.jks.enc
+            git commit -m "Add encrypted MEDIAHUB PRO release signing key"
+            git push
+          fi
+
+      - name: Decrypt permanent signing key
+        env:
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -in signing/mediahub-release.jks.enc \
+            -out /tmp/mediahub-release.jks \
+            -pass env:ENCRYPTION_PASSWORD
+          chmod 600 /tmp/mediahub-release.jks
+
+      - name: Configure release signing and version
+        run: |
+          python3 - <<'PY'
+          from pathlib import Path
+          p = Path("app/build.gradle")
+          s = p.read_text()
+          s = s.replace("versionCode 2", "versionCode 3")
+          s = s.replace("versionName '2.0'", "versionName '2.1'")
+          if "signingConfigs {" not in s:
+              marker = "\n}"
+              if marker not in s:
+                  raise SystemExit("Could not locate end of Android Gradle configuration.")
+              signing = """
+              signingConfigs {
+                  release {
+                      storeFile file("/tmp/mediahub-release.jks")
+                      storePassword System.getenv("MEDIAHUB_KEYSTORE_PASSWORD")
+                      keyAlias "mediahub"
+                      keyPassword System.getenv("MEDIAHUB_KEYSTORE_PASSWORD")
+                  }
+              }
+              buildTypes {
+                  release {
+                      signingConfig signingConfigs.release
+                      minifyEnabled false
+                  }
+              }"""
+              s = s.rsplit(marker, 1)[0] + signing + marker
+          p.write_text(s)
+          PY
+
+      - name: Build signed release APK
+        env:
+          MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify APK signature
+        run: |
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -f "$APK"
+          apksigner verify --verbose "$APK"
+
+      - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-debug-apk
-          path: app/build/outputs/apk/debug/app-debug.apk
+          name: MEDIAHUB-PRO-release-v2.1
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
-          retention-days: 14
+          retention-days: 30
