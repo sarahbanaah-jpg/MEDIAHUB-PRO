@@ -163,3 +163,17 @@ jobs:
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
+
+      - name: Publish public v2.1 release with APK
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: v2.1
+          name: MEDIAHUB-PRO v2.1
+          body: |
+            MEDIAHUB-PRO Android release v2.1.
+
+            Includes the in-app update checker. Android will ask you to confirm installation after the APK downloads.
+          files: app/build/outputs/apk/release/app-release.apk
+          draft: false
+          prerelease: false
+          make_latest: true
