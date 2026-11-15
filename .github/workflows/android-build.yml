@@ -100,8 +100,8 @@ jobs:
           p = Path("app/build.gradle")
           s = p.read_text()
           import re
-          s, n_code = re.subn(r"versionCode\\s+\\d+", "versionCode 5", s, count=1)
-          s, n_name = re.subn(r"versionName\\s+['\"][^'\"]+['\"]", "versionName '2.2.1'", s, count=1)
+          s = "\n".join(("    versionCode 5" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionName '2.2.1'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
           if n_code != 1 or n_name != 1:
               raise SystemExit("Could not safely set app versionCode/versionName.")
           if "signingConfigs {" not in s:
