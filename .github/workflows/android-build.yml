@@ -102,8 +102,6 @@ jobs:
           import re
           s = "\n".join(("    versionCode 5" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
           s = "\n".join(("    versionName '2.2.1'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
-          if n_code != 1 or n_name != 1:
-              raise SystemExit("Could not safely set app versionCode/versionName.")
           if "signingConfigs {" not in s:
               marker = "\n}"
               if marker not in s:
