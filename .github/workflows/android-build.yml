@@ -38,7 +38,7 @@ jobs:
 
       - name: Extract Android project source archive
         run: |
-          unzip -q MEDIAHUB_PRO_NO_LOGO_BUILD_READY.zip -d /tmp/mediahub-source
+          unzip -q MEDIAHUB_PRO_UPDATE_CHECKER_SOURCE.zip -d /tmp/mediahub-source
           SETTINGS_FILE="$(find /tmp/mediahub-source -name settings.gradle -print -quit)"
           if [ -z "$SETTINGS_FILE" ]; then
             echo "Could not find settings.gradle inside the uploaded source archive."
