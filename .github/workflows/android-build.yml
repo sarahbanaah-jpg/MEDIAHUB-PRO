@@ -99,8 +99,8 @@ jobs:
           from pathlib import Path
           p = Path("app/build.gradle")
           s = p.read_text()
-          s = s.replace("versionCode 2", "versionCode 3")
-          s = s.replace("versionName '2.0'", "versionName '2.1'")
+          s = s.replace("versionCode 2", "versionCode 4")
+          s = s.replace("versionName '2.0'", "versionName '2.2'")
           if "signingConfigs {" not in s:
               marker = "\n}"
               if marker not in s:
@@ -159,18 +159,18 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-release-v2.1
+          name: MEDIAHUB-PRO-release-v2.2
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish public v2.1 release with APK
+      - name: Publish public v2.2 release with APK
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.1
-          name: MEDIAHUB-PRO v2.1
+          tag_name: v2.2
+          name: MEDIAHUB-PRO v2.2
           body: |
-            MEDIAHUB-PRO Android release v2.1.
+            MEDIAHUB-PRO Android release v2.2.
 
             Includes the in-app update checker. Android will ask you to confirm installation after the APK downloads.
           files: app/build/outputs/apk/release/app-release.apk
