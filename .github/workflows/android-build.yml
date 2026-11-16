@@ -2,7 +2,7 @@ name: MEDIAHUB-PRO Android build and release
 
 on:
   push:
-    branches: [ main, 'feature/**', 'fix/**', 'release/**' ]
+    branches: [ main, 'feature/**', 'fix/**', 'release/**', 'rebuild/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -1042,7 +1042,7 @@ jobs:
       - name: Upload source review bundle
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.13-source-review
+          name: MEDIAHUB-PRO-v3.0.0-source-review
           path: ${{ runner.temp }}/mediahub-v2.13-source-review.tar.gz
           retention-days: 3
 
@@ -1062,14 +1062,14 @@ jobs:
 
           if not re.search(r"""applicationId\s*["']com\.mediahub\.rebuilt["']""", gradle):
               raise SystemExit("Unexpected applicationId; refusing to change app identity.")
-          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.13'", gradle, count=1)
-          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 13", gradle, count=1)
+          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '3.0.0'", gradle, count=1)
+          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 30", gradle, count=1)
           if name_count != 1 or code_count != 1:
               raise SystemExit("Could not safely set versionName/versionCode in app/build.gradle.")
           if "NearbyTransferActivity" not in manifest:
               raise SystemExit("NearbyTransferActivity missing from AndroidManifest.xml")
           gradle_path.write_text(gradle)
-          print("OK: applicationId preserved; versionName=2.12; versionCode=12; NearbyTransferActivity registered")
+          print("OK: applicationId preserved; versionName=3.0.0; versionCode=30; NearbyTransferActivity registered")
           PY
 
       - name: Apply screenshot-matched home feed and bottom navigation
@@ -1090,13 +1090,13 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.13-debug-test
+          name: MEDIAHUB-PRO-v3.0.0-debug-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Validate release signing secrets
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
@@ -1106,7 +1106,7 @@ jobs:
           test -s signing/mediahub-release.jks.enc
 
       - name: Decrypt the existing MEDIAHUB-PRO release key
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -1118,7 +1118,7 @@ jobs:
           chmod 600 /tmp/mediahub-release.jks
 
       - name: Configure release signing without changing the application identity
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         run: |
           python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
           import sys
@@ -1149,13 +1149,13 @@ jobs:
           PY
 
       - name: Build signed v2.13 APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
       - name: Verify v2.13 APK signature
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         shell: bash
         run: |
           set -euo pipefail
@@ -1167,10 +1167,10 @@ jobs:
           ls -lh "$APK"
 
       - name: Upload signed v2.13 installation test APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android')
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.13-signed-install-test
+          name: MEDIAHUB-PRO-v3.0.0-signed-install-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
