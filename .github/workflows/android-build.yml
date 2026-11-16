@@ -478,6 +478,8 @@ jobs:
               private boolean prepared = false;
               private boolean playWhenReady = true;
               private boolean resumeAfterPause = false;
+          private Uri currentUri;
+          private boolean loadFailed = false;
               private boolean controlsVisible = true;
 
               @Override public void onCreate(Bundle state) {
@@ -538,6 +540,7 @@ jobs:
                   video.setOnCompletionListener(mp -> playNext(true));
                   video.setOnErrorListener((mp, what, extra) -> {
                       prepared = false;
+                      loadFailed = true;
                       handler.removeCallbacks(updateTask);
                       play.setText("▶");
                       status.setText("This video could not be decoded. The file may use a format or codec that this device does not support.");
@@ -583,6 +586,8 @@ jobs:
 
               private void startVideo(Uri uri) {
                   if (uri == null) return;
+                  currentUri = uri;
+                  loadFailed = false;
                   handler.removeCallbacks(updateTask);
                   prepared = false;
                   playWhenReady = true;
@@ -597,6 +602,7 @@ jobs:
                       video.stopPlayback();
                       video.setVideoURI(uri);
                   } catch (RuntimeException e) {
+                      loadFailed = true;
                       status.setText("Unable to open this video. Check that the file still exists and MEDIAHUB PRO has access.");
                       status.setVisibility(View.VISIBLE);
                       play.setText("▶");
@@ -605,6 +611,7 @@ jobs:
 
               private void togglePlayback() {
                   if (!prepared) {
+                      if (loadFailed && currentUri != null) { startVideo(currentUri); return; }
                       playWhenReady = !playWhenReady;
                       play.setText(playWhenReady ? "…" : "▶");
                       return;
@@ -853,9 +860,14 @@ jobs:
                       }
                   };
 
-                  close.setOnClickListener(v -> dialog.dismiss());
-                  dialog.setOnDismissListener(d -> handler.removeCallbacks(ticker));
+                  ObjectAnimator glow = ObjectAnimator.ofFloat(accent, View.ALPHA, 0.45f, 1f);
+                  glow.setDuration(950L);
+                  glow.setRepeatCount(ObjectAnimator.INFINITE);
+                  glow.setRepeatMode(ObjectAnimator.REVERSE);
+                  glow.start();        close.setOnClickListener(v -> dialog.dismiss());
+                  dialog.setOnDismissListener(d -> { handler.removeCallbacks(ticker); glow.cancel(); });
                   dialog.show();
+        glow.start();
                   if (window != null) {
                       window.setLayout((int)(activity.getResources().getDisplayMetrics().widthPixels * 0.90f),
                           WindowManager.LayoutParams.WRAP_CONTENT);
@@ -866,10 +878,6 @@ jobs:
                   card.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(520L)
                       .setInterpolator(new DecelerateInterpolator(1.6f)).start();
 
-                  ObjectAnimator glow = ObjectAnimator.ofFloat(accent, View.ALPHA, 0.45f, 1f);
-                  glow.setDuration(950L);
-                  glow.setRepeatCount(ObjectAnimator.INFINITE);
-                  glow.setRepeatMode(ObjectAnimator.REVERSE);
                   glow.start();
 
                   TextView brand = dialog.findViewById(R.id.announcementBrand);
