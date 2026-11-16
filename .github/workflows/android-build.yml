@@ -55,6 +55,8 @@ jobs:
           python3 design_overrides/apply_player_design.py
           git apply --check release_patches/v2.7-navigation.patch
           git apply release_patches/v2.7-navigation.patch
+          git apply --check release_patches/v2.7-sleep-timer.patch
+          git apply release_patches/v2.7-sleep-timer.patch
           python3 - <<'PY'
           from pathlib import Path
           video = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -82,6 +84,13 @@ jobs:
           </LinearLayout>"""
           Path("app/src/main/res/layout/activity_video.xml").write_text(video)
           Path("app/src/main/res/layout/activity_photo.xml").write_text(photo)
+          player_path = Path("app/src/main/res/layout/activity_player.xml")
+          player = player_path.read_text()
+          marker = " </LinearLayout>\\n</ScrollView>"
+          button = '  <Button android:id="@+id/playerSleepTimer" android:text="◷   SLEEP TIMER" android:textColor="#FFFFFF" android:backgroundTint="#29212B" android:layout_marginTop="10dp" android:layout_width="match_parent" android:layout_height="48dp"/>\\n'
+          if marker not in player:
+              raise SystemExit("Could not find player layout insertion point for sleep timer")
+          player_path.write_text(player.replace(marker, button + marker, 1))
           PY
 
       - name: Validate signing secrets
