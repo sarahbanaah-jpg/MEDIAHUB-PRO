@@ -46,14 +46,15 @@ jobs:
           test -f "$PROJECT_DIR/app/build.gradle"
           base64 -d release_patches/v2.8-maintenance.patch.gz.b64 | gzip -dc | (cd "$PROJECT_DIR" && patch --batch -p2)
           (cd "$PROJECT_DIR" && patch --batch -p2 < "$GITHUB_WORKSPACE/release_patches/v2.8-activity-result-fix.patch")
+          base64 -d release_patches/v2.9-offline-nearby.patch.gz.b64 | gzip -dc | (cd "$PROJECT_DIR" && patch --batch -p1)
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Validate package and update version
         run: |
           grep -q "applicationId 'com.mediahub.rebuilt'" "$PROJECT_DIR/app/build.gradle"
-          grep -q "versionName '2.8'" "$PROJECT_DIR/app/build.gradle"
-          grep -q "versionCode 8" "$PROJECT_DIR/app/build.gradle"
-          grep -q 'SharingActivity' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          grep -q "versionName '2.9'" "$PROJECT_DIR/app/build.gradle"
+          grep -q "versionCode 9" "$PROJECT_DIR/app/build.gradle"
+          grep -q 'NearbyTransferActivity' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
 
       - name: Build debug APK
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleDebug
@@ -68,7 +69,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.8-debug-test
+          name: MEDIAHUB-PRO-v2.9-debug-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -126,13 +127,13 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.8 APK
+      - name: Build signed v2.9 APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.8 APK signature
+      - name: Verify v2.9 APK signature
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
@@ -144,17 +145,19 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Publish MEDIAHUB-PRO v2.8 and trigger in-app update prompt
+      - name: Publish MEDIAHUB-PRO v2.9 and trigger in-app update prompt
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.8
-          name: MEDIAHUB-PRO v2.8
+          tag_name: v2.9
+          name: MEDIAHUB-PRO v2.9
           body: |
-            MEDIAHUB-PRO v2.8 maintenance release.
+            MEDIAHUB-PRO v2.9 offline sharing release.
 
             - Redesigned Update Center with version information, check status, history and progress.
-            - QR/code pairing and authenticated local Wi-Fi phone-to-phone file transfer.
+            - Nearby Connections peer-to-peer transfer without internet, mobile data, Wi-Fi router or hotspot; Bluetooth and Wi-Fi radios must be enabled.
+            - Nearby device discovery, authentication prompts, Send/Receive modes and file transfer progress.
+            - Retained QR/code-paired local Wi-Fi transfer as a fallback.
             - Actual photo thumbnails loaded asynchronously; no app-logo substitute.
             - Hamburger navigation menu; no bottom navigation.
             - Xender remains available through Android's standard sharing chooser.
