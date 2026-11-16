@@ -75,6 +75,14 @@ jobs:
               raise SystemExit(f"Expected exactly one MainActivity.java, found {len(candidates)}")
           activity = candidates[0]
           source = activity.read_text()
+          notice = '''
+                  new android.app.AlertDialog.Builder(this)
+                          .setTitle("SERVICE NOTICE — TEMPORARILY DISCONTINUED")
+                          .setMessage("MEDIAHUB-PRO is temporarily unavailable while we complete a full rebuild and stability programme. App features are disabled during maintenance. We are targeting 16 December 2026 to return with a verified update. Thank you for your patience.")
+                          .setCancelable(false)
+                          .setPositiveButton("Close app", (dialog, which) -> finish())
+                          .show();
+          '''
           import re
           method = re.search(r"\b(?:public|protected)\s+void\s+onCreate\s*\([^)]*\)\s*\{", source)
           if not method:
