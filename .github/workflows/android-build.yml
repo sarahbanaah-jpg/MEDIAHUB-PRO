@@ -193,7 +193,7 @@ jobs:
                           duration.setText(time(video.getDuration()));
                       seek.setMax(Math.max(1, video.getDuration()));
                       play.setText("Ⅱ");
-                      updateProgress();
+                      handler.post(updateTask);
                   });
                   video.setOnCompletionListener(mp -> playNext(true));
                   video.setOnErrorListener((mp,what,extra)->{
