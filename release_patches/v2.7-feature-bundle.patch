@@ -101,7 +101,7 @@ new file mode 100644
 index 0000000..b611fa3
 --- /dev/null
 +++ b/app/src/main/java/com/mediahub/rebuilt/SmartStorageActivity.java
-@@ -0,0 +1,29 @@
+@@ -0,0 +1,28 @@
 +package com.mediahub.rebuilt;
 +
 +import android.app.Activity;
