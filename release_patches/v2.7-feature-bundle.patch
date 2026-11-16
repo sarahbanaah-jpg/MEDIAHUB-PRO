@@ -102,15 +102,12 @@ diff --git a/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java b/app/sr
 index 5ab0192..f2d834c 100644
 --- a/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
 +++ b/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
-@@ -39,9 +39,11 @@ public class PlayerActivity extends Activity {
+@@ -39,9 +39,9 @@ public class PlayerActivity extends Activity {
          List<MediaItem> indexed=MediaRepository.query(this,LibraryActivity.KIND_MUSIC);
          if(playlistUris!=null){for(String u:playlistUris)for(MediaItem m:indexed)if(m.uri.toString().equals(u)){queue.add(m);break;}}
          else queue.addAll(indexed);
-+        String streamUrl=getIntent().getStringExtra("streamUrl");
-+        if(streamUrl!=null){String streamTitle=getIntent().getStringExtra("streamTitle");queue.clear();queue.add(new MediaItem(-1,streamTitle==null?"Online stream":streamTitle,"Online stream",Uri.parse(streamUrl),0,"audio/*"));}
          if(queue.isEmpty()){Toast.makeText(this,"No music found.",Toast.LENGTH_LONG).show();finish();return;}
--        String wanted=getIntent().getStringExtra("uri");
-+        String wanted=streamUrl!=null?streamUrl:getIntent().getStringExtra("uri");
+         String wanted=getIntent().getStringExtra("uri");
          for(int i=0;i<queue.size();i++)if(queue.get(i).uri.toString().equals(wanted)){index=i;break;}
          String activeUri=getSharedPreferences("now_playing",MODE_PRIVATE).getString("uri",null);
          if(wanted!=null&&wanted.equals(activeUri)&&PlaybackService.instance!=null&&PlaybackService.instance.isPrepared()){
