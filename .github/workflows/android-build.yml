@@ -48,13 +48,13 @@ jobs:
           fi
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           cp -a "$PROJECT_DIR"/. .
-          git apply --check release_patches/v2.7-navigation.patch
-          git apply release_patches/v2.7-navigation.patch
 
       - name: Apply approved MEDIAHUB PRO premium dashboard design
         run: |
           python3 design_overrides/apply_premium_design.py
           python3 design_overrides/apply_player_design.py
+          git apply --check release_patches/v2.7-navigation.patch
+          git apply release_patches/v2.7-navigation.patch
 
       - name: Validate signing secrets
         env:
