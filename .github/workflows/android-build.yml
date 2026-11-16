@@ -316,7 +316,7 @@ jobs:
           print("Installed dedicated full-screen video playback, seek/progress controls, previous/next, completion advance and library routing.")
           PY
 
-          # Deep v2.12 fixes: route the selected URI, decode real video frames, and add the one-time launch announcement.
+          # Deep v2.13 fixes: route the selected URI, decode real video frames, and add the one-time launch announcement.
           python3 - "$PROJECT_DIR" <<'PY'
           from pathlib import Path
           import sys
@@ -1018,16 +1018,16 @@ jobs:
               <stroke android:width="1dp" android:color="#55FF6D91"/>
           </shape>
           ''', encoding="utf-8")
-          print("Applied v2.12 fixes: correct URI routing, real video-frame thumbnails, prepared-state playback, and animated Cometos Launcher 7 announcement.")
+          print("Applied v2.13 fixes: correct URI routing, real video-frame thumbnails, prepared-state playback, and animated Cometos Launcher 7 announcement.")
           PY
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      - name: Capture source files for v2.12 review
+      - name: Capture source files for v2.13 review
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$PROJECT_DIR" "$RUNNER_TEMP/mediahub-v2.12-source-review.tar.gz" <<'PY'
+          python3 - "$PROJECT_DIR" "$RUNNER_TEMP/mediahub-v2.13-source-review.tar.gz" <<'PY'
           from pathlib import Path
           import sys, tarfile
           root = Path(sys.argv[1]) / "app/src/main"
@@ -1042,8 +1042,8 @@ jobs:
       - name: Upload source review bundle
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.12-source-review
-          path: ${{ runner.temp }}/mediahub-v2.12-source-review.tar.gz
+          name: MEDIAHUB-PRO-v2.13-source-review
+          path: ${{ runner.temp }}/mediahub-v2.13-source-review.tar.gz
           retention-days: 3
 
       - name: Validate package and update version
@@ -1062,8 +1062,8 @@ jobs:
 
           if not re.search(r"""applicationId\s*["']com\.mediahub\.rebuilt["']""", gradle):
               raise SystemExit("Unexpected applicationId; refusing to change app identity.")
-          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.12'", gradle, count=1)
-          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 12", gradle, count=1)
+          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.13'", gradle, count=1)
+          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 13", gradle, count=1)
           if name_count != 1 or code_count != 1:
               raise SystemExit("Could not safely set versionName/versionCode in app/build.gradle.")
           if "NearbyTransferActivity" not in manifest:
@@ -1090,13 +1090,13 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.12-debug-test
+          name: MEDIAHUB-PRO-v2.13-debug-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Validate release signing secrets
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
@@ -1106,7 +1106,7 @@ jobs:
           test -s signing/mediahub-release.jks.enc
 
       - name: Decrypt the existing MEDIAHUB-PRO release key
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -1118,7 +1118,7 @@ jobs:
           chmod 600 /tmp/mediahub-release.jks
 
       - name: Configure release signing without changing the application identity
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
         run: |
           python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
           import sys
@@ -1148,14 +1148,14 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.12 APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+      - name: Build signed v2.13 APK
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.12 APK signature
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
+      - name: Verify v2.13 APK signature
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui'
         shell: bash
         run: |
           set -euo pipefail
@@ -1166,24 +1166,24 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Upload signed v2.12 installation test APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui')
+      - name: Upload signed v2.13 installation test APK
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui')
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.12-signed-install-test
+          name: MEDIAHUB-PRO-v2.13-signed-install-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish MEDIAHUB-PRO v2.12 and trigger in-app update prompt
+      - name: Publish MEDIAHUB-PRO v2.13 and trigger in-app update prompt
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.12
+          tag_name: v2.13
           target_commitish: ${{ github.sha }}
-          name: MEDIAHUB-PRO v2.12
+          name: MEDIAHUB-PRO v2.13
           body: |
-            MEDIAHUB-PRO v2.12 video playback and library improvements.
+            MEDIAHUB-PRO v2.13 video playback and library improvements.
 
             - Redesigned Update Center with version information, check status, history and progress.
             - Nearby Connections peer-to-peer transfer without internet, mobile data, Wi-Fi router or hotspot; Bluetooth and Wi-Fi radios must be enabled.
