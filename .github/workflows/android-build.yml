@@ -322,13 +322,17 @@ jobs:
         shell: bash
         run: |
           set -euo pipefail
-          mkdir -p /tmp/mediahub-review
-          find "$PROJECT_DIR/app/src/main" -type f \\( -name '*.java' -o -name '*.xml' \\) -print0 | while IFS= read -r -d '' file; do
-            rel="${file#${PROJECT_DIR}/}"
-            mkdir -p "/tmp/mediahub-review/$(dirname "$rel")"
-            cp "$file" "/tmp/mediahub-review/$rel"
-          done
-          tar -czf "$RUNNER_TEMP/mediahub-v2.11-source-review.tar.gz" -C /tmp/mediahub-review .
+          python3 - "$PROJECT_DIR" "$RUNNER_TEMP/mediahub-v2.11-source-review.tar.gz" <<'PY'
+          from pathlib import Path
+          import sys, tarfile
+          root = Path(sys.argv[1]) / "app/src/main"
+          target = Path(sys.argv[2])
+          files = [p for p in root.rglob("*") if p.is_file() and p.suffix in (".java", ".xml")]
+          with tarfile.open(target, "w:gz") as archive:
+              for path in files:
+                  archive.add(path, arcname=path.relative_to(root.parent.parent))
+          print(f"Captured {len(files)} Android source/resource files for review.")
+          PY
 
       - name: Upload source review bundle
         uses: actions/upload-artifact@v4
