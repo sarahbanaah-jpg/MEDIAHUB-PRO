@@ -57,8 +57,8 @@ jobs:
           git apply release_patches/v2.7-navigation.patch
           git apply --check release_patches/v2.7-sleep-timer.patch
           git apply release_patches/v2.7-sleep-timer.patch
-          git apply --check release_patches/v2.7-feature-bundle.patch
-          git apply release_patches/v2.7-feature-bundle.patch
+          git apply --recount --check release_patches/v2.7-feature-bundle.patch
+          git apply --recount release_patches/v2.7-feature-bundle.patch
           cp release_patches/LiquidGlassLinearLayout.java app/src/main/java/com/mediahub/rebuilt/LiquidGlassLinearLayout.java
           python3 - <<'PY'
           from pathlib import Path
@@ -105,7 +105,7 @@ jobs:
                 <Space android:layout_width="9dp" android:layout_height="1dp"/>
                 <TextView android:id="@+id/smartStorageButton" android:text="◫  Smart Storage" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
             </LinearLayout>
-            <TextView android:id="@+id/onlineMediaButton" android:text="◎   Play a direct online audio / video stream" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="9dp" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+            <TextView android:id="@+id/onlineMediaButton" android:text="◎   Online Media · COMING SOON" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="9dp" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
           """
           if home_marker not in main:
               raise SystemExit("Could not find premium home dashboard insertion point")
