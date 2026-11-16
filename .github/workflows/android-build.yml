@@ -2,7 +2,7 @@ name: MEDIAHUB-PRO Android build and release
 
 on:
   push:
-    branches: [ main, 'feature/**', 'release/**' ]
+    branches: [ main, 'feature/**', 'fix/**', 'release/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -316,7 +316,7 @@ jobs:
           print("Installed dedicated full-screen video playback, seek/progress controls, previous/next, completion advance and library routing.")
           PY
 
-          # Deep v2.11 fixes: route the selected URI, decode real video frames, and add the one-time launch announcement.
+          # Deep v2.12 fixes: route the selected URI, decode real video frames, and add the one-time launch announcement.
           python3 - "$PROJECT_DIR" <<'PY'
           from pathlib import Path
           import sys
@@ -446,8 +446,28 @@ jobs:
               raise SystemExit("Could not add rowThumbnail ID to row_media.xml.")
           row.write_text(xml)
 
-          # Harden the player lifecycle: wait for OnPrepared before starting, support both URI forms,
-          # surface decoder failures, and stop attaching a second overlapping MediaController.
+          # Use Media3 ExoPlayer with a TextureView-backed output surface.
+          # This avoids the SurfaceView composition path that can produce audio-only/black video
+          # on some vendor Android builds, and enables decoder fallback where another codec exists.
+          app_gradle = project / "app/build.gradle"
+          gradle_text = app_gradle.read_text()
+          dependency_marker = "dependencies {"
+          if gradle_text.count(dependency_marker) != 1:
+              raise SystemExit("Could not safely locate the app dependencies block for Media3.")
+          if "androidx.media3:media3-exoplayer" not in gradle_text:
+              gradle_text = gradle_text.replace(
+                  dependency_marker,
+                  dependency_marker + '\n    implementation "androidx.media3:media3-exoplayer:1.9.4"\n    implementation "androidx.media3:media3-ui:1.9.4"',
+                  1
+              )
+              app_gradle.write_text(gradle_text)
+
+          manifest = project / "app/src/main/AndroidManifest.xml"
+          manifest_text = manifest.read_text()
+          if 'android:hardwareAccelerated="true"' not in manifest_text:
+              manifest_text = manifest_text.replace("<application", '<application android:hardwareAccelerated="true"', 1)
+              manifest.write_text(manifest_text)
+
           player = java_dir / "VideoPlayerActivity.java"
           player.write_text(r'''package com.mediahub.rebuilt;
 
@@ -461,13 +481,21 @@ jobs:
           import android.widget.Button;
           import android.widget.SeekBar;
           import android.widget.TextView;
-          import android.widget.VideoView;
+          import androidx.media3.common.PlaybackException;
+          import androidx.media3.common.Player;
+          import androidx.media3.common.util.UnstableApi;
+          import androidx.media3.exoplayer.DefaultRenderersFactory;
+          import androidx.media3.exoplayer.ExoPlayer;
+          import androidx.media3.exoplayer.analytics.AnalyticsListener;
+          import androidx.media3.ui.PlayerView;
           import java.util.ArrayList;
           import java.util.List;
           import java.util.Locale;
 
+          @UnstableApi
           public class VideoPlayerActivity extends Activity {
-              private VideoView video;
+              private PlayerView playerView;
+              private ExoPlayer player;
               private SeekBar seek;
               private TextView title, elapsed, duration, status;
               private Button play, previous, next, fullscreen;
@@ -475,18 +503,35 @@ jobs:
               private final ArrayList<MediaItem> queue = new ArrayList<>();
               private int index = -1;
               private boolean seeking = false;
-              private boolean prepared = false;
-              private boolean playWhenReady = true;
               private boolean resumeAfterPause = false;
-          private Uri currentUri;
-          private boolean loadFailed = false;
+              private boolean firstFrameRendered = false;
               private boolean controlsVisible = true;
+              private Uri currentUri;
+
+              private final Runnable updateTask = new Runnable() {
+                  @Override public void run() {
+                      if (player != null && player.isPlaying()) {
+                          long position = player.getCurrentPosition();
+                          if (!seeking) seek.setProgress((int)Math.max(0, Math.min(Integer.MAX_VALUE, position)));
+                          elapsed.setText(time(position));
+                          handler.postDelayed(this, 500);
+                      }
+                  }
+              };
+
+              private final Runnable firstFrameTimeout = () -> {
+                  if (player != null && player.isPlaying() && !firstFrameRendered) {
+                      status.setText("Audio is playing, but Android has not rendered a video frame. This file may use a video codec or profile that this device cannot decode.");
+                      status.setVisibility(View.VISIBLE);
+                  }
+              };
 
               @Override public void onCreate(Bundle state) {
                   super.onCreate(state);
                   getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
                   setContentView(R.layout.activity_video);
-                  video = findViewById(R.id.videoView);
+
+                  playerView = findViewById(R.id.videoView);
                   seek = findViewById(R.id.videoSeek);
                   title = findViewById(R.id.videoTitle);
                   elapsed = findViewById(R.id.videoElapsed);
@@ -509,7 +554,7 @@ jobs:
                   }
                   String wanted = requested == null ? null : requested.toString();
                   if (wanted != null) {
-                      for (int i=0; i<queue.size(); i++) {
+                      for (int i = 0; i < queue.size(); i++) {
                           if (queue.get(i).uri != null && wanted.equals(queue.get(i).uri.toString())) {
                               index = i;
                               break;
@@ -521,31 +566,70 @@ jobs:
                   title.setText(requestedTitle == null || requestedTitle.trim().isEmpty()
                       ? "MEDIAHUB PRO VIDEO" : requestedTitle);
 
-                  video.setOnPreparedListener(mp -> {
-                      prepared = true;
-                      status.setVisibility(View.GONE);
-                      int total = video.getDuration();
-                      duration.setText(time(total));
-                      seek.setMax(Math.max(1,total));
-                      if (playWhenReady) {
-                          video.start();
-                          play.setText("Ⅱ");
-                          handler.removeCallbacks(updateTask);
-                          handler.post(updateTask);
-                      } else {
-                          play.setText("▶");
+                  playerView.setUseController(false);
+                  DefaultRenderersFactory renderersFactory = new DefaultRenderersFactory(this)
+                      .setEnableDecoderFallback(true);
+                  player = new ExoPlayer.Builder(this, renderersFactory).build();
+                  playerView.setPlayer(player);
+
+                  player.addAnalyticsListener(new AnalyticsListener() {
+                      @Override public void onRenderedFirstFrame(
+                              AnalyticsListener.EventTime eventTime, Object output, long renderTimeMs) {
+                          firstFrameRendered = true;
+                          handler.removeCallbacks(firstFrameTimeout);
+                          status.setVisibility(View.GONE);
                       }
                   });
 
-                  video.setOnCompletionListener(mp -> playNext(true));
-                  video.setOnErrorListener((mp, what, extra) -> {
-                      prepared = false;
-                      loadFailed = true;
-                      handler.removeCallbacks(updateTask);
-                      play.setText("▶");
-                      status.setText("This video could not be decoded. The file may use a format or codec that this device does not support.");
-                      status.setVisibility(View.VISIBLE);
-                      return true;
+                  player.addListener(new Player.Listener() {
+                      @Override public void onPlaybackStateChanged(int playbackState) {
+                          if (playbackState == Player.STATE_BUFFERING) {
+                              status.setText("Buffering video…");
+                              status.setVisibility(View.VISIBLE);
+                              play.setText("…");
+                          } else if (playbackState == Player.STATE_READY) {
+                              long total = player.getDuration();
+                              if (total >= 0 && total <= Integer.MAX_VALUE) {
+                                  seek.setMax(Math.max(1, (int) total));
+                                  duration.setText(time(total));
+                              } else {
+                                  seek.setMax(1);
+                                  duration.setText("LIVE");
+                              }
+                              play.setText(player.isPlaying() ? "Ⅱ" : "▶");
+                              if (!firstFrameRendered) {
+                                  status.setText("Starting video output…");
+                                  status.setVisibility(View.VISIBLE);
+                                  handler.removeCallbacks(firstFrameTimeout);
+                                  handler.postDelayed(firstFrameTimeout, 6000);
+                              }
+                              handler.removeCallbacks(updateTask);
+                              handler.post(updateTask);
+                          } else if (playbackState == Player.STATE_ENDED) {
+                              playNext(true);
+                          } else if (playbackState == Player.STATE_IDLE) {
+                              handler.removeCallbacks(updateTask);
+                          }
+                      }
+
+                      @Override public void onIsPlayingChanged(boolean isPlaying) {
+                          play.setText(isPlaying ? "Ⅱ" : "▶");
+                          if (isPlaying) {
+                              handler.removeCallbacks(updateTask);
+                              handler.post(updateTask);
+                          } else {
+                              handler.removeCallbacks(updateTask);
+                          }
+                      }
+
+                      @Override public void onPlayerError(PlaybackException error) {
+                          handler.removeCallbacks(updateTask);
+                          handler.removeCallbacks(firstFrameTimeout);
+                          status.setText("Unable to play this video. Check that the file is accessible and that its video/audio codecs are supported.\n" +
+                              (error.getMessage() == null ? "Playback decoder error." : error.getMessage()));
+                          status.setVisibility(View.VISIBLE);
+                          play.setText("▶");
+                      }
                   });
 
                   play.setOnClickListener(v -> togglePlayback());
@@ -553,13 +637,13 @@ jobs:
                   next.setOnClickListener(v -> playNext(false));
                   fullscreen.setOnClickListener(v -> toggleFullscreen());
                   seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
-                      @Override public void onStartTrackingTouch(SeekBar b) { if (prepared) seeking=true; }
-                      @Override public void onProgressChanged(SeekBar b,int value,boolean user) {
-                          if (user) elapsed.setText(time(value));
+                      @Override public void onStartTrackingTouch(SeekBar bar) { seeking = true; }
+                      @Override public void onProgressChanged(SeekBar bar, int value, boolean fromUser) {
+                          if (fromUser) elapsed.setText(time(value));
                       }
-                      @Override public void onStopTrackingTouch(SeekBar b) {
-                          if (prepared) video.seekTo(b.getProgress());
-                          seeking=false;
+                      @Override public void onStopTrackingTouch(SeekBar bar) {
+                          if (player != null && player.getMediaItemCount() > 0) player.seekTo(bar.getProgress());
+                          seeking = false;
                       }
                   });
 
@@ -585,13 +669,12 @@ jobs:
               }
 
               private void startVideo(Uri uri) {
-                  if (uri == null) return;
+                  if (uri == null || player == null) return;
                   currentUri = uri;
-                  loadFailed = false;
-                  handler.removeCallbacks(updateTask);
-                  prepared = false;
-                  playWhenReady = true;
+                  firstFrameRendered = false;
                   seeking = false;
+                  handler.removeCallbacks(updateTask);
+                  handler.removeCallbacks(firstFrameTimeout);
                   seek.setProgress(0);
                   elapsed.setText("0:00");
                   duration.setText("0:00");
@@ -599,32 +682,31 @@ jobs:
                   status.setText("Preparing video…");
                   status.setVisibility(View.VISIBLE);
                   try {
-                      video.stopPlayback();
-                      video.setVideoURI(uri);
-                  } catch (RuntimeException e) {
-                      loadFailed = true;
-                      status.setText("Unable to open this video. Check that the file still exists and MEDIAHUB PRO has access.");
+                      player.stop();
+                      player.clearMediaItems();
+                      player.setMediaItem(androidx.media3.common.MediaItem.fromUri(uri));
+                      player.prepare();
+                      player.play();
+                  } catch (RuntimeException error) {
+                      status.setText("Unable to open this video. Check that the file still exists and MEDIAHUB PRO has access.\n" +
+                          (error.getMessage() == null ? "" : error.getMessage()));
                       status.setVisibility(View.VISIBLE);
                       play.setText("▶");
                   }
               }
 
               private void togglePlayback() {
-                  if (!prepared) {
-                      if (loadFailed && currentUri != null) { startVideo(currentUri); return; }
-                      playWhenReady = !playWhenReady;
-                      play.setText(playWhenReady ? "…" : "▶");
-                      return;
-                  }
-                  if (video.isPlaying()) {
-                      video.pause();
-                      play.setText("▶");
-                      handler.removeCallbacks(updateTask);
+                  if (player == null || player.getMediaItemCount() == 0) return;
+                  if (player.isPlaying()) {
+                      player.pause();
                   } else {
-                      video.start();
-                      play.setText("Ⅱ");
-                      handler.removeCallbacks(updateTask);
-                      handler.post(updateTask);
+                      player.play();
+                      if (!firstFrameRendered) {
+                          status.setText("Starting video output…");
+                          status.setVisibility(View.VISIBLE);
+                          handler.removeCallbacks(firstFrameTimeout);
+                          handler.postDelayed(firstFrameTimeout, 6000);
+                      }
                   }
               }
 
@@ -633,45 +715,24 @@ jobs:
                   if (index < 0) index = 0;
                   else if (index + 1 < queue.size()) index++;
                   else if (automatic) {
-                      if (prepared) {
-                          video.seekTo(0);
-                          video.pause();
-                      }
-                      play.setText("▶");
-                      handler.removeCallbacks(updateTask);
+                      player.seekTo(0);
+                      player.pause();
                       return;
                   } else index = 0;
                   startAt(index);
               }
 
               private void playPrevious() {
-                  if (prepared && video.getCurrentPosition() > 3000) {
-                      video.seekTo(0);
+                  if (player != null && player.getCurrentPosition() > 3000) {
+                      player.seekTo(0);
                       return;
                   }
                   if (queue.isEmpty()) {
-                      if (prepared) video.seekTo(0);
+                      if (player != null) player.seekTo(0);
                       return;
                   }
-                  index = index <= 0 ? queue.size()-1 : index-1;
+                  index = index <= 0 ? queue.size() - 1 : index - 1;
                   startAt(index);
-              }
-
-              private final Runnable updateTask = new Runnable() {
-                  @Override public void run() {
-                      if (prepared && video != null && video.isPlaying()) {
-                          if (!seeking) seek.setProgress(video.getCurrentPosition());
-                          elapsed.setText(time(video.getCurrentPosition()));
-                          handler.postDelayed(this,500);
-                      }
-                  }
-              };
-
-              private String time(int ms) {
-                  int seconds=Math.max(0,ms/1000), h=seconds/3600, m=(seconds%3600)/60, s=seconds%60;
-                  return h>0
-                      ? String.format(Locale.getDefault(),"%d:%02d:%02d",h,m,s)
-                      : String.format(Locale.getDefault(),"%d:%02d",m,s);
               }
 
               private void toggleFullscreen() {
@@ -686,30 +747,38 @@ jobs:
                   }
               }
 
+              private String time(long millis) {
+                  long seconds = Math.max(0, millis / 1000);
+                  long hours = seconds / 3600, minutes = (seconds % 3600) / 60, secs = seconds % 60;
+                  return hours > 0
+                      ? String.format(Locale.getDefault(), "%d:%02d:%02d", hours, minutes, secs)
+                      : String.format(Locale.getDefault(), "%d:%02d", minutes, secs);
+              }
+
               @Override protected void onPause() {
-                  if (prepared && video != null && video.isPlaying()) {
+                  if (player != null && player.isPlaying()) {
                       resumeAfterPause = true;
-                      video.pause();
-                      play.setText("▶");
-                      handler.removeCallbacks(updateTask);
+                      player.pause();
                   }
                   super.onPause();
               }
 
               @Override protected void onResume() {
                   super.onResume();
-                  if (resumeAfterPause && prepared && video != null) {
+                  if (resumeAfterPause && player != null) {
                       resumeAfterPause = false;
-                      video.start();
-                      play.setText("Ⅱ");
-                      handler.removeCallbacks(updateTask);
-                      handler.post(updateTask);
+                      player.play();
                   }
               }
 
               @Override protected void onDestroy() {
                   handler.removeCallbacks(updateTask);
-                  if (video != null) video.stopPlayback();
+                  handler.removeCallbacks(firstFrameTimeout);
+                  if (playerView != null) playerView.setPlayer(null);
+                  if (player != null) {
+                      player.release();
+                      player = null;
+                  }
                   super.onDestroy();
               }
           }
@@ -717,6 +786,7 @@ jobs:
 
           (layout_dir / "activity_video.xml").write_text(r'''<?xml version="1.0" encoding="utf-8"?>
           <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              xmlns:app="http://schemas.android.com/apk/res-auto"
               android:layout_width="match_parent" android:layout_height="match_parent"
               android:orientation="vertical" android:background="#050507">
               <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
@@ -727,10 +797,14 @@ jobs:
                   <Button android:id="@+id/videoFullscreen" android:layout_width="wrap_content" android:layout_height="wrap_content"
                       android:text="⛶" android:textColor="#FFFFFF" android:backgroundTint="#29212B"/>
               </LinearLayout>
-              <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
-                  android:background="#000000">
-                  <VideoView android:id="@+id/videoView" android:layout_width="match_parent"
-                      android:layout_height="match_parent" android:background="#000000"/>
+              <FrameLayout android:layout_width="match_parent" android:layout_height="0dp"
+                  android:layout_weight="1" android:background="#000000">
+                  <androidx.media3.ui.PlayerView android:id="@+id/videoView"
+                      android:layout_width="match_parent" android:layout_height="match_parent"
+                      android:background="#000000" app:surface_type="texture_view"
+                      app:resize_mode="fit" app:use_controller="false"
+                      app:keep_content_on_player_reset="true"
+                      app:shutter_background_color="#000000"/>
                   <TextView android:id="@+id/videoStatus" android:layout_width="match_parent"
                       android:layout_height="wrap_content" android:layout_gravity="center"
                       android:gravity="center" android:padding="24dp" android:text="Preparing video…"
@@ -758,26 +832,8 @@ jobs:
                   </LinearLayout>
               </LinearLayout>
           </LinearLayout>
-          ''', encoding="utf-8")
-
-          # One-time, animated COMETOS LAUNCHER 7 announcement with a Nairobi-time live countdown.
-          main_source = main.read_text()
-          broken_resume = '@Override protected void onResume(){super.onResume();if(summary!=null){updateSummary();updateStorageLabel();refreshNowPlaying();}}'
-          fixed_resume = '''@Override protected void onResume(){
-              super.onResume();
-              if(summary!=null){
-                  updateSummary(); updateStorageLabel(); refreshNowPlaying();
-                  new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
-                      if(!isFinishing() && !isDestroyed()) CometosAnnouncement.showIfNeeded(this);
-                  }, 900);
-              }
-          }'''
-          if broken_resume in main_source:
-              main_source = main_source.replace(broken_resume, fixed_resume, 1)
-          elif "CometosAnnouncement.showIfNeeded(this)" not in main_source:
-              raise SystemExit("Could not locate MainActivity.onResume for the announcement hook.")
-          main.write_text(main_source)
-
+          ''')
+          
           (java_dir / "CometosAnnouncement.java").write_text(r'''package com.mediahub.rebuilt;
 
           import android.app.Activity;
@@ -962,16 +1018,16 @@ jobs:
               <stroke android:width="1dp" android:color="#55FF6D91"/>
           </shape>
           ''', encoding="utf-8")
-          print("Applied v2.11 fixes: correct URI routing, real video-frame thumbnails, prepared-state playback, and animated Cometos Launcher 7 announcement.")
+          print("Applied v2.12 fixes: correct URI routing, real video-frame thumbnails, prepared-state playback, and animated Cometos Launcher 7 announcement.")
           PY
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      - name: Capture source files for v2.11 review
+      - name: Capture source files for v2.12 review
         shell: bash
         run: |
           set -euo pipefail
-          python3 - "$PROJECT_DIR" "$RUNNER_TEMP/mediahub-v2.11-source-review.tar.gz" <<'PY'
+          python3 - "$PROJECT_DIR" "$RUNNER_TEMP/mediahub-v2.12-source-review.tar.gz" <<'PY'
           from pathlib import Path
           import sys, tarfile
           root = Path(sys.argv[1]) / "app/src/main"
@@ -986,8 +1042,8 @@ jobs:
       - name: Upload source review bundle
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.11-source-review
-          path: ${{ runner.temp }}/mediahub-v2.11-source-review.tar.gz
+          name: MEDIAHUB-PRO-v2.12-source-review
+          path: ${{ runner.temp }}/mediahub-v2.12-source-review.tar.gz
           retention-days: 3
 
       - name: Validate package and update version
@@ -1006,14 +1062,14 @@ jobs:
 
           if not re.search(r"""applicationId\s*["']com\.mediahub\.rebuilt["']""", gradle):
               raise SystemExit("Unexpected applicationId; refusing to change app identity.")
-          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.11'", gradle, count=1)
-          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 11", gradle, count=1)
+          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.12'", gradle, count=1)
+          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 12", gradle, count=1)
           if name_count != 1 or code_count != 1:
               raise SystemExit("Could not safely set versionName/versionCode in app/build.gradle.")
           if "NearbyTransferActivity" not in manifest:
               raise SystemExit("NearbyTransferActivity missing from AndroidManifest.xml")
           gradle_path.write_text(gradle)
-          print("OK: applicationId preserved; versionName=2.11; versionCode=11; NearbyTransferActivity registered")
+          print("OK: applicationId preserved; versionName=2.12; versionCode=12; NearbyTransferActivity registered")
           PY
 
       - name: Build debug APK
@@ -1029,13 +1085,13 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.11-debug-test
+          name: MEDIAHUB-PRO-v2.12-debug-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
       - name: Validate release signing secrets
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
@@ -1045,7 +1101,7 @@ jobs:
           test -s signing/mediahub-release.jks.enc
 
       - name: Decrypt the existing MEDIAHUB-PRO release key
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -1057,7 +1113,7 @@ jobs:
           chmod 600 /tmp/mediahub-release.jks
 
       - name: Configure release signing without changing the application identity
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         run: |
           python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
           import sys
@@ -1087,14 +1143,14 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.11 APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+      - name: Build signed v2.12 APK
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.11 APK signature
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+      - name: Verify v2.12 APK signature
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         shell: bash
         run: |
           set -euo pipefail
@@ -1105,15 +1161,24 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Publish MEDIAHUB-PRO v2.11 and trigger in-app update prompt
+      - name: Upload signed v2.12 installation test APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.12-signed-install-test
+          path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish MEDIAHUB-PRO v2.12 and trigger in-app update prompt
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.11
+          tag_name: v2.12
           target_commitish: ${{ github.sha }}
-          name: MEDIAHUB-PRO v2.11
+          name: MEDIAHUB-PRO v2.12
           body: |
-            MEDIAHUB-PRO v2.11 video playback and library improvements.
+            MEDIAHUB-PRO v2.12 video playback and library improvements.
 
             - Redesigned Update Center with version information, check status, history and progress.
             - Nearby Connections peer-to-peer transfer without internet, mobile data, Wi-Fi router or hotspot; Bluetooth and Wi-Fi radios must be enabled.
