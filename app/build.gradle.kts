@@ -11,8 +11,8 @@ android {
         applicationId = "com.mediahub.rebuilt"
         minSdk = 26
         targetSdk = 34
-        versionCode = 20
-        versionName = "2.20.0"
+        versionCode = 21
+        versionName = "2.13.0"
     }
 
     compileOptions {
@@ -28,8 +28,18 @@ android {
         viewBinding = true
     }
 
+    signingConfigs {
+        create("release") {
+            storeFile = file("/tmp/mediahub-release.jks")
+            storePassword = System.getenv("MEDIAHUB_KEYSTORE_PASSWORD")
+            keyAlias = "mediahub"
+            keyPassword = System.getenv("MEDIAHUB_KEYSTORE_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            signingConfig = signingConfigs.getByName("release")
             isMinifyEnabled = false
             proguardFiles(
                 getDefaultProguardFile("proguard-android-optimize.txt"),
