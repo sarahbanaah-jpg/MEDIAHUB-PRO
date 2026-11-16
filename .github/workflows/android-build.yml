@@ -363,7 +363,7 @@ jobs:
           retention-days: 14
 
       - name: Validate release signing secrets
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.10-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
@@ -373,7 +373,7 @@ jobs:
           test -s signing/mediahub-release.jks.enc
 
       - name: Decrypt the existing MEDIAHUB-PRO release key
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.10-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -385,7 +385,7 @@ jobs:
           chmod 600 /tmp/mediahub-release.jks
 
       - name: Configure release signing without changing the application identity
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.10-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         run: |
           python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
           import sys
@@ -416,13 +416,13 @@ jobs:
           PY
 
       - name: Build signed v2.10 APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.10-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
       - name: Verify v2.10 APK signature
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.10-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         shell: bash
         run: |
           set -euo pipefail
@@ -434,7 +434,7 @@ jobs:
           ls -lh "$APK"
 
       - name: Publish MEDIAHUB-PRO v2.10 and trigger in-app update prompt
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.10-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v2.10
