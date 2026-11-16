@@ -83,6 +83,10 @@ jobs:
           }
           
           '''
+          unsupported_api = "&&update.getPayloadType()==Payload.Type.FILE"
+          if text.count(unsupported_api) != 1:
+              raise SystemExit(f"Expected exactly one unsupported Nearby API call; found {text.count(unsupported_api)}")
+          text = text.replace(unsupported_api, "", 1)
           text = text.replace(marker, method + marker, 1)
           source.write_text(text)
           print("Fixed filename sanitization using character checks; no regex escaping required.")
