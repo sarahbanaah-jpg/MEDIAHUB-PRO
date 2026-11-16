@@ -318,6 +318,25 @@ jobs:
 
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
+      - name: Capture source files for v2.11 review
+        shell: bash
+        run: |
+          set -euo pipefail
+          mkdir -p /tmp/mediahub-review
+          find "$PROJECT_DIR/app/src/main" -type f \\( -name '*.java' -o -name '*.xml' \\) -print0 | while IFS= read -r -d '' file; do
+            rel="${file#${PROJECT_DIR}/}"
+            mkdir -p "/tmp/mediahub-review/$(dirname "$rel")"
+            cp "$file" "/tmp/mediahub-review/$rel"
+          done
+          tar -czf "$RUNNER_TEMP/mediahub-v2.11-source-review.tar.gz" -C /tmp/mediahub-review .
+
+      - name: Upload source review bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.11-source-review
+          path: ${{ runner.temp }}/mediahub-v2.11-source-review.tar.gz
+          retention-days: 3
+
       - name: Validate package and update version
         shell: bash
         run: |
