@@ -55,6 +55,43 @@ jobs:
           grep -q "versionCode 8" "$PROJECT_DIR/app/build.gradle"
           grep -q 'SharingActivity' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
 
+      - name: Apply December 16 service suspension screen and set v2.9
+        run: |
+          set -euo pipefail
+          python3 - "$PROJECT_DIR" <<'PY'
+          import re, sys
+          from pathlib import Path
+          root = Path(sys.argv[1])
+          gradle = root / "app/build.gradle"
+          build = gradle.read_text()
+          build, n1 = re.subn(r"versionName\\s+['\\\"]2\\.8['\\\"]", "versionName '2.9'", build, count=1)
+          build, n2 = re.subn(r"versionCode\\s+8\\b", "versionCode 9", build, count=1)
+          if n1 != 1 or n2 != 1:
+              raise SystemExit("Could not safely set maintenance build version 2.9/code 9.")
+          gradle.write_text(build)
+
+          candidates = list((root / "app/src/main/java").rglob("MainActivity.java"))
+          if len(candidates) != 1:
+              raise SystemExit(f"Expected exactly one MainActivity.java, found {len(candidates)}")
+          activity = candidates[0]
+          source = activity.read_text()
+          marker = "super.onCreate(savedInstanceState);"
+          if source.count(marker) != 1:
+              raise SystemExit("Could not safely locate MainActivity.onCreate startup point.")
+          notice = '''
+                  new android.app.AlertDialog.Builder(this)
+                          .setTitle("SERVICE NOTICE — TEMPORARILY DISCONTINUED")
+                          .setMessage("MEDIAHUB-PRO is temporarily unavailable while we complete a full rebuild and stability programme. App features are disabled during maintenance. We are targeting 16 December 2026 to return with a verified update. Thank you for your patience.")
+                          .setCancelable(false)
+                          .setPositiveButton("Close app", (dialog, which) -> finish())
+                          .show();
+                  return;
+          '''
+          source = source.replace(marker, marker + "\\n" + notice, 1)
+          activity.write_text(source)
+          print(f"Maintenance lock enabled in {activity}; version 2.9/code 9.")
+          PY
+
       - name: Build debug APK
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleDebug
 
@@ -68,7 +105,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.8-debug-test
+          name: MEDIAHUB-PRO-v2.9-maintenance-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -126,13 +163,13 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.8 APK
+      - name: Build signed v2.9 maintenance APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.8 APK signature
+      - name: Verify v2.9 APK signature
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
@@ -144,14 +181,14 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Publish MEDIAHUB-PRO v2.8 and trigger in-app update prompt
+      - name: Publish MEDIAHUB-PRO v2.9 maintenance update
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.8
-          name: MEDIAHUB-PRO v2.8
+          tag_name: v2.9
+          name: MEDIAHUB-PRO v2.9 — Maintenance notice
           body: |
-            MEDIAHUB-PRO v2.8 maintenance release.
+            MEDIAHUB-PRO v2.9 — TEMPORARY SERVICE SUSPENSION\n\nThis update intentionally blocks access to app features during the rebuild.
 
             - Redesigned Update Center with version information, check status, history and progress.
             - QR/code pairing and authenticated local Wi-Fi phone-to-phone file transfer.
