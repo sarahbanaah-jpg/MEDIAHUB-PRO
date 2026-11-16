@@ -89,7 +89,7 @@ jobs:
                           .show();
                   return;
           '''
-          source = source[:marker_end] + "\\n" + notice + source[marker_end:]
+          source = source[:marker_end] + "\n" + notice + source[marker_end:]
           activity.write_text(source)
           print(f"Maintenance lock enabled in {activity}; version 2.12/code 12.")
           PY
