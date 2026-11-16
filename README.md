@@ -1,3 +1,8 @@
+> **SERVICE NOTICE — TEMPORARILY DISCONTINUED (16 NOVEMBER 2026)**  
+> MEDIAHUB-PRO is temporarily discontinued while we carry out a full rebuild and stability programme. The current app may crash or fail to work correctly. We are pausing new public releases while the underlying Android project is rebuilt and tested.  
+> **Our target is to resume with a verified replacement in December 2026.** This is a target, not a guaranteed release date. We will publish progress and a new installation package only after startup, playback and core-feature testing pass.  
+> Existing installations are not guaranteed to work during this maintenance period. Thank you for your patience.
+
 # MEDIAHUB PRO — Native Android Media Player
 
 **Application ID:** `com.mediahub.rebuilt`  
