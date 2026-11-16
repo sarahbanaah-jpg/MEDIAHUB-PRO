@@ -21,7 +21,6 @@
  import android.app.Activity;
  import android.net.Uri;
  import android.os.Bundle;
-+import android.view.View;
  import android.widget.VideoView;
  import android.widget.Button;
  import android.widget.MediaController;
@@ -35,6 +34,7 @@
 +    private int index = 0;
 +    private TextView counter;
 +    private boolean prepared = false;
++    private boolean startWhenPrepared = true;
 +
      @Override protected void onCreate(Bundle b) {
          super.onCreate(b); setContentView(R.layout.activity_video);
@@ -52,7 +52,7 @@
 -        video.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"This video cannot be played.",Toast.LENGTH_LONG).show();finish();return true;});
 -        video.setOnPreparedListener(mp->video.start());
 +        video.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"This video cannot be played.",Toast.LENGTH_LONG).show();return true;});
-+        video.setOnPreparedListener(mp->{prepared=true;video.start();updateCounter();});
++        video.setOnPreparedListener(mp->{prepared=true;if(startWhenPrepared)video.start();updateCounter();});
          ((Button)findViewById(R.id.playButton)).setOnClickListener(v->{if(video.isPlaying())video.pause();else video.start();});
          ((Button)findViewById(R.id.rewindButton)).setOnClickListener(v->video.seekTo(Math.max(0,video.getCurrentPosition()-10000)));
          ((Button)findViewById(R.id.forwardButton)).setOnClickListener(v->video.seekTo(Math.min(video.getDuration(),video.getCurrentPosition()+10000)));
@@ -61,7 +61,7 @@
 +        loadCurrent();
      }
 +    private void loadCurrent(){prepared=false;video.stopPlayback();video.setVideoURI(Uri.parse(items.get(index)));updateCounter();}
-+    private void move(int delta){if(items.size()<2)return;boolean wasPlaying=video.isPlaying();index=(index+delta+items.size())%items.size();loadCurrent();if(!wasPlaying){video.setOnPreparedListener(mp->{prepared=true;updateCounter();});} }
++    private void move(int delta){if(items.size()<2)return;boolean wasPlaying=prepared&&video.isPlaying();startWhenPrepared=wasPlaying;index=(index+delta+items.size())%items.size();loadCurrent();}
 +    private void updateCounter(){if(counter!=null)counter.setText((index+1)+" / "+items.size());}
      @Override protected void onPause(){if(video!=null&&video.isPlaying())video.pause();super.onPause();}
  }
