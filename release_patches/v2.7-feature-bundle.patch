@@ -63,7 +63,7 @@ new file mode 100644
 index 0000000..0000000
 --- /dev/null
 +++ b/app/src/main/java/com/mediahub/rebuilt/OnlineMediaActivity.java
-@@ -0,0 +1,16 @@
+@@ -0,0 +1,34 @@
 +package com.mediahub.rebuilt;
 +
 +import android.app.Activity;
@@ -89,7 +89,7 @@ index 0000000..0000000
 +        title.setGravity(Gravity.CENTER);
 +        root.addView(title);
 +        TextView message = new TextView(this);
-+        message.setText("COMING SOON\\n\\nOnline music and video will arrive in a future update.");
++        message.setText("COMING SOON\n\nOnline music and video will arrive in a future update.");
 +        message.setTextColor(Color.WHITE);
 +        message.setTextSize(16);
 +        message.setGravity(Gravity.CENTER);
