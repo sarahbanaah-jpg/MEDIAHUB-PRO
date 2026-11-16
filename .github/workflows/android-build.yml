@@ -398,7 +398,7 @@ jobs:
           private Bitmap extractVideoThumbnail(android.net.Uri uri) {
               android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
               try {
-                  retriever.setDataSource(getContentResolver(), uri);
+                  retriever.setDataSource(LibraryActivity.this, uri);
                   Bitmap frame = null;
                   if (Build.VERSION.SDK_INT >= 27) {
                       frame = retriever.getScaledFrameAtTime(1_000_000L,
