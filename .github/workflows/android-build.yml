@@ -188,14 +188,14 @@ jobs:
           tag_name: v2.9
           name: MEDIAHUB-PRO v2.9 — Maintenance notice
           body: |
-            MEDIAHUB-PRO v2.9 — TEMPORARY SERVICE SUSPENSION\n\nThis update intentionally blocks access to app features during the rebuild.
+            MEDIAHUB-PRO v2.9 — TEMPORARY SERVICE SUSPENSION
 
-            - Redesigned Update Center with version information, check status, history and progress.
-            - QR/code pairing and authenticated local Wi-Fi phone-to-phone file transfer.
-            - Actual photo thumbnails loaded asynchronously; no app-logo substitute.
-            - Hamburger navigation menu; no bottom navigation.
-            - Xender remains available through Android's standard sharing chooser.
-            - Online Media remains COMING SOON.
+            This update intentionally blocks access to app features during the rebuild.
+
+            - The app displays a mandatory service notice and closes when the user taps Close app.
+            - Music, video, photo and other app functions are unavailable during maintenance.
+            - Target return date: 16 December 2026. This is a target, not a guarantee.
+            - A verified replacement will be published only after startup and core playback testing pass.
 
             Signed with the existing MEDIAHUB-PRO release key. Android will ask you to confirm installation.
           files: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
