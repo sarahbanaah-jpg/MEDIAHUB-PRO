@@ -864,10 +864,9 @@ jobs:
                   glow.setDuration(950L);
                   glow.setRepeatCount(ObjectAnimator.INFINITE);
                   glow.setRepeatMode(ObjectAnimator.REVERSE);
-                  glow.start();        close.setOnClickListener(v -> dialog.dismiss());
+                  close.setOnClickListener(v -> dialog.dismiss());
                   dialog.setOnDismissListener(d -> { handler.removeCallbacks(ticker); glow.cancel(); });
                   dialog.show();
-        glow.start();
                   if (window != null) {
                       window.setLayout((int)(activity.getResources().getDisplayMetrics().widthPixels * 0.90f),
                           WindowManager.LayoutParams.WRAP_CONTENT);
