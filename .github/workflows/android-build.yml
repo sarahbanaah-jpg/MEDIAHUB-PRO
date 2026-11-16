@@ -117,18 +117,7 @@ jobs:
               if element.attrib.get("{http://schemas.android.com/apk/res/android}id") in glass_ids:
                   element.tag = "com.mediahub.rebuilt.LiquidGlassLinearLayout"
           tree.write(main_path, encoding="utf-8", xml_declaration=True)
-          activity_path = Path("app/src/main/java/com/mediahub/rebuilt/MainActivity.java")
-          activity = activity_path.read_text()
-          old_choices = 'String[] choices={"Check for app updates","Add SD card / storage folder","Refresh media index","App information","Audio equalizer","Storage & permissions","Private Vault","Smart Storage","Online media URL"};'
-          new_choices = 'String[] choices={"Check for app updates","Add SD card / storage folder","Refresh media index","App information","Audio equalizer","Storage & permissions","Private Vault","Smart Storage","Online media URL","Liquid Glass surfaces: "+(getSharedPreferences("mediahub_settings",MODE_PRIVATE).getBoolean("liquid_glass_enabled",true)?"On":"Off")};'
-          if old_choices not in activity:
-              raise SystemExit("Could not find settings list to add liquid-glass control")
-          activity = activity.replace(old_choices, new_choices, 1)
-          old_branch = 'else if(w==7)startActivity(new Intent(this,SmartStorageActivity.class));else startActivity(new Intent(this,OnlineMediaActivity.class));'
-          new_branch = 'else if(w==7)startActivity(new Intent(this,SmartStorageActivity.class));else if(w==8)startActivity(new Intent(this,OnlineMediaActivity.class));else{boolean enabled=!getSharedPreferences("mediahub_settings",MODE_PRIVATE).getBoolean("liquid_glass_enabled",true);getSharedPreferences("mediahub_settings",MODE_PRIVATE).edit().putBoolean("liquid_glass_enabled",enabled).apply();Toast.makeText(this,enabled?"Liquid glass enabled.":"Liquid glass disabled.",Toast.LENGTH_SHORT).show();}'
-          if old_branch not in activity:
-              raise SystemExit("Could not find settings action branch for liquid-glass control")
-          activity_path.write_text(activity.replace(old_branch, new_branch, 1))
+          # Settings navigation is added by the v2.7 feature patch; avoid brittle source-string replacement.
           PY
 
       - name: Validate signing secrets
