@@ -462,6 +462,7 @@ jobs:
               )
               app_gradle.write_text(gradle_text)
 
+          manifest = project / "app/src/main/AndroidManifest.xml"
           manifest_text = manifest.read_text()
           if 'android:hardwareAccelerated="true"' not in manifest_text:
               manifest_text = manifest_text.replace("<application", '<application android:hardwareAccelerated="true"', 1)
