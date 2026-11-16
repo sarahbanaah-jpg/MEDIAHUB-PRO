@@ -29,7 +29,16 @@ source = source.replace(old_callback, new_callback, 1)
 old = "requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);"
 if old not in source:
     raise SystemExit("Expected MainActivity initialization line not found.")
-source = source.replace(old, old + "\n        buildVideoReferenceShell();", 1)
+source = source.replace(old, """requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying();
+        try { UpdateManager.checkIfDue(this); }
+        catch (RuntimeException updateFailure) {
+            android.util.Log.w("MediaHub", "Automatic update check unavailable during startup.", updateFailure);
+        }
+        // The original XML home remains active if the optional reference UI fails.
+        try { buildVideoReferenceShell(); }
+        catch (RuntimeException uiFailure) {
+            android.util.Log.e("MediaHub", "Reference home initialization failed; keeping the XML home.", uiFailure);
+        }""", 1)
 
 methods = r'''
     private android.widget.FrameLayout videoShell;
@@ -43,6 +52,9 @@ methods = r'''
             return MediaRepository.query(this, kind);
         } catch (SecurityException denied) {
             android.util.Log.w("MediaHub", "Media permission not granted for kind " + kind, denied);
+            return new java.util.ArrayList<>();
+        } catch (RuntimeException mediaFailure) {
+            android.util.Log.e("MediaHub", "Media query failed for kind " + kind + "; showing an empty section.", mediaFailure);
             return new java.util.ArrayList<>();
         }
     }
