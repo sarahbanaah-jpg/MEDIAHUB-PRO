@@ -2,7 +2,7 @@ name: MEDIAHUB-PRO Android build and release
 
 on:
   push:
-    branches: [ main, 'feature/**', 'release/**' ]
+    branches: [ main, 'feature/**', 'fix/**', 'release/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -457,7 +457,7 @@ jobs:
           if "androidx.media3:media3-exoplayer" not in gradle_text:
               gradle_text = gradle_text.replace(
                   dependency_marker,
-                  dependency_marker + '\\n    implementation "androidx.media3:media3-exoplayer:1.11.1"\\n    implementation "androidx.media3:media3-ui:1.11.1"',
+                  dependency_marker + '\n    implementation "androidx.media3:media3-exoplayer:1.11.1"\n    implementation "androidx.media3:media3-ui:1.11.1"',
                   1
               )
               app_gradle.write_text(gradle_text)
@@ -624,7 +624,7 @@ jobs:
                       @Override public void onPlayerError(PlaybackException error) {
                           handler.removeCallbacks(updateTask);
                           handler.removeCallbacks(firstFrameTimeout);
-                          status.setText("Unable to play this video. Check that the file is accessible and that its video/audio codecs are supported.\\n" +
+                          status.setText("Unable to play this video. Check that the file is accessible and that its video/audio codecs are supported.\n" +
                               (error.getMessage() == null ? "Playback decoder error." : error.getMessage()));
                           status.setVisibility(View.VISIBLE);
                           play.setText("▶");
@@ -687,7 +687,7 @@ jobs:
                       player.prepare();
                       player.play();
                   } catch (RuntimeException error) {
-                      status.setText("Unable to open this video. Check that the file still exists and MEDIAHUB PRO has access.\\n" +
+                      status.setText("Unable to open this video. Check that the file still exists and MEDIAHUB PRO has access.\n" +
                           (error.getMessage() == null ? "" : error.getMessage()));
                       status.setVisibility(View.VISIBLE);
                       play.setText("▶");
