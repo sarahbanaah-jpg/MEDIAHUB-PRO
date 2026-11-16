@@ -1,38 +1,53 @@
-> **SERVICE NOTICE — TEMPORARILY DISCONTINUED (16 NOVEMBER 2026)**  
-> MEDIAHUB-PRO is temporarily discontinued while we carry out a full rebuild and stability programme. The current app may crash or fail to work correctly. We are pausing new public releases while the underlying Android project is rebuilt and tested.  
-> **Our target is to resume with a verified replacement in December 2026.** This is a target, not a guaranteed release date. We will publish progress and a new installation package only after startup, playback and core-feature testing pass.  
-> Existing installations are not guaranteed to work during this maintenance period. Thank you for your patience.
+# MEDIAHUB PRO
 
-# MEDIAHUB PRO — Native Android Media Player
+**Package name:** `com.mediahub.rebuilt`  
+**Status:** Production rebuild in progress (November 2026)
 
-**Application ID:** `com.mediahub.rebuilt`  
-**Language:** Java 11 · Native Android SDK  
-**Minimum SDK:** 23 · **Target SDK:** 34 · **Compile SDK:** 35  
-**Android Gradle Plugin:** 8.6.1 (JDK 17 and Gradle 8.x required)
+Premium Android media centre with Liquid Glass UI, full video / music / photo support, MediaSession lock-screen controls, and in-app updates from GitHub Releases.
 
-## Project package
+## Goals for this rebuild
 
-The complete no-logo source archive is available as **MEDIAHUB_PRO_NO_LOGO.zip** in this ChatGPT conversation. It contains the Android project under the `MEDIAHUB_PRO/` directory. Extract it and open that folder in CodeAssist (the folder containing `settings.gradle`).
+- Fix the previous black-screen crash on launch
+- Correct MediaStore permission handling (Android 13+)
+- Proper MediaSessionService for lock screen + notification controls
+- Stable video rendering (picture + sound)
+- Background music that continues when the screen is locked
+- Liquid Glass floating bottom navigation
+- In-app update system via GitHub Releases
+- Remote announcements
 
-## Included app areas
+## Technical stack
 
-- Home dashboard and separate music library/player screens.
-- Video, photo, playlist and equalizer screens.
-- MediaStore media discovery, search and sorting UI.
-- Storage Access Framework folder selection intended for removable SD-card access.
-- Foreground music playback service, notification actions and queue advancement.
-- Local library and playlist persistence code.
-- Generic music-note launcher icon; no personal mountain image or logo is used.
+- Kotlin
+- Android Jetpack Media3 (ExoPlayer)
+- MediaSessionService
+- minSdk 26 · targetSdk 34 · compileSdk 35
+- Package name remains `com.mediahub.rebuilt` (do not change)
 
-## Known limitations
+## Project structure (being built)
 
-This project is a development build, not yet a verified production release. Some UI controls/features may need further implementation and device testing. Advanced video PiP/speed/subtitle/gesture controls, a complete photo-grid/swipe gallery, embedded album-art extraction, notification artwork, reboot playback resumption and full Bluetooth/headset integration are outstanding. SD-card access depends on Android's folder picker and the permissions granted by the user.
+```
+app/
+  src/main/
+    java/com/mediahub/rebuilt/
+      ui/          # Screens + Liquid Glass navigation
+      player/      # Video + Music players (Media3)
+      media/       # MediaRepository, scanners
+      service/     # PlaybackService / MediaSessionService
+      update/      # GitHub release checker
+      util/
+    res/
+```
 
-## Build verification
+## Build instructions
 
-A full Android Gradle build and physical-device test have not yet been completed in the available environment because an Android SDK/Gradle toolchain is unavailable here. Import and build in CodeAssist. Share the first build error if one appears so it can be corrected. Do not treat an APK as available until a successful build is confirmed.
+1. Open the project in Android Studio or CodeAssist
+2. Sync Gradle
+3. Build a debug APK first and test on a real device
+4. Only after video + music + permissions work, produce a signed release
 
+**Important:** The original signing key must be used for updates to install over existing installs. Do not change the application ID.
 
-## GitHub Actions build workflow
+## Current phase
 
-A workflow is configured at `.github/workflows/android-build.yml`. It builds a debug APK and uploads it as a workflow artifact after a successful run. **The Android source project still needs to be committed to this repository before that workflow can produce an APK.** At present, the source archive is supplied separately in this conversation.
+Phase 1 – Foundation (permissions, MediaSession, Liquid Glass nav, crash-free launch)
