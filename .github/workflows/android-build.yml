@@ -833,7 +833,7 @@ jobs:
           </LinearLayout>
           ''')
           
-                    (java_dir / "CometosAnnouncement.java").write_text(r'''package com.mediahub.rebuilt;
+          (java_dir / "CometosAnnouncement.java").write_text(r'''package com.mediahub.rebuilt;
 
           import android.app.Activity;
           import android.app.Dialog;
@@ -1068,7 +1068,7 @@ jobs:
           if "NearbyTransferActivity" not in manifest:
               raise SystemExit("NearbyTransferActivity missing from AndroidManifest.xml")
           gradle_path.write_text(gradle)
-          print("OK: applicationId preserved; versionName=2.11; versionCode=12; NearbyTransferActivity registered")
+          print("OK: applicationId preserved; versionName=2.12; versionCode=12; NearbyTransferActivity registered")
           PY
 
       - name: Build debug APK
