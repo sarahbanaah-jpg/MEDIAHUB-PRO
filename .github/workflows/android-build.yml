@@ -109,10 +109,10 @@ jobs:
           p = Path("app/build.gradle")
           s = p.read_text()
           import re
-          s = "\\n".join(("    versionCode 7" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
-          s = "\\n".join(("    versionName '2.7'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionCode 7" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionName '2.7'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
           if "signingConfigs {" not in s:
-              marker = "\\n}"
+              marker = "\n}"
               if marker not in s:
                   raise SystemExit("Could not locate end of Android Gradle configuration.")
               signing = """
