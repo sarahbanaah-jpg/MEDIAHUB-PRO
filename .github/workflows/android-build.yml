@@ -55,7 +55,7 @@ jobs:
           grep -q "versionCode 8" "$PROJECT_DIR/app/build.gradle"
           grep -q 'SharingActivity' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
 
-      - name: Apply December 16 service suspension screen and set v2.9
+      - name: Apply December 16 service suspension screen and set v2.12
         run: |
           set -euo pipefail
           python3 - "$PROJECT_DIR" <<'PY'
@@ -64,10 +64,10 @@ jobs:
           root = Path(sys.argv[1])
           gradle = root / "app/build.gradle"
           build = gradle.read_text()
-          build, n1 = re.subn(r"""versionName\s+['"]2\.8['"]""", "versionName '2.9'", build, count=1)
-          build, n2 = re.subn(r"versionCode\s+8\b", "versionCode 9", build, count=1)
+          build, n1 = re.subn(r"""versionName\s+['"]2\.8['"]""", "versionName '2.12'", build, count=1)
+          build, n2 = re.subn(r"versionCode\s+8\b", "versionCode 12", build, count=1)
           if n1 != 1 or n2 != 1:
-              raise SystemExit("Could not safely set maintenance build version 2.9/code 9.")
+              raise SystemExit("Could not safely set maintenance build version 2.12/code 12.")
           gradle.write_text(build)
 
           candidates = list((root / "app/src/main/java").rglob("MainActivity.java"))
@@ -75,9 +75,11 @@ jobs:
               raise SystemExit(f"Expected exactly one MainActivity.java, found {len(candidates)}")
           activity = candidates[0]
           source = activity.read_text()
-          marker = "super.onCreate(savedInstanceState);"
-          if source.count(marker) != 1:
-              raise SystemExit("Could not safely locate MainActivity.onCreate startup point.")
+          import re
+          match = re.search(r"super\\.onCreate\\s*\\([^;]*\\);", source)
+          if not match:
+              raise SystemExit("Could not locate the superclass onCreate call in MainActivity.")
+          marker_end = match.end()
           notice = '''
                   new android.app.AlertDialog.Builder(this)
                           .setTitle("SERVICE NOTICE — TEMPORARILY DISCONTINUED")
@@ -87,9 +89,9 @@ jobs:
                           .show();
                   return;
           '''
-          source = source.replace(marker, marker + "\\n" + notice, 1)
+          source = source[:marker_end] + "\\n" + notice + source[marker_end:]
           activity.write_text(source)
-          print(f"Maintenance lock enabled in {activity}; version 2.9/code 9.")
+          print(f"Maintenance lock enabled in {activity}; version 2.12/code 12.")
           PY
 
       - name: Build debug APK
@@ -105,7 +107,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.9-maintenance-test
+          name: MEDIAHUB-PRO-v2.12-maintenance-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -163,13 +165,13 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.9 maintenance APK
+      - name: Build signed v2.12 maintenance APK
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.9 APK signature
+      - name: Verify v2.12 APK signature
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
@@ -181,14 +183,14 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Publish MEDIAHUB-PRO v2.9 maintenance update
+      - name: Publish MEDIAHUB-PRO v2.12 maintenance update
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.9
-          name: MEDIAHUB-PRO v2.9 — Maintenance notice
+          tag_name: v2.12
+          name: MEDIAHUB-PRO v2.12 — Maintenance notice
           body: |
-            MEDIAHUB-PRO v2.9 — TEMPORARY SERVICE SUSPENSION
+            MEDIAHUB-PRO v2.12 — TEMPORARY SERVICE SUSPENSION
 
             This update intentionally blocks access to app features during the rebuild.
 
