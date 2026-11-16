@@ -2,6 +2,8 @@ name: Android APK build
 
 on:
   push:
+    branches: [ main, 'feature/**' ]
+  pull_request:
     branches: [ main ]
   workflow_dispatch:
 
@@ -46,6 +48,9 @@ jobs:
           fi
           PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
           cp -a "$PROJECT_DIR"/. .
+
+      - name: Apply approved MEDIAHUB PRO premium dashboard design
+        run: python3 design_overrides/apply_premium_design.py
 
       - name: Validate signing secrets
         env:
