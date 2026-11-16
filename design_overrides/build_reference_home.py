@@ -5,10 +5,10 @@ project = Path(sys.argv[1])
 main = project / "app/src/main/java/com/mediahub/rebuilt/MainActivity.java"
 source = main.read_text(encoding="utf-8")
 
-old = "setupReferenceBottomNavigation(); populateReferenceHome();"
+old = "requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);"
 if old not in source:
-    raise SystemExit("Expected v2.12 reference-home hook not found.")
-source = source.replace(old, "buildVideoReferenceShell();", 1)
+    raise SystemExit("Expected MainActivity initialization line not found.")
+source = source.replace(old, old + "\n        buildVideoReferenceShell();", 1)
 
 methods = r'''
     private android.widget.FrameLayout videoShell;
