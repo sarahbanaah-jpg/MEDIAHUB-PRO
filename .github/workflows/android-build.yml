@@ -103,7 +103,7 @@ jobs:
           from pathlib import Path
           p = Path(sys.argv[1])
           s = p.read_text()
-          marker = "\\n}\\n\\ndependencies"
+          marker = "\n}\n\ndependencies"
           signing = """
               signingConfigs {
                   release {
