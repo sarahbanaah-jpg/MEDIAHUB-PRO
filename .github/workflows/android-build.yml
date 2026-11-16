@@ -50,7 +50,9 @@ jobs:
           cp -a "$PROJECT_DIR"/. .
 
       - name: Apply approved MEDIAHUB PRO premium dashboard design
-        run: python3 design_overrides/apply_premium_design.py
+        run: |
+          python3 design_overrides/apply_premium_design.py
+          python3 design_overrides/apply_player_design.py
 
       - name: Validate signing secrets
         env:
