@@ -55,6 +55,34 @@ jobs:
           python3 design_overrides/apply_player_design.py
           git apply --check release_patches/v2.7-navigation.patch
           git apply release_patches/v2.7-navigation.patch
+          python3 - <<'PY'
+          from pathlib import Path
+          video = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical" android:background="#000000" android:gravity="center"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <TextView android:id="@+id/videoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+              <VideoView android:id="@+id/videoView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+              <LinearLayout android:orientation="horizontal" android:gravity="center" android:padding="4dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                  <Button android:id="@+id/previousVideoButton" android:text="Previous" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/rewindButton" android:text="−10s" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/playButton" android:text="Play / Pause" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/forwardButton" android:text="+10s" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/nextVideoButton" android:text="Next" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+              </LinearLayout>
+          </LinearLayout>"""
+          photo = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical" android:background="#080B14" android:padding="8dp"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <TextView android:id="@+id/photoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+              <ImageView android:id="@+id/photoImage" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scaleType="fitCenter" android:contentDescription="Selected photo"/>
+              <LinearLayout android:orientation="horizontal" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content">
+                  <Button android:id="@+id/previousPhotoButton" android:text="‹ Previous" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/nextPhotoButton" android:text="Next ›" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+              </LinearLayout>
+          </LinearLayout>"""
+          Path("app/src/main/res/layout/activity_video.xml").write_text(video)
+          Path("app/src/main/res/layout/activity_photo.xml").write_text(photo)
+          PY
 
       - name: Validate signing secrets
         env:
