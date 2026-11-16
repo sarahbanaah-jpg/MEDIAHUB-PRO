@@ -17,6 +17,15 @@ methods = r'''
     private final java.util.concurrent.ExecutorService artworkExecutor =
         java.util.concurrent.Executors.newFixedThreadPool(3);
 
+    private java.util.List<MediaItem> safeMediaQuery(int kind) {
+        try {
+            return MediaRepository.query(this, kind);
+        } catch (SecurityException denied) {
+            android.util.Log.w("MediaHub", "Media permission not granted for kind " + kind, denied);
+            return new java.util.ArrayList<>();
+        }
+    }
+
     private int uiDp(float n) { return (int)(n * getResources().getDisplayMetrics().density + 0.5f); }
     private android.graphics.drawable.GradientDrawable uiShape(int color, int stroke, float radius) {
         android.graphics.drawable.GradientDrawable d = new android.graphics.drawable.GradientDrawable();
@@ -122,8 +131,8 @@ methods = r'''
         addGradientFeature(made,"Your mix","Built from what you love",0xFF9C65E8,0xFFF15DAD,"♫");
         addGradientFeature(made,"Pop Radio","Pop",0xFFF04D88,0xFFFF9A54,"◉");
         madeScroll.addView(made); videoPage.addView(madeScroll);
-        java.util.List<MediaItem> music=MediaRepository.query(this,LibraryActivity.KIND_MUSIC);
-        java.util.List<MediaItem> videos=MediaRepository.query(this,LibraryActivity.KIND_VIDEO);
+        java.util.List<MediaItem> music=safeMediaQuery(LibraryActivity.KIND_MUSIC);
+        java.util.List<MediaItem> videos=safeMediaQuery(LibraryActivity.KIND_VIDEO);
         sectionTitle("Recommended stations  ›");
         android.widget.HorizontalScrollView stationsScroll=new android.widget.HorizontalScrollView(this); stationsScroll.setHorizontalScrollBarEnabled(false);
         android.widget.LinearLayout stations=uiRow(); stations.setPadding(uiDp(22),0,uiDp(18),0);
@@ -221,8 +230,8 @@ methods = r'''
         else {Intent p=new Intent(this,PlayerActivity.class);p.putExtra("uri",item.uri.toString());startActivity(p);}
     }
     private void emptyHint(String text){android.widget.TextView t=uiText(text,13,0xFF999999,false);t.setPadding(uiDp(22),uiDp(16),uiDp(22),uiDp(28));videoPage.addView(t);}
-    private void renderVideoNew(){pageHeader("New"); sectionTitle("Recently added"); addMediaCarousel("New music",MediaRepository.query(this,0),false); addMediaCarousel("New videos",MediaRepository.query(this,1),true); addMediaCarousel("New photos",MediaRepository.query(this,2),true);}
-    private void renderVideoRadio(){pageHeader("Radio"); sectionTitle("Your stations"); emptyHint("Online radio stations are coming soon. Your downloaded music and local library remain available offline."); addMediaCarousel("Play your music instead",MediaRepository.query(this,0),false);}
+    private void renderVideoNew(){pageHeader("New"); sectionTitle("Recently added"); addMediaCarousel("New music",safeMediaQuery(0),false); addMediaCarousel("New videos",safeMediaQuery(1),true); addMediaCarousel("New photos",safeMediaQuery(2),true);}
+    private void renderVideoRadio(){pageHeader("Radio"); sectionTitle("Your stations"); emptyHint("Online radio stations are coming soon. Your downloaded music and local library remain available offline."); addMediaCarousel("Play your music instead",safeMediaQuery(0),false);}
     private void renderVideoLibrary(){
         pageHeader("Library");
         android.widget.LinearLayout tiles=uiRow(); tiles.setPadding(uiDp(18),uiDp(5),uiDp(18),0);
@@ -255,7 +264,7 @@ methods = r'''
         sectionTitle("Recent searches");
         String[] recent={"Recently played","Artists","Albums","Playlists"};
         for(String q:recent){android.widget.TextView t=uiText("◷     "+q,15,0xFFEAEAEA,false);t.setPadding(uiDp(24),uiDp(12),0,uiDp(12));videoPage.addView(t);}
-        input.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int c,int a){} public void onTextChanged(CharSequence s,int st,int before,int count){results.removeAllViews();String q=s.toString().toLowerCase();if(q.isEmpty())return;java.util.List<MediaItem> all=new java.util.ArrayList<>();all.addAll(MediaRepository.query(MainActivity.this,0));all.addAll(MediaRepository.query(MainActivity.this,1));for(MediaItem item:all){if(item.title.toLowerCase().contains(q)||(item.artist!=null&&item.artist.toLowerCase().contains(q))){android.widget.TextView hit=uiText("♫     "+item.title+"   ·   "+(item.artist==null?"":item.artist),14,-1,false);hit.setPadding(uiDp(22),uiDp(10),uiDp(16),uiDp(10));results.addView(hit);hit.setOnClickListener(v->playUiItem(item,item.mime!=null&&item.mime.startsWith("video/")));}}}public void afterTextChanged(android.text.Editable e){}});
+        input.addTextChangedListener(new android.text.TextWatcher(){public void beforeTextChanged(CharSequence s,int st,int c,int a){} public void onTextChanged(CharSequence s,int st,int before,int count){results.removeAllViews();String q=s.toString().toLowerCase();if(q.isEmpty())return;java.util.List<MediaItem> all=new java.util.ArrayList<>();all.addAll(safeMediaQuery(0));all.addAll(safeMediaQuery(1));for(MediaItem item:all){if(item.title.toLowerCase().contains(q)||(item.artist!=null&&item.artist.toLowerCase().contains(q))){android.widget.TextView hit=uiText("♫     "+item.title+"   ·   "+(item.artist==null?"":item.artist),14,-1,false);hit.setPadding(uiDp(22),uiDp(10),uiDp(16),uiDp(10));results.addView(hit);hit.setOnClickListener(v->playUiItem(item,item.mime!=null&&item.mime.startsWith("video/")));}}}public void afterTextChanged(android.text.Editable e){}});
     }
     private void showVideoMenu(android.view.View anchor){
         android.widget.PopupMenu m=new android.widget.PopupMenu(this,anchor);
