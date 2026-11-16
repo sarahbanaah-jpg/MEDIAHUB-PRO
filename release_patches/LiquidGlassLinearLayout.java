@@ -61,6 +61,12 @@ public final class LiquidGlassLinearLayout extends LinearLayout {
             .getBoolean("liquid_glass_enabled", true);
     }
 
+    @Override protected void onFinishInflate() {
+        super.onFinishInflate();
+        // XML card backgrounds would cover the sampled backdrop; the glass shader owns this surface.
+        setBackground(null);
+    }
+
     @Override protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         preDrawListener = () -> {
