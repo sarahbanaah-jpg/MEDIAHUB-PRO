@@ -2,7 +2,7 @@ name: MEDIAHUB-PRO Android build and release
 
 on:
   push:
-    branches: [ main, 'feature/**' ]
+    branches: [ main, 'feature/**', 'release/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -59,27 +59,20 @@ jobs:
           from pathlib import Path
 
           project = Path(sys.argv[1])
-          gradle = (project / "app/build.gradle").read_text()
+          gradle_path = project / "app/build.gradle"
           manifest = (project / "app/src/main/AndroidManifest.xml").read_text()
+          gradle = gradle_path.read_text()
 
-          checks = {
-              "applicationId": r"""applicationId\s*["']com\.mediahub\.rebuilt["']""",
-              "versionName 2.9": r"""versionName\s*["']2\.9["']""",
-              "versionCode 9": r"""versionCode\s+9\b""",
-          }
-          for label, pattern in checks.items():
-              if not re.search(pattern, gradle):
-                  print(f"FAILED: {label} not found in app/build.gradle")
-                  print("--- app/build.gradle ---")
-                  print(gradle)
-                  raise SystemExit(1)
-              print(f"OK: {label}")
-
+          if not re.search(r"""applicationId\\s*["']com\\.mediahub\\.rebuilt["']""", gradle):
+              raise SystemExit("Unexpected applicationId; refusing to change app identity.")
+          gradle, name_count = re.subn(r"""versionName\\s*["'][^"']+["']""", "versionName '2.9'", gradle, count=1)
+          gradle, code_count = re.subn(r"versionCode\\s+\\d+\\b", "versionCode 9", gradle, count=1)
+          if name_count != 1 or code_count != 1:
+              raise SystemExit("Could not safely set versionName/versionCode in app/build.gradle.")
           if "NearbyTransferActivity" not in manifest:
-              print("FAILED: NearbyTransferActivity missing from AndroidManifest.xml")
-              print(manifest)
-              raise SystemExit(1)
-          print("OK: NearbyTransferActivity is registered")
+              raise SystemExit("NearbyTransferActivity missing from AndroidManifest.xml")
+          gradle_path.write_text(gradle)
+          print("OK: applicationId preserved; versionName=2.9; versionCode=9; NearbyTransferActivity registered")
           PY
 
       - name: Build debug APK
@@ -101,7 +94,7 @@ jobs:
           retention-days: 14
 
       - name: Validate release signing secrets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
