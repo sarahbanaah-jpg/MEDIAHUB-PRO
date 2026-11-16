@@ -190,8 +190,7 @@ jobs:
                   title.setText(getIntent().getStringExtra("title") == null ? "MEDIAHUB PRO VIDEO" : getIntent().getStringExtra("title"));
                   video.setMediaController(new MediaController(this));
                   video.setOnPreparedListener(mp -> {
-                      mp.setOnVideoSizeChangedListener((m,w,h,vw,vh)->video.setVideoLayoutParams(w,h));
-                      duration.setText(time(video.getDuration()));
+                          duration.setText(time(video.getDuration()));
                       seek.setMax(Math.max(1, video.getDuration()));
                       play.setText("Ⅱ");
                       updateProgress();
