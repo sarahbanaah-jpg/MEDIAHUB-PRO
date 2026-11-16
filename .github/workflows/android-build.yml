@@ -57,6 +57,8 @@ jobs:
           git apply release_patches/v2.7-navigation.patch
           git apply --check release_patches/v2.7-sleep-timer.patch
           git apply release_patches/v2.7-sleep-timer.patch
+          git apply --check release_patches/v2.7-feature-bundle.patch
+          git apply release_patches/v2.7-feature-bundle.patch
           python3 - <<'PY'
           from pathlib import Path
           video = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
@@ -91,6 +93,21 @@ jobs:
           if marker not in player:
               raise SystemExit("Could not find player layout insertion point for sleep timer")
           player_path.write_text(player.replace(marker, button + marker, 1))
+          main_path = Path("app/src/main/res/layout/activity_main.xml")
+          main = main_path.read_text()
+          home_marker = '            <TextView android:text="Made for you"'
+          cards = """            <TextView android:text="More from MediaHub" android:textColor="#FFFFFF" android:textSize="21sp"
+              android:textStyle="bold" android:layout_marginTop="26dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp">
+                <TextView android:id="@+id/vaultButton" android:text="▣  Private Vault" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+                <Space android:layout_width="9dp" android:layout_height="1dp"/>
+                <TextView android:id="@+id/smartStorageButton" android:text="◫  Smart Storage" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+            </LinearLayout>
+            <TextView android:id="@+id/onlineMediaButton" android:text="◎   Play a direct online audio / video stream" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="9dp" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+"""
+          if home_marker not in main:
+              raise SystemExit("Could not find premium home dashboard insertion point")
+          main_path.write_text(main.replace(home_marker, cards + home_marker, 1))
           PY
 
       - name: Validate signing secrets
