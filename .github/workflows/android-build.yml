@@ -76,20 +76,60 @@ jobs:
           activity = candidates[0]
           source = activity.read_text()
           import re
-          match = re.search(r"super\.onCreate\s*\([^;]*\);", source)
-          if not match:
-              raise SystemExit("Could not locate the superclass onCreate call in MainActivity.")
-          marker_end = match.end()
-          notice = '''
-                  new android.app.AlertDialog.Builder(this)
-                          .setTitle("SERVICE NOTICE — TEMPORARILY DISCONTINUED")
-                          .setMessage("MEDIAHUB-PRO is temporarily unavailable while we complete a full rebuild and stability programme. App features are disabled during maintenance. We are targeting 16 December 2026 to return with a verified update. Thank you for your patience.")
-                          .setCancelable(false)
-                          .setPositiveButton("Close app", (dialog, which) -> finish())
-                          .show();
-                  return;
-          '''
-          source = source[:marker_end] + "\n" + notice + source[marker_end:]
+          method = re.search(r"\b(?:public|protected)\s+void\s+onCreate\s*\([^)]*\)\s*\{", source)
+          if not method:
+              raise SystemExit("Could not locate onCreate method in MainActivity.")
+          open_brace = source.find("{", method.start())
+          depth = 0
+          state = "code"
+          escaped = False
+          close_brace = None
+          i = open_brace
+          while i < len(source):
+              ch = source[i]
+              nxt = source[i + 1] if i + 1 < len(source) else ""
+              if state == "code":
+                  if ch == '"' :
+                      state = "string"
+                  elif ch == "'":
+                      state = "char"
+                  elif ch == "/" and nxt == "/":
+                      state = "line_comment"
+                      i += 1
+                  elif ch == "/" and nxt == "*":
+                      state = "block_comment"
+                      i += 1
+                  elif ch == "{":
+                      depth += 1
+                  elif ch == "}":
+                      depth -= 1
+                      if depth == 0:
+                          close_brace = i
+                          break
+              elif state in ("string", "char"):
+                  if escaped:
+                      escaped = False
+                  elif ch == "\\":
+                      escaped = True
+                  elif (state == "string" and ch == '"') or (state == "char" and ch == "'"):
+                      state = "code"
+              elif state == "line_comment":
+                  if ch == "\n":
+                      state = "code"
+              elif state == "block_comment" and ch == "*" and nxt == "/":
+                  state = "code"
+                  i += 1
+              i += 1
+          if close_brace is None:
+              raise SystemExit("Could not safely locate the end of onCreate method.")
+          super_call = re.search(r"super\.onCreate\s*\([^;]*\);", source[open_brace + 1:close_brace])
+          if not super_call:
+              raise SystemExit("Could not locate superclass onCreate call inside onCreate.")
+          super_statement = super_call.group(0)
+          # Replace the rest of onCreate, rather than inserting an unconditional
+          # return before existing statements (which Java correctly rejects as unreachable).
+          new_body = "\n        " + super_statement + "\n" + notice + "\n    "
+          source = source[:open_brace + 1] + new_body + source[close_brace:]
           activity.write_text(source)
           print(f"Maintenance lock enabled in {activity}; version 2.12/code 12.")
           PY
