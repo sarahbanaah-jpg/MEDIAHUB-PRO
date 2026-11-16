@@ -36,7 +36,7 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Extract original source and apply v2.8 maintenance patch
+      - name: Extract original source and apply v2.8 maintenance patches
         shell: bash
         run: |
           set -euo pipefail
@@ -45,6 +45,7 @@ jobs:
           PROJECT_DIR="$(dirname "$(find "$RUNNER_TEMP/mediahub-source" -name settings.gradle -print -quit)")"
           test -f "$PROJECT_DIR/app/build.gradle"
           base64 -d release_patches/v2.8-maintenance.patch.gz.b64 | gzip -dc | (cd "$PROJECT_DIR" && patch --batch -p2)
+          (cd "$PROJECT_DIR" && patch --batch -p1 < "$GITHUB_WORKSPACE/release_patches/v2.8-activity-result-fix.patch")
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Validate package and update version
