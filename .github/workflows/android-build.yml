@@ -95,7 +95,7 @@ jobs:
           player_path.write_text(player.replace(marker, button + marker, 1))
           main_path = Path("app/src/main/res/layout/activity_main.xml")
           main = main_path.read_text()
-          home_marker = '   <TextView android:text="Your Library"'
+          home_marker = '   <TextView android:text="Recently Played"'
           cards = """            <TextView android:text="More from MediaHub" android:textColor="#FFFFFF" android:textSize="21sp"
               android:textStyle="bold" android:layout_marginTop="26dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
             <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp">
