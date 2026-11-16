@@ -2,7 +2,7 @@ name: Android APK build
 
 on:
   push:
-    branches: [ main, 'feature/**' ]
+    branches: [ main, 'feature/**', 'release/v2.7-development' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -53,6 +53,72 @@ jobs:
         run: |
           python3 design_overrides/apply_premium_design.py
           python3 design_overrides/apply_player_design.py
+          git apply --check release_patches/v2.7-navigation.patch
+          git apply release_patches/v2.7-navigation.patch
+          git apply --check release_patches/v2.7-sleep-timer.patch
+          git apply release_patches/v2.7-sleep-timer.patch
+          git apply --recount --check release_patches/v2.7-feature-bundle.patch
+          git apply --recount release_patches/v2.7-feature-bundle.patch
+          cp release_patches/LiquidGlassLinearLayout.java app/src/main/java/com/mediahub/rebuilt/LiquidGlassLinearLayout.java
+          python3 - <<'PY'
+          from pathlib import Path
+          import xml.etree.ElementTree as ET
+          video = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical" android:background="#000000" android:gravity="center"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <TextView android:id="@+id/videoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+              <VideoView android:id="@+id/videoView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
+              <LinearLayout android:orientation="horizontal" android:gravity="center" android:padding="4dp" android:layout_width="match_parent" android:layout_height="wrap_content">
+                  <Button android:id="@+id/previousVideoButton" android:text="Prev" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/rewindButton" android:text="−10s" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/playButton" android:text="Play" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/forwardButton" android:text="+10s" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/nextVideoButton" android:text="Next" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+              </LinearLayout>
+          </LinearLayout>"""
+          photo = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:orientation="vertical" android:background="#080B14" android:padding="8dp"
+              android:layout_width="match_parent" android:layout_height="match_parent">
+              <TextView android:id="@+id/photoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+              <ImageView android:id="@+id/photoImage" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scaleType="fitCenter" android:contentDescription="Selected photo"/>
+              <LinearLayout android:orientation="horizontal" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content">
+                  <Button android:id="@+id/previousPhotoButton" android:text="‹ Previous" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/nextPhotoButton" android:text="Next ›" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+              </LinearLayout>
+          </LinearLayout>"""
+          Path("app/src/main/res/layout/activity_video.xml").write_text(video)
+          Path("app/src/main/res/layout/activity_photo.xml").write_text(photo)
+          player_path = Path("app/src/main/res/layout/activity_player.xml")
+          player = player_path.read_text()
+          marker = " </LinearLayout>"
+          button = '<Button android:id="@+id/playerSleepTimer" android:text="◷   SLEEP TIMER" android:textColor="#FFFFFF" android:backgroundTint="#29212B" android:layout_marginTop="10dp" android:layout_width="match_parent" android:layout_height="48dp"/>'
+          if marker not in player:
+              raise SystemExit("Could not find player layout insertion point for sleep timer")
+          player_path.write_text(player.replace(marker, button + marker, 1))
+          main_path = Path("app/src/main/res/layout/activity_main.xml")
+          main = main_path.read_text()
+          home_marker = '   <TextView android:text="Recently Played"'
+          cards = """            <TextView android:text="More from MediaHub" android:textColor="#FFFFFF" android:textSize="21sp"
+              android:textStyle="bold" android:layout_marginTop="26dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
+            <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp">
+                <TextView android:id="@+id/vaultButton" android:text="▣  Private Vault" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+                <Space android:layout_width="9dp" android:layout_height="1dp"/>
+                <TextView android:id="@+id/smartStorageButton" android:text="◫  Smart Storage" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+            </LinearLayout>
+            <TextView android:id="@+id/onlineMediaButton" android:text="◎   Online Media · COMING SOON" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="9dp" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
+          """
+          if home_marker not in main:
+              raise SystemExit("Could not find premium home dashboard insertion point")
+          main_path.write_text(main.replace(home_marker, cards + home_marker, 1))
+          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
+          tree = ET.parse(main_path)
+          glass_ids = {"@+id/musicButton", "@+id/videoButton", "@+id/photosButton", "@+id/nowPlayingCard"}
+          for element in tree.getroot().iter():
+              if element.attrib.get("{http://schemas.android.com/apk/res/android}id") in glass_ids:
+                  element.tag = "com.mediahub.rebuilt.LiquidGlassLinearLayout"
+          tree.write(main_path, encoding="utf-8", xml_declaration=True)
+          # Settings navigation is added by the v2.7 feature patch; avoid brittle source-string replacement.
+          PY
 
       - name: Validate signing secrets
         env:
@@ -107,8 +173,8 @@ jobs:
           p = Path("app/build.gradle")
           s = p.read_text()
           import re
-          s = "\n".join(("    versionCode 6" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
-          s = "\n".join(("    versionName '2.2.2'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionCode 7" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionName '2.7'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
           if "signingConfigs {" not in s:
               marker = "\n}"
               if marker not in s:
@@ -167,21 +233,21 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-release-v2.2.2
+          name: MEDIAHUB-PRO-release-v2.7
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish public v2.2.2 release with APK
+      - name: Publish public v2.7 release with APK
         if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.2.2
-          name: MEDIAHUB-PRO v2.2.2
+          tag_name: v2.7
+          name: MEDIAHUB-PRO v2.7
           body: |
-            MEDIAHUB-PRO Android release v2.2.2.
+            MEDIAHUB-PRO Android release v2.7.
 
-            Includes the in-app update checker. Android will ask you to confirm installation after the APK downloads.
+            Major release build based on the supplied Android source, with the premium dashboard/player design overlays and the in-app GitHub update checker. Android will ask you to confirm installation after the APK downloads.
           files: app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false

@@ -1,0 +1,86 @@
+--- a/app/src/main/java/com/mediahub/rebuilt/PlaybackService.java
++++ b/app/src/main/java/com/mediahub/rebuilt/PlaybackService.java
+@@ -10,6 +10,8 @@
+ import android.net.Uri;
+ import android.os.Build;
+ import android.os.IBinder;
++import android.os.Handler;
++import android.os.Looper;
+ import android.widget.Toast;
+ 
+ /** Owns audio playback so it survives Activity changes and can advance the queue in background. */
+@@ -24,6 +26,8 @@
+     private String[] queueUris=new String[0], queueTitles=new String[0], queueArtists=new String[0];
+     private int queueIndex=0, repeatMode=0;
+     private boolean shuffle=false;
++    private final Handler sleepHandler=new Handler(Looper.getMainLooper());
++    private Runnable sleepTimeout;
+     public MediaPlayer getPlayer(){return player;}
+     public boolean isPrepared(){return prepared&&player!=null;}
+ 
+@@ -44,6 +48,12 @@
+         else if("REPEAT".equals(action)){repeatMode=(repeatMode+1)%3;}
+         else if("SHUFFLE".equals(action)){shuffle=!shuffle;}
+         else if("RESTART".equals(action)&&player!=null&&prepared)player.seekTo(0);
++        else if("SLEEP_TIMER".equals(action)){
++            long duration=Math.max(1L,intent.getLongExtra("duration_ms",0L));
++            scheduleSleepTimer(duration);
++        } else if("CANCEL_SLEEP_TIMER".equals(action)){
++            cancelSleepTimer();
++        }
+         return START_NOT_STICKY;
+     }
+     private void playCurrent(){
+@@ -70,6 +80,19 @@
+         else {getSharedPreferences("now_playing",MODE_PRIVATE).edit().putBoolean("playing",false).apply();if(player!=null&&player.isPlaying())player.pause();updateNotification();return;}
+         playCurrent();
+     }
++    private void scheduleSleepTimer(long durationMs){
++        cancelSleepTimer();
++        sleepTimeout=()->{
++            sleepTimeout=null;
++            if(player!=null&&player.isPlaying())player.pause();
++            updateNotification();
++            Toast.makeText(this,"Sleep timer ended. Playback paused.",Toast.LENGTH_LONG).show();
++        };
++        sleepHandler.postDelayed(sleepTimeout,durationMs);
++    }
++    private void cancelSleepTimer(){
++        if(sleepTimeout!=null){sleepHandler.removeCallbacks(sleepTimeout);sleepTimeout=null;}
++    }
+     private String safe(String[] a,int i,String fallback){return a!=null&&i<a.length&&a[i]!=null&&!a[i].isEmpty()?a[i]:fallback;}
+     private void updateNotification(){String t=getSharedPreferences("now_playing",MODE_PRIVATE).getString("title","MediaHub Pro"),a=getSharedPreferences("now_playing",MODE_PRIVATE).getString("artist","Local music");NotificationManager nm=(NotificationManager)getSystemService(NOTIFICATION_SERVICE);if(nm!=null)nm.notify(NOTIFICATION_ID,buildNotification(t,a,player!=null&&player.isPlaying()));getSharedPreferences("now_playing",MODE_PRIVATE).edit().putBoolean("playing",player!=null&&player.isPlaying()).apply();}
+     private PendingIntent action(String action,int request){Intent i=new Intent(this,PlaybackActionReceiver.class).setAction(action);return PendingIntent.getBroadcast(this,request,i,PendingIntent.FLAG_UPDATE_CURRENT|PendingIntent.FLAG_IMMUTABLE);}
+@@ -85,6 +108,6 @@
+     }
+     private void createChannel(){if(Build.VERSION.SDK_INT>=26){NotificationChannel c=new NotificationChannel(CHANNEL,"MediaHub music playback",NotificationManager.IMPORTANCE_LOW);c.setDescription("Now playing and music controls");((NotificationManager)getSystemService(NOTIFICATION_SERVICE)).createNotificationChannel(c);}}
+     private void releasePlayer(){prepared=false;if(player!=null){try{player.setOnCompletionListener(null);if(player.isPlaying())player.stop();}catch(Exception ignored){}player.release();player=null;}}
+-    @Override public void onDestroy(){releasePlayer();getSharedPreferences("now_playing",MODE_PRIVATE).edit().putBoolean("playing",false).apply();stopForeground(true);instance=null;super.onDestroy();}
++    @Override public void onDestroy(){cancelSleepTimer();releasePlayer();getSharedPreferences("now_playing",MODE_PRIVATE).edit().putBoolean("playing",false).apply();stopForeground(true);instance=null;super.onDestroy();}
+     @Override public IBinder onBind(Intent i){return null;}
+ }
+--- a/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
+@@ -53,6 +53,7 @@
+         ((Button)findViewById(R.id.playerShuffle)).setOnClickListener(v->{shuffle=!shuffle;send("SHUFFLE");Toast.makeText(this,shuffle?"Shuffle on":"Shuffle off",Toast.LENGTH_SHORT).show();});
+         ((Button)findViewById(R.id.playerRepeat)).setOnClickListener(v->{repeat=(repeat+1)%3;send("REPEAT");Toast.makeText(this,repeat==0?"Repeat off":repeat==1?"Repeat one":"Repeat all",Toast.LENGTH_SHORT).show();});
+         ((Button)findViewById(R.id.playerQueue)).setOnClickListener(v->showQueue());
++        ((Button)findViewById(R.id.playerSleepTimer)).setOnClickListener(v->showSleepTimer());
+         seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener(){
+             public void onStartTrackingTouch(SeekBar s){dragging=true;}
+             public void onProgressChanged(SeekBar s,int p,boolean user){}
+@@ -69,6 +70,14 @@
+     private void send(String a){Intent i=new Intent(this,PlaybackService.class);i.setAction(a);if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(i);else startService(i);}
+     private void next(){if(shuffle&&queue.size()>1){int n;do{n=(int)(Math.random()*queue.size());}while(n==index);index=n;}else if(index+1<queue.size())index++;else if(repeat==2)index=0;else {if(PlaybackService.instance!=null)send("PAUSE");return;}playCurrent();}
+     private void previous(){index=(index-1+queue.size())%queue.size();playCurrent();}
++    private void showSleepTimer(){
++        String[] choices={"15 minutes","30 minutes","45 minutes","60 minutes","90 minutes","Cancel sleep timer"};
++        new android.app.AlertDialog.Builder(this).setTitle("Sleep timer")
++            .setItems(choices,(dialog,which)->{
++                if(which==choices.length-1){send("CANCEL_SLEEP_TIMER");Toast.makeText(this,"Sleep timer cancelled.",Toast.LENGTH_SHORT).show();}
++                else {long minutes=new long[]{15,30,45,60,90}[which];Intent timer=new Intent(this,PlaybackService.class).setAction("SLEEP_TIMER").putExtra("duration_ms",minutes*60L*1000L);if(android.os.Build.VERSION.SDK_INT>=26)startForegroundService(timer);else startService(timer);Toast.makeText(this,"Playback will pause in "+minutes+" minutes.",Toast.LENGTH_SHORT).show();}
++            }).setNegativeButton("Close",null).show();
++    }
+     private void showQueue(){String[] names=new String[queue.size()];for(int i=0;i<queue.size();i++)names[i]=queue.get(i).title;
+         new android.app.AlertDialog.Builder(this).setTitle("Playback queue").setItems(names,(d,w)->{index=w;playCurrent();}).setNegativeButton("Close",null).show();}
+     private String fmt(int ms){int sec=Math.max(0,ms/1000);return String.format(java.util.Locale.getDefault(),"%d:%02d",sec/60,sec%60);}

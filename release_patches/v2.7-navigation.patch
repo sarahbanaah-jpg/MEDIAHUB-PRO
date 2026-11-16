@@ -1,0 +1,127 @@
+--- a/app/src/main/java/com/mediahub/rebuilt/LibraryActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/LibraryActivity.java
+@@ -50,9 +50,12 @@
+     private void chooseSort(){String[] choices={"Name (A–Z)","Duration (longest first)","Recently indexed"};new android.app.AlertDialog.Builder(this).setTitle("Sort files").setSingleChoiceItems(choices,sortMode,(d,w)->{sortMode=w;sort();adapter.notifyDataSetChanged();((TextView)findViewById(R.id.sortButton)).setText("SORT  ·  "+choices[w].toUpperCase(Locale.ROOT)+"     ⌄");d.dismiss();}).show();}
+     private void open(MediaItem m){
+         if(kind==KIND_MUSIC||saved!=null){Intent p=new Intent(this,PlayerActivity.class);p.putExtra("uri",m.uri.toString());startActivity(p);}
+-        else if(kind==KIND_VIDEO){Intent i=new Intent(this,VideoPlayerActivity.class);i.putExtra("uri",m.uri.toString());startActivity(i);}
+-        else{Intent i=new Intent(this,PhotoViewerActivity.class);i.putExtra("uri",m.uri.toString());startActivity(i);}
++        else if(kind==KIND_VIDEO){Intent i=new Intent(this,VideoPlayerActivity.class);i.putExtra("uri",m.uri.toString());i.putStringArrayListExtra("items",uriList());i.putExtra("index",indexOf(m));startActivity(i);}
++        else{Intent i=new Intent(this,PhotoViewerActivity.class);i.putExtra("uri",m.uri.toString());i.putStringArrayListExtra("items",uriList());i.putExtra("index",indexOf(m));startActivity(i);}
+     }
++
++    private ArrayList<String> uriList(){ArrayList<String> out=new ArrayList<>();for(MediaItem item:shown)out.add(item.uri.toString());return out;}
++    private int indexOf(MediaItem target){for(int i=0;i<shown.size();i++)if(shown.get(i).uri.equals(target.uri))return i;return 0;}
+     private void showActions(MediaItem m){
+         ArrayList<String> actions=new ArrayList<>();actions.add(kind==KIND_PHOTO?"View photo":kind==KIND_VIDEO?"Play video":"Play");
+         if(kind==KIND_MUSIC||saved!=null){actions.add(LibraryStore.isFavourite(this,m.uri.toString())?"Remove favourite":"Add to favourites");actions.add("Add to playlist");}
+--- a/app/src/main/java/com/mediahub/rebuilt/VideoPlayerActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/VideoPlayerActivity.java
+@@ -3,25 +3,43 @@
+ import android.app.Activity;
+ import android.net.Uri;
+ import android.os.Bundle;
+ import android.widget.VideoView;
+ import android.widget.Button;
+ import android.widget.MediaController;
++import android.widget.TextView;
+ import android.widget.Toast;
++import java.util.ArrayList;
+ 
+ public class VideoPlayerActivity extends Activity {
+     private VideoView video;
++    private ArrayList<String> items = new ArrayList<>();
++    private int index = 0;
++    private TextView counter;
++    private boolean prepared = false;
++    private boolean startWhenPrepared = true;
++
+     @Override protected void onCreate(Bundle b) {
+         super.onCreate(b); setContentView(R.layout.activity_video);
+         video=findViewById(R.id.videoView);
++        counter=findViewById(R.id.videoCounter);
++        ArrayList<String> passed=getIntent().getStringArrayListExtra("items");
++        if(passed!=null)items=passed;
+         String raw=getIntent().getStringExtra("uri");
+-        if(raw==null){finish();return;}
+-        video.setVideoURI(Uri.parse(raw));
++        index=Math.max(0,Math.min(getIntent().getIntExtra("index",0),Math.max(0,items.size()-1)));
++        if(items.isEmpty()&&raw!=null)items.add(raw);
++        if(items.isEmpty()){finish();return;}
+         video.setMediaController(new MediaController(this));
+-        video.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"This video cannot be played.",Toast.LENGTH_LONG).show();finish();return true;});
+-        video.setOnPreparedListener(mp->video.start());
++        video.setOnErrorListener((mp,what,extra)->{Toast.makeText(this,"This video cannot be played.",Toast.LENGTH_LONG).show();return true;});
++        video.setOnPreparedListener(mp->{prepared=true;if(startWhenPrepared)video.start();updateCounter();});
+         ((Button)findViewById(R.id.playButton)).setOnClickListener(v->{if(video.isPlaying())video.pause();else video.start();});
+         ((Button)findViewById(R.id.rewindButton)).setOnClickListener(v->video.seekTo(Math.max(0,video.getCurrentPosition()-10000)));
+         ((Button)findViewById(R.id.forwardButton)).setOnClickListener(v->video.seekTo(Math.min(video.getDuration(),video.getCurrentPosition()+10000)));
++        ((Button)findViewById(R.id.previousVideoButton)).setOnClickListener(v->move(-1));
++        ((Button)findViewById(R.id.nextVideoButton)).setOnClickListener(v->move(1));
++        loadCurrent();
+     }
++    private void loadCurrent(){prepared=false;video.stopPlayback();video.setVideoURI(Uri.parse(items.get(index)));updateCounter();}
++    private void move(int delta){if(items.size()<2)return;boolean wasPlaying=prepared&&video.isPlaying();startWhenPrepared=wasPlaying;index=(index+delta+items.size())%items.size();loadCurrent();}
++    private void updateCounter(){if(counter!=null)counter.setText((index+1)+" / "+items.size());}
+     @Override protected void onPause(){if(video!=null&&video.isPlaying())video.pause();super.onPause();}
+ }
+--- a/app/src/main/java/com/mediahub/rebuilt/PhotoViewerActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/PhotoViewerActivity.java
+@@ -3,23 +3,49 @@
+ import android.app.Activity;
+ import android.net.Uri;
+ import android.os.Bundle;
+-import android.widget.ImageView;
+-import android.widget.Toast;
+ import android.view.MotionEvent;
+ import android.view.ScaleGestureDetector;
++import android.widget.ImageView;
++import android.widget.TextView;
++import android.widget.Button;
++import android.widget.Toast;
++import java.util.ArrayList;
+ 
+ public class PhotoViewerActivity extends Activity {
+     private ScaleGestureDetector scale;
+-    private float zoom=1f;
++    private ImageView image;
++    private TextView counter;
++    private float zoom=1f, downX, downY;
++    private ArrayList<String> items=new ArrayList<>();
++    private int index=0;
++    private boolean scaling=false;
++
+     @Override protected void onCreate(Bundle b) {
+         super.onCreate(b); setContentView(R.layout.activity_photo);
+-        ImageView image=findViewById(R.id.photoImage);
+-        String raw=getIntent().getStringExtra("uri");
+-        if(raw==null){finish();return;}
+-        try { image.setImageURI(Uri.parse(raw)); } catch(Exception e){Toast.makeText(this,"Unable to open image.",Toast.LENGTH_LONG).show();finish();}
++        image=findViewById(R.id.photoImage);counter=findViewById(R.id.photoCounter);
++        ArrayList<String> passed=getIntent().getStringArrayListExtra("items");if(passed!=null)items=passed;
++        String raw=getIntent().getStringExtra("uri");index=Math.max(0,Math.min(getIntent().getIntExtra("index",0),Math.max(0,items.size()-1)));
++        if(items.isEmpty()&&raw!=null)items.add(raw);if(items.isEmpty()){finish();return;}
++        findViewById(R.id.previousPhotoButton).setOnClickListener(v->move(-1));
++        findViewById(R.id.nextPhotoButton).setOnClickListener(v->move(1));
+         scale=new ScaleGestureDetector(this,new ScaleGestureDetector.SimpleOnScaleGestureListener(){
++            @Override public boolean onScaleBegin(ScaleGestureDetector d){scaling=true;return true;}
+             @Override public boolean onScale(ScaleGestureDetector d){zoom=Math.max(1f,Math.min(5f,zoom*d.getScaleFactor()));image.setScaleX(zoom);image.setScaleY(zoom);return true;}
++            @Override public void onScaleEnd(ScaleGestureDetector d){scaling=false;}
++        });
++        image.setOnTouchListener((v,event)->{
++            scale.onTouchEvent(event);
++            switch(event.getActionMasked()){
++                case MotionEvent.ACTION_DOWN:downX=event.getX();downY=event.getY();return true;
++                case MotionEvent.ACTION_UP:
++                    float dx=event.getX()-downX,dy=event.getY()-downY;
++                    if(!scaling&&zoom<=1.05f&&Math.abs(dx)>70&&Math.abs(dx)>Math.abs(dy)*1.25f)move(dx<0?1:-1);
++                    return true;
++                default:return true;
++            }
+         });
+-        image.setOnTouchListener((v,event)->{scale.onTouchEvent(event);return true;});
++        showCurrent();
+     }
++    private void move(int delta){if(items.size()<2)return;index=(index+delta+items.size())%items.size();showCurrent();}
++    private void showCurrent(){zoom=1f;image.setScaleX(1f);image.setScaleY(1f);try{image.setImageURI(Uri.parse(items.get(index)));counter.setText((index+1)+" / "+items.size());}catch(Exception e){Toast.makeText(this,"Unable to open image.",Toast.LENGTH_SHORT).show();}}
+ }
