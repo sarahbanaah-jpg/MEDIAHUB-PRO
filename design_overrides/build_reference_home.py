@@ -5,6 +5,27 @@ project = Path(sys.argv[1])
 main = project / "app/src/main/java/com/mediahub/rebuilt/MainActivity.java"
 source = main.read_text(encoding="utf-8")
 
+# The original onResume() and permission callback call updateSummary(). Guard
+# those MediaStore reads too: the earlier UI-only guard missed this startup path.
+old_summary = '    private void updateSummary(){int a=MediaRepository.query(this,0).size(),v=MediaRepository.query(this,1).size(),p=MediaRepository.query(this,2).size();summary.setText(a+" songs   ·   "+v+" videos   ·   "+p+" photos indexed");}'
+new_summary = """    private void updateSummary(){
+        java.util.List<MediaItem> audio=safeMediaQuery(0);
+        java.util.List<MediaItem> videos=safeMediaQuery(1);
+        java.util.List<MediaItem> photos=safeMediaQuery(2);
+        summary.setText(audio.size()+" songs   ·   "+videos.size()+" videos   ·   "+photos.size()+" photos indexed");
+    }"""
+if source.count(old_summary) != 1:
+    raise SystemExit("Expected exactly one unguarded updateSummary() implementation; refusing to patch.")
+source = source.replace(old_summary, new_summary, 1)
+
+# When permission results return, refresh the visible reference feed as well
+# as the summary so newly granted media becomes visible without restarting.
+old_callback = '    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] results){super.onRequestPermissionsResult(requestCode,permissions,results);if(requestCode==REQ_MEDIA)updateSummary();}'
+new_callback = '    @Override public void onRequestPermissionsResult(int requestCode,String[] permissions,int[] results){super.onRequestPermissionsResult(requestCode,permissions,results);if(requestCode==REQ_MEDIA){updateSummary();if(videoShell!=null)showVideoTab(videoCurrentTab);}}'
+if source.count(old_callback) != 1:
+    raise SystemExit("Expected exactly one media permission callback; refusing to patch.")
+source = source.replace(old_callback, new_callback, 1)
+
 old = "requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);"
 if old not in source:
     raise SystemExit("Expected MainActivity initialization line not found.")
