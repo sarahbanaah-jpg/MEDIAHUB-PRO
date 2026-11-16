@@ -76,7 +76,7 @@ jobs:
           activity = candidates[0]
           source = activity.read_text()
           import re
-          match = re.search(r"super\\.onCreate\\s*\\([^;]*\\);", source)
+          match = re.search(r"super\.onCreate\s*\([^;]*\);", source)
           if not match:
               raise SystemExit("Could not locate the superclass onCreate call in MainActivity.")
           marker_end = match.end()
