@@ -1,8 +1,8 @@
-name: Android APK build
+name: MEDIAHUB-PRO Android build and release
 
 on:
   push:
-    branches: [ main, 'feature/**', 'release/v2.7-development' ]
+    branches: [ main, 'feature/**' ]
   pull_request:
     branches: [ main ]
   workflow_dispatch:
@@ -11,13 +11,11 @@ permissions:
   contents: write
 
 jobs:
-  build-release-apk:
+  build-debug-apk:
     runs-on: ubuntu-latest
     steps:
-      - name: Check out source
+      - name: Check out repository
         uses: actions/checkout@v4
-        with:
-          persist-credentials: true
 
       - name: Set up JDK 17
         uses: actions/setup-java@v4
@@ -38,124 +36,55 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Extract Android project source archive
+      - name: Extract original source and apply v2.8 maintenance patches
+        shell: bash
         run: |
-          unzip -q MEDIAHUB_PRO_UPDATE_CHECKER_SOURCE.zip -d /tmp/mediahub-source
-          SETTINGS_FILE="$(find /tmp/mediahub-source -name settings.gradle -print -quit)"
-          if [ -z "$SETTINGS_FILE" ]; then
-            echo "Could not find settings.gradle inside the uploaded source archive."
-            exit 1
-          fi
-          PROJECT_DIR="$(dirname "$SETTINGS_FILE")"
-          cp -a "$PROJECT_DIR"/. .
+          set -euo pipefail
+          mkdir -p "$RUNNER_TEMP/mediahub-source"
+          unzip -q MEDIAHUB_PRO_UPDATE_CHECKER_SOURCE.zip -d "$RUNNER_TEMP/mediahub-source"
+          PROJECT_DIR="$(dirname "$(find "$RUNNER_TEMP/mediahub-source" -name settings.gradle -print -quit)")"
+          test -f "$PROJECT_DIR/app/build.gradle"
+          base64 -d release_patches/v2.8-maintenance.patch.gz.b64 | gzip -dc | (cd "$PROJECT_DIR" && patch --batch -p2)
+          (cd "$PROJECT_DIR" && patch --batch -p2 < "$GITHUB_WORKSPACE/release_patches/v2.8-activity-result-fix.patch")
+          echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
-      - name: Apply approved MEDIAHUB PRO premium dashboard design
+      - name: Validate package and update version
         run: |
-          python3 design_overrides/apply_premium_design.py
-          python3 design_overrides/apply_player_design.py
-          git apply --check release_patches/v2.7-navigation.patch
-          git apply release_patches/v2.7-navigation.patch
-          git apply --check release_patches/v2.7-sleep-timer.patch
-          git apply release_patches/v2.7-sleep-timer.patch
-          git apply --recount --check release_patches/v2.7-feature-bundle.patch
-          git apply --recount release_patches/v2.7-feature-bundle.patch
-          cp release_patches/LiquidGlassLinearLayout.java app/src/main/java/com/mediahub/rebuilt/LiquidGlassLinearLayout.java
-          python3 - <<'PY'
-          from pathlib import Path
-          import xml.etree.ElementTree as ET
-          video = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical" android:background="#000000" android:gravity="center"
-              android:layout_width="match_parent" android:layout_height="match_parent">
-              <TextView android:id="@+id/videoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-              <VideoView android:id="@+id/videoView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
-              <LinearLayout android:orientation="horizontal" android:gravity="center" android:padding="4dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-                  <Button android:id="@+id/previousVideoButton" android:text="Prev" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/rewindButton" android:text="−10s" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/playButton" android:text="Play" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/forwardButton" android:text="+10s" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/nextVideoButton" android:text="Next" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
-              </LinearLayout>
-          </LinearLayout>"""
-          photo = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
-              android:orientation="vertical" android:background="#080B14" android:padding="8dp"
-              android:layout_width="match_parent" android:layout_height="match_parent">
-              <TextView android:id="@+id/photoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-              <ImageView android:id="@+id/photoImage" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1" android:scaleType="fitCenter" android:contentDescription="Selected photo"/>
-              <LinearLayout android:orientation="horizontal" android:gravity="center" android:layout_width="match_parent" android:layout_height="wrap_content">
-                  <Button android:id="@+id/previousPhotoButton" android:text="‹ Previous" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/nextPhotoButton" android:text="Next ›" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-              </LinearLayout>
-          </LinearLayout>"""
-          Path("app/src/main/res/layout/activity_video.xml").write_text(video)
-          Path("app/src/main/res/layout/activity_photo.xml").write_text(photo)
-          player_path = Path("app/src/main/res/layout/activity_player.xml")
-          player = player_path.read_text()
-          marker = " </LinearLayout>"
-          button = '<Button android:id="@+id/playerSleepTimer" android:text="◷   SLEEP TIMER" android:textColor="#FFFFFF" android:backgroundTint="#29212B" android:layout_marginTop="10dp" android:layout_width="match_parent" android:layout_height="48dp"/>'
-          if marker not in player:
-              raise SystemExit("Could not find player layout insertion point for sleep timer")
-          player_path.write_text(player.replace(marker, button + marker, 1))
-          main_path = Path("app/src/main/res/layout/activity_main.xml")
-          main = main_path.read_text()
-          home_marker = '   <TextView android:text="Recently Played"'
-          cards = """            <TextView android:text="More from MediaHub" android:textColor="#FFFFFF" android:textSize="21sp"
-              android:textStyle="bold" android:layout_marginTop="26dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
-            <LinearLayout android:orientation="horizontal" android:layout_width="match_parent" android:layout_height="wrap_content" android:layout_marginTop="12dp">
-                <TextView android:id="@+id/vaultButton" android:text="▣  Private Vault" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
-                <Space android:layout_width="9dp" android:layout_height="1dp"/>
-                <TextView android:id="@+id/smartStorageButton" android:text="◫  Smart Storage" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
-            </LinearLayout>
-            <TextView android:id="@+id/onlineMediaButton" android:text="◎   Online Media · COMING SOON" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="9dp" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
-          """
-          if home_marker not in main:
-              raise SystemExit("Could not find premium home dashboard insertion point")
-          main_path.write_text(main.replace(home_marker, cards + home_marker, 1))
-          ET.register_namespace("android", "http://schemas.android.com/apk/res/android")
-          tree = ET.parse(main_path)
-          glass_ids = {"@+id/musicButton", "@+id/videoButton", "@+id/photosButton", "@+id/nowPlayingCard"}
-          for element in tree.getroot().iter():
-              if element.attrib.get("{http://schemas.android.com/apk/res/android}id") in glass_ids:
-                  element.tag = "com.mediahub.rebuilt.LiquidGlassLinearLayout"
-          tree.write(main_path, encoding="utf-8", xml_declaration=True)
-          # Settings navigation is added by the v2.7 feature patch; avoid brittle source-string replacement.
-          PY
+          grep -q "applicationId 'com.mediahub.rebuilt'" "$PROJECT_DIR/app/build.gradle"
+          grep -q "versionName '2.8'" "$PROJECT_DIR/app/build.gradle"
+          grep -q "versionCode 8" "$PROJECT_DIR/app/build.gradle"
+          grep -q 'SharingActivity' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
 
-      - name: Validate signing secrets
+      - name: Build debug APK
+        run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleDebug
+
+      - name: Verify debug APK and checksum
+        run: |
+          APK="$PROJECT_DIR/app/build/outputs/apk/debug/app-debug.apk"
+          test -s "$APK"
+          sha256sum "$APK"
+          ls -lh "$APK"
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.8-debug-test
+          path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Validate release signing secrets
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
           test -n "$STORE_PASSWORD" || { echo "Missing MEDIAHUB_KEYSTORE_PASSWORD repository secret."; exit 1; }
           test -n "$ENCRYPTION_PASSWORD" || { echo "Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD repository secret."; exit 1; }
+          test -s signing/mediahub-release.jks.enc
 
-      - name: Create permanent signing key once, encrypted in repository
-        env:
-          STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
-          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
-        run: |
-          set -euo pipefail
-          mkdir -p signing
-          if [ ! -f signing/mediahub-release.jks.enc ]; then
-            keytool -genkeypair -v \
-              -keystore /tmp/mediahub-release.jks \
-              -storetype JKS \
-              -alias mediahub \
-              -keyalg RSA -keysize 4096 -validity 10000 \
-              -storepass "$STORE_PASSWORD" -keypass "$STORE_PASSWORD" \
-              -dname "CN=MEDIAHUB PRO, OU=Android, O=MEDIAHUB, L=Eldoret, ST=Uasin Gishu, C=KE"
-            openssl enc -aes-256-cbc -pbkdf2 -iter 600000 -salt \
-              -in /tmp/mediahub-release.jks \
-              -out signing/mediahub-release.jks.enc \
-              -pass env:ENCRYPTION_PASSWORD
-            rm -f /tmp/mediahub-release.jks
-            git config user.name "github-actions[bot]"
-            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-            git add signing/mediahub-release.jks.enc
-            git commit -m "Add encrypted MEDIAHUB PRO release signing key"
-            git push
-          fi
-
-      - name: Decrypt permanent signing key
+      - name: Decrypt the existing MEDIAHUB-PRO release key
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -166,20 +95,16 @@ jobs:
             -pass env:ENCRYPTION_PASSWORD
           chmod 600 /tmp/mediahub-release.jks
 
-      - name: Configure release signing and version
+      - name: Configure release signing without changing the application identity
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         run: |
-          python3 - <<'PY'
+          python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
+          import sys
           from pathlib import Path
-          p = Path("app/build.gradle")
+          p = Path(sys.argv[1])
           s = p.read_text()
-          import re
-          s = "\n".join(("    versionCode 7" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
-          s = "\n".join(("    versionName '2.7'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
-          if "signingConfigs {" not in s:
-              marker = "\n}"
-              if marker not in s:
-                  raise SystemExit("Could not locate end of Android Gradle configuration.")
-              signing = """
+          marker = "\n}\n\ndependencies"
+          signing = """
               signingConfigs {
                   release {
                       storeFile file("/tmp/mediahub-release.jks")
@@ -194,61 +119,49 @@ jobs:
                       minifyEnabled false
                   }
               }"""
-              s = s.rsplit(marker, 1)[0] + signing + marker
+          if "signingConfigs {" not in s:
+              if marker not in s:
+                  raise SystemExit("Could not locate Android block for release signing.")
+              s = s.replace(marker, signing + marker, 1)
           p.write_text(s)
           PY
 
-      - name: Build signed release APK
+      - name: Build signed v2.8 APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease
+        run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify APK signature
+      - name: Verify v2.8 APK signature
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         shell: bash
         run: |
           set -euo pipefail
-          APK="app/build/outputs/apk/release/app-release.apk"
-          test -s "$APK" || { echo "Release APK is missing or empty: $APK"; exit 1; }
-
-          SDK_ROOT="${ANDROID_HOME:-${ANDROID_SDK_ROOT:-}}"
-          APKSIGNER=""
-          if [ -n "$SDK_ROOT" ] && [ -x "$SDK_ROOT/build-tools/35.0.0/apksigner" ]; then
-            APKSIGNER="$SDK_ROOT/build-tools/35.0.0/apksigner"
-          else
-            APKSIGNER="$(find "${SDK_ROOT:-/usr/local/lib/android}" -type f -path '*/build-tools/*/apksigner' -print -quit 2>/dev/null || true)"
-          fi
-
-          if [ -z "$APKSIGNER" ] || [ ! -x "$APKSIGNER" ]; then
-            echo "Android apksigner was not found. Installed SDK build-tools:"
-            find "${SDK_ROOT:-/usr/local/lib/android}" -maxdepth 4 -type f -name apksigner -print 2>/dev/null || true
-            exit 1
-          fi
-
-          echo "Using APK signature verifier: $APKSIGNER"
-          "$APKSIGNER" version
+          APK="$PROJECT_DIR/app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          APKSIGNER="$ANDROID_HOME/build-tools/35.0.0/apksigner"
           "$APKSIGNER" verify --verbose --print-certs "$APK"
-          echo "APK signature verification passed."
           sha256sum "$APK"
+          ls -lh "$APK"
 
-      - name: Upload signed APK
-        uses: actions/upload-artifact@v4
-        with:
-          name: MEDIAHUB-PRO-release-v2.7
-          path: app/build/outputs/apk/release/app-release.apk
-          if-no-files-found: error
-          retention-days: 30
-
-      - name: Publish public v2.7 release with APK
-        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
+      - name: Publish MEDIAHUB-PRO v2.8 and trigger in-app update prompt
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.7
-          name: MEDIAHUB-PRO v2.7
+          tag_name: v2.8
+          name: MEDIAHUB-PRO v2.8
           body: |
-            MEDIAHUB-PRO Android release v2.7.
+            MEDIAHUB-PRO v2.8 maintenance release.
 
-            Major release build based on the supplied Android source, with the premium dashboard/player design overlays and the in-app GitHub update checker. Android will ask you to confirm installation after the APK downloads.
-          files: app/build/outputs/apk/release/app-release.apk
+            - Redesigned Update Center with version information, check status, history and progress.
+            - QR/code pairing and authenticated local Wi-Fi phone-to-phone file transfer.
+            - Actual photo thumbnails loaded asynchronously; no app-logo substitute.
+            - Hamburger navigation menu; no bottom navigation.
+            - Xender remains available through Android's standard sharing chooser.
+            - Online Media remains COMING SOON.
+
+            Signed with the existing MEDIAHUB-PRO release key. Android will ask you to confirm installation.
+          files: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
           draft: false
           prerelease: false
           make_latest: true
