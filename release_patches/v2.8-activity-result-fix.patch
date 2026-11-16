@@ -1,13 +1,67 @@
---- a/app/build.gradle
-+++ b/app/build.gradle
-@@ -20,4 +20,5 @@
- dependencies {
-+    implementation 'androidx.activity:activity:1.9.3'
-     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
-     implementation 'com.google.zxing:core:3.5.3'
- }
---- a/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java
-+++ b/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java
-@@ -40,1 +40,1 @@
--public class SharingActivity extends Activity {
-+public class SharingActivity extends androidx.activity.ComponentActivity {
+diff -ruN testfix/MEDIAHUB_PRO/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java mh28/MEDIAHUB_PRO/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java
+--- testfix/MEDIAHUB_PRO/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java	2026-11-16 07:25:10.000000000 +0000
++++ mh28/MEDIAHUB_PRO/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java	2026-11-16 07:29:57.569703728 +0000
+@@ -18,8 +18,8 @@
+ import com.google.zxing.BarcodeFormat;
+ import com.google.zxing.MultiFormatWriter;
+ import com.google.zxing.common.BitMatrix;
+-import com.journeyapps.barcodescanner.ScanContract;
+-import com.journeyapps.barcodescanner.ScanOptions;
++import com.google.zxing.integration.android.IntentIntegrator;
++import com.google.zxing.integration.android.IntentResult;
+ 
+ import java.io.*;
+ import java.net.*;
+@@ -44,18 +44,7 @@
+     private volatile ServerSocket server;
+     private String pin, localIp;
+     private TextView address, code, receiveStatus, sendStatus, hostInput, pinInput;
+-    private final com.journeyapps.barcodescanner.ScanContract scanContract = new ScanContract();
+-    private final androidx.activity.result.ActivityResultLauncher<ScanOptions> scanner = registerForActivityResult(scanContract, result -> {
+-        if (result.getContents() == null) return;
+-        try {
+-            String[] fields = result.getContents().split("\\|");
+-            if (fields.length == 4 && fields[0].equals("MHPRO2")) {
+-                ((EditText)findViewById(R.id.receiverHost)).setText(fields[1]);
+-                ((EditText)findViewById(R.id.receiverPin)).setText(fields[3]);
+-                Toast.makeText(this, "Receiver details scanned. Choose a file to send.", Toast.LENGTH_LONG).show();
+-            } else Toast.makeText(this, "This is not a MEDIAHUB-PRO pairing code.", Toast.LENGTH_LONG).show();
+-        } catch (Exception e) { Toast.makeText(this, "Could not read pairing code.", Toast.LENGTH_SHORT).show(); }
+-    });
++
+ 
+     @Override protected void onCreate(Bundle state) {
+         super.onCreate(state); setContentView(R.layout.activity_sharing);
+@@ -66,9 +55,10 @@
+         code.setText(pin);
+         if (localIp != null) { makeQr(); startReceiver(); }
+         findViewById(R.id.scanPairButton).setOnClickListener(v -> {
+-            ScanOptions options=new ScanOptions(); options.setPrompt("Scan the receiving phone's MEDIAHUB-PRO QR");
+-            options.setBeepEnabled(false); options.setOrientationLocked(false); options.setDesiredBarcodeFormats(ScanOptions.QR_CODE);
+-            scanner.launch(options);
++            IntentIntegrator integrator=new IntentIntegrator(this);
++            integrator.setDesiredBarcodeFormats(IntentIntegrator.QR_CODE);
++            integrator.setPrompt("Scan the receiving phone's MEDIAHUB-PRO QR");
++            integrator.setBeepEnabled(false); integrator.setOrientationLocked(false); integrator.initiateScan();
+         });
+         findViewById(R.id.selectFileButton).setOnClickListener(v -> {
+             String host=((EditText)findViewById(R.id.receiverHost)).getText().toString().trim();
+@@ -162,6 +152,18 @@
+ 
+     @Override protected void onActivityResult(int request,int result,Intent data) {
+         super.onActivityResult(request,result,data);
++        IntentResult scan=IntentIntegrator.parseActivityResult(request,result,data);
++        if(scan!=null) {
++            if(scan.getContents()!=null) {
++                String[] fields=scan.getContents().split("\\|");
++                if(fields.length==4 && fields[0].equals("MHPRO2")) {
++                    ((EditText)findViewById(R.id.receiverHost)).setText(fields[1]);
++                    ((EditText)findViewById(R.id.receiverPin)).setText(fields[3]);
++                    Toast.makeText(this,"Receiver details scanned. Choose a file to send.",Toast.LENGTH_LONG).show();
++                } else Toast.makeText(this,"This is not a MEDIAHUB-PRO pairing code.",Toast.LENGTH_LONG).show();
++            }
++            return;
++        }
+         if(request==PICK_FILE && result==RESULT_OK && data!=null && data.getData()!=null) {
+             UriHolder holder=new UriHolder(data.getData());
+             String host=((EditText)findViewById(R.id.receiverHost)).getText().toString().trim();
