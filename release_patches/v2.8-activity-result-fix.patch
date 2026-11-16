@@ -1,0 +1,13 @@
+--- a/app/build.gradle
++++ b/app/build.gradle
+@@ -20,4 +20,5 @@
+ dependencies {
++    implementation 'androidx.activity:activity:1.9.3'
+     implementation 'com.journeyapps:zxing-android-embedded:4.3.0'
+     implementation 'com.google.zxing:core:3.5.3'
+ }
+--- a/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/SharingActivity.java
+@@ -40,1 +40,1 @@
+-public class SharingActivity extends Activity {
++public class SharingActivity extends androidx.activity.ComponentActivity {
