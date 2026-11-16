@@ -1072,6 +1072,11 @@ jobs:
           print("OK: applicationId preserved; versionName=2.12; versionCode=12; NearbyTransferActivity registered")
           PY
 
+      - name: Apply screenshot-matched home feed and bottom navigation
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/design_overrides/build_reference_home.py" "$PROJECT_DIR"
+
       - name: Build debug APK
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleDebug
 
