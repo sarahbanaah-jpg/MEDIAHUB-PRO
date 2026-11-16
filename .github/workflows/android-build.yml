@@ -50,11 +50,37 @@ jobs:
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Validate package and update version
+        shell: bash
         run: |
-          grep -q "applicationId 'com.mediahub.rebuilt'" "$PROJECT_DIR/app/build.gradle"
-          grep -q "versionName '2.9'" "$PROJECT_DIR/app/build.gradle"
-          grep -q "versionCode 9" "$PROJECT_DIR/app/build.gradle"
-          grep -q 'NearbyTransferActivity' "$PROJECT_DIR/app/src/main/AndroidManifest.xml"
+          set -euo pipefail
+          python3 - "$PROJECT_DIR" <<'PY'
+          import re
+          import sys
+          from pathlib import Path
+
+          project = Path(sys.argv[1])
+          gradle = (project / "app/build.gradle").read_text()
+          manifest = (project / "app/src/main/AndroidManifest.xml").read_text()
+
+          checks = {
+              "applicationId": r"""applicationId\s*["']com\.mediahub\.rebuilt["']""",
+              "versionName 2.9": r"""versionName\s*["']2\.9["']""",
+              "versionCode 9": r"""versionCode\s+9\b""",
+          }
+          for label, pattern in checks.items():
+              if not re.search(pattern, gradle):
+                  print(f"FAILED: {label} not found in app/build.gradle")
+                  print("--- app/build.gradle ---")
+                  print(gradle)
+                  raise SystemExit(1)
+              print(f"OK: {label}")
+
+          if "NearbyTransferActivity" not in manifest:
+              print("FAILED: NearbyTransferActivity missing from AndroidManifest.xml")
+              print(manifest)
+              raise SystemExit(1)
+          print("OK: NearbyTransferActivity is registered")
+          PY
 
       - name: Build debug APK
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleDebug
