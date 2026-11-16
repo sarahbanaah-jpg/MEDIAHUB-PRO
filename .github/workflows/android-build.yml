@@ -63,11 +63,11 @@ jobs:
               <TextView android:id="@+id/videoCounter" android:text="1 / 1" android:textColor="#FFFFFF" android:gravity="center" android:padding="8dp" android:layout_width="match_parent" android:layout_height="wrap_content"/>
               <VideoView android:id="@+id/videoView" android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"/>
               <LinearLayout android:orientation="horizontal" android:gravity="center" android:padding="4dp" android:layout_width="match_parent" android:layout_height="wrap_content">
-                  <Button android:id="@+id/previousVideoButton" android:text="Previous" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/rewindButton" android:text="−10s" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/playButton" android:text="Play / Pause" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/forwardButton" android:text="+10s" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
-                  <Button android:id="@+id/nextVideoButton" android:text="Next" android:layout_width="wrap_content" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/previousVideoButton" android:text="Prev" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/rewindButton" android:text="−10s" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/playButton" android:text="Play" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/forwardButton" android:text="+10s" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
+                  <Button android:id="@+id/nextVideoButton" android:text="Next" android:textSize="11sp" android:minWidth="0dp" android:paddingLeft="2dp" android:paddingRight="2dp" android:layout_width="0dp" android:layout_weight="1" android:layout_height="wrap_content"/>
               </LinearLayout>
           </LinearLayout>"""
           photo = """<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
