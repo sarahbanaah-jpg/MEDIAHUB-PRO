@@ -95,6 +95,7 @@ index 5ab0192..f2d834c 100644
          for(int i=0;i<queue.size();i++)if(queue.get(i).uri.toString().equals(wanted)){index=i;break;}
          String activeUri=getSharedPreferences("now_playing",MODE_PRIVATE).getString("uri",null);
          if(wanted!=null&&wanted.equals(activeUri)&&PlaybackService.instance!=null&&PlaybackService.instance.isPrepared()){
+             title.setText(getSharedPreferences("now_playing",MODE_PRIVATE).getString("title","Now playing"));
 diff --git a/app/src/main/java/com/mediahub/rebuilt/SmartStorageActivity.java b/app/src/main/java/com/mediahub/rebuilt/SmartStorageActivity.java
 new file mode 100644
 index 0000000..b611fa3
