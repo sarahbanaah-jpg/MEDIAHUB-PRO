@@ -107,8 +107,8 @@ jobs:
           p = Path("app/build.gradle")
           s = p.read_text()
           import re
-          s = "\n".join(("    versionCode 5" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
-          s = "\n".join(("    versionName '2.2.1'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionCode 6" if line.strip().startswith("versionCode ") else line) for line in s.splitlines())
+          s = "\n".join(("    versionName '2.2.2'" if line.strip().startswith("versionName ") else line) for line in s.splitlines())
           if "signingConfigs {" not in s:
               marker = "\n}"
               if marker not in s:
@@ -167,18 +167,19 @@ jobs:
       - name: Upload signed APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-release-v2.2.1
+          name: MEDIAHUB-PRO-release-v2.2.2
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 30
 
-      - name: Publish public v2.2.1 release with APK
+      - name: Publish public v2.2.2 release with APK
+        if: github.ref == 'refs/heads/main' && github.event_name == 'push'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.2.1
-          name: MEDIAHUB-PRO v2.2.1
+          tag_name: v2.2.2
+          name: MEDIAHUB-PRO v2.2.2
           body: |
-            MEDIAHUB-PRO Android release v2.2.1.
+            MEDIAHUB-PRO Android release v2.2.2.
 
             Includes the in-app update checker. Android will ask you to confirm installation after the APK downloads.
           files: app/build/outputs/apk/release/app-release.apk
