@@ -1091,7 +1091,7 @@ jobs:
           retention-days: 14
 
       - name: Validate release signing secrets
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
@@ -1101,7 +1101,7 @@ jobs:
           test -s signing/mediahub-release.jks.enc
 
       - name: Decrypt the existing MEDIAHUB-PRO release key
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -1113,7 +1113,7 @@ jobs:
           chmod 600 /tmp/mediahub-release.jks
 
       - name: Configure release signing without changing the application identity
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         run: |
           python3 - "$PROJECT_DIR/app/build.gradle" <<'PY'
           import sys
@@ -1144,13 +1144,13 @@ jobs:
           PY
 
       - name: Build signed v2.12 APK
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
       - name: Verify v2.12 APK signature
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
         shell: bash
         run: |
           set -euo pipefail
@@ -1160,6 +1160,15 @@ jobs:
           "$APKSIGNER" verify --verbose --print-certs "$APK"
           sha256sum "$APK"
           ls -lh "$APK"
+
+      - name: Upload signed v2.12 installation test APK
+        if: github.event_name == 'push' && github.ref == 'refs/heads/fix/v2.12-exoplayer-texture-video'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.12-signed-install-test
+          path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
 
       - name: Publish MEDIAHUB-PRO v2.12 and trigger in-app update prompt
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
