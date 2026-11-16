@@ -104,7 +104,7 @@ jobs:
                 <TextView android:id="@+id/smartStorageButton" android:text="◫  Smart Storage" android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold" android:gravity="center" android:layout_width="0dp" android:layout_height="58dp" android:layout_weight="1" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
             </LinearLayout>
             <TextView android:id="@+id/onlineMediaButton" android:text="◎   Play a direct online audio / video stream" android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold" android:gravity="center" android:layout_width="match_parent" android:layout_height="52dp" android:layout_marginTop="9dp" android:background="@drawable/action_card" android:clickable="true" android:focusable="true"/>
-"""
+          """
           if home_marker not in main:
               raise SystemExit("Could not find premium home dashboard insertion point")
           main_path.write_text(main.replace(home_marker, cards + home_marker, 1))
