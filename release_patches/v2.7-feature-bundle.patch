@@ -1,0 +1,188 @@
+diff --git a/app/src/main/AndroidManifest.xml b/app/src/main/AndroidManifest.xml
+index c30c5a0..d82b380 100644
+--- a/app/src/main/AndroidManifest.xml
++++ b/app/src/main/AndroidManifest.xml
+@@ -12,10 +12,13 @@
+     <application
+         android:icon="@drawable/ic_mediahub"
+         android:roundIcon="@drawable/ic_mediahub"
+-        android:allowBackup="true"
++        android:allowBackup="false"
+         android:label="MediaHub Pro"
+         android:theme="@style/AppTheme"
+         android:usesCleartextTraffic="false">
++        <activity android:name=".VaultActivity" android:exported="false"/>
++        <activity android:name=".SmartStorageActivity" android:exported="false"/>
++        <activity android:name=".OnlineMediaActivity" android:exported="false"/>
+         <activity android:name=".PhotoViewerActivity" android:exported="false"/>
+         <activity android:name=".PlayerActivity" android:exported="false"/>
+         <activity android:name=".PlaylistsActivity" android:exported="false"/>
+diff --git a/app/src/main/java/com/mediahub/rebuilt/LibraryActivity.java b/app/src/main/java/com/mediahub/rebuilt/LibraryActivity.java
+index 2f7c81f..72423a2 100644
+--- a/app/src/main/java/com/mediahub/rebuilt/LibraryActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/LibraryActivity.java
+@@ -60,12 +60,14 @@ public class LibraryActivity extends Activity {
+         ArrayList<String> actions=new ArrayList<>();actions.add(kind==KIND_PHOTO?"View photo":kind==KIND_VIDEO?"Play video":"Play");
+         if(kind==KIND_MUSIC||saved!=null){actions.add(LibraryStore.isFavourite(this,m.uri.toString())?"Remove favourite":"Add to favourites");actions.add("Add to playlist");}
+         actions.add("File information");
++        actions.add("Share / send to nearby device");
+         if(android.os.Build.VERSION.SDK_INT>=30 && "media".equals(m.uri.getAuthority())) actions.add("Delete file from device");
+         new android.app.AlertDialog.Builder(this).setTitle(m.title).setItems(actions.toArray(new String[0]),(d,w)->{
+             String a=actions.get(w);if(a.startsWith("Play")||a.equals("View photo"))open(m);
+             else if(a.contains("favourite")){if(LibraryStore.isFavourite(this,m.uri.toString()))LibraryStore.removeFavourite(this,m.uri.toString());else LibraryStore.addFavourite(this,m);Toast.makeText(this,"Favourites updated.",Toast.LENGTH_SHORT).show();}
+             else if(a.equals("Add to playlist")){List<String> names=LibraryStore.names(this);if(names.isEmpty()){Toast.makeText(this,"Create a playlist first.",Toast.LENGTH_SHORT).show();return;}new android.app.AlertDialog.Builder(this).setItems(names.toArray(new String[0]),(x,pos)->{LibraryStore.addToPlaylist(this,names.get(pos),m);Toast.makeText(this,"Added to playlist.",Toast.LENGTH_SHORT).show();}).show();}
+             else if(a.equals("File information")) new android.app.AlertDialog.Builder(this).setMessage("Name: "+m.title+"\nArtist: "+m.artist+"\nDuration: "+(m.duration/1000)+" seconds\nType: "+m.mime+"\nLocation: "+m.uri).setPositiveButton("OK",null).show();
++            else if(a.startsWith("Share / send")){Intent share=new Intent(Intent.ACTION_SEND);share.setType(m.mime==null?"*/*":m.mime);share.putExtra(Intent.EXTRA_STREAM,m.uri);share.addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION);startActivity(Intent.createChooser(share,"Send with"));}
+             else if(a.equals("Delete file from device")) new android.app.AlertDialog.Builder(this).setMessage("Delete '"+m.title+"' from this device? Android will ask you to confirm.").setPositiveButton("Continue",(x,y)->deleteMedia(m)).setNegativeButton("Cancel",null).show();
+         }).show();
+     }
+diff --git a/app/src/main/java/com/mediahub/rebuilt/MainActivity.java b/app/src/main/java/com/mediahub/rebuilt/MainActivity.java
+index 5b453af..5e424a7 100644
+--- a/app/src/main/java/com/mediahub/rebuilt/MainActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/MainActivity.java
+@@ -30,6 +30,9 @@ public class MainActivity extends Activity {
+         findViewById(R.id.searchButton).setOnClickListener(v -> openLibrary(LibraryActivity.KIND_MUSIC));
+         findViewById(R.id.playlistsButton).setOnClickListener(v -> startActivity(new Intent(this, PlaylistsActivity.class)));
+         findViewById(R.id.addStorageButton).setOnClickListener(v -> chooseStorageFolder());
++        findViewById(R.id.vaultButton).setOnClickListener(v -> startActivity(new Intent(this,VaultActivity.class)));
++        findViewById(R.id.smartStorageButton).setOnClickListener(v -> startActivity(new Intent(this,SmartStorageActivity.class)));
++        findViewById(R.id.onlineMediaButton).setOnClickListener(v -> startActivity(new Intent(this,OnlineMediaActivity.class)));
+         requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);
+     }
+     private void requestMediaPermissions() {
+@@ -54,6 +57,6 @@ public class MainActivity extends Activity {
+     private void refreshNowPlaying(){if(nowTitle==null)return;android.content.SharedPreferences p=getSharedPreferences("now_playing",MODE_PRIVATE);String uri=p.getString("uri",null);boolean playing=p.getBoolean("playing",false);findViewById(R.id.nowPlayingCard).setVisibility(uri==null?android.view.View.GONE:android.view.View.VISIBLE);if(uri!=null){nowTitle.setText(p.getString("title","Unknown track"));nowArtist.setText(p.getString("artist","Unknown artist"));nowPlay.setText(playing?"Ⅱ":"▶");}}
+     private void openLibrary(int kind){Intent i=new Intent(this,LibraryActivity.class);i.putExtra("kind",kind);startActivity(i);}
+     private void openSaved(String key){Intent i=new Intent(this,LibraryActivity.class);i.putExtra("kind",0);i.putExtra("saved",key);startActivity(i);}
+-    private void showSettings(){String[] choices={"Check for app updates","Add SD card / storage folder","Refresh media index","App information","Audio equalizer","Storage & permissions"};new android.app.AlertDialog.Builder(this).setTitle("Settings & storage").setItems(choices,(d,w)->{if(w==0)UpdateManager.check(this);else if(w==1)chooseStorageFolder();else if(w==2){updateSummary();Toast.makeText(this,"Media index refreshed.",Toast.LENGTH_SHORT).show();}else if(w==3){Intent i=new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()));startActivity(i);}else if(w==4)startActivity(new Intent(this,EqualizerActivity.class));else requestMediaPermissions();}).setNegativeButton("Close",null).show();}
++    private void showSettings(){String[] choices={"Check for app updates","Add SD card / storage folder","Refresh media index","App information","Audio equalizer","Storage & permissions","Private Vault","Smart Storage","Online media URL"};new android.app.AlertDialog.Builder(this).setTitle("Settings & storage").setItems(choices,(d,w)->{if(w==0)UpdateManager.check(this);else if(w==1)chooseStorageFolder();else if(w==2){updateSummary();Toast.makeText(this,"Media index refreshed.",Toast.LENGTH_SHORT).show();}else if(w==3){Intent i=new Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS,Uri.parse("package:"+getPackageName()));startActivity(i);}else if(w==4)startActivity(new Intent(this,EqualizerActivity.class));else if(w==5)requestMediaPermissions();else if(w==6)startActivity(new Intent(this,VaultActivity.class));else if(w==7)startActivity(new Intent(this,SmartStorageActivity.class));else startActivity(new Intent(this,OnlineMediaActivity.class));}).setNegativeButton("Close",null).show();}
+     @Override protected void onResume(){super.onResume();if(summary!=null){updateSummary();updateStorageLabel();refreshNowPlaying();}}
+ }
+diff --git a/app/src/main/java/com/mediahub/rebuilt/OnlineMediaActivity.java b/app/src/main/java/com/mediahub/rebuilt/OnlineMediaActivity.java
+new file mode 100644
+index 0000000..24d0f1f
+--- /dev/null
++++ b/app/src/main/java/com/mediahub/rebuilt/OnlineMediaActivity.java
+@@ -0,0 +1,15 @@
++package com.mediahub.rebuilt;
++
++import android.app.Activity;
++import android.app.AlertDialog;
++import android.content.Intent;
++import android.net.Uri;
++import android.os.Bundle;
++import android.widget.*;
++import java.util.ArrayList;
++
++/** Plays a direct HTTPS media URL supplied by the user; it does not scrape or bypass provider restrictions. */
++public class OnlineMediaActivity extends Activity {
++    @Override public void onCreate(Bundle b){super.onCreate(b);LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(24,30,24,24);root.setBackgroundColor(0xff08080c);TextView title=new TextView(this);title.setText("ONLINE MEDIA");title.setTextColor(0xffff4775);title.setTextSize(20);root.addView(title);TextView note=new TextView(this);note.setText("Paste a direct HTTPS audio or video stream URL from a provider that permits playback in external apps. Ordinary website or YouTube page links are not direct media streams.");note.setTextColor(0xffd2cbd4);note.setPadding(0,12,0,16);root.addView(note);EditText url=new EditText(this);url.setSingleLine(true);url.setHint("https://example.com/media.mp4");url.setTextColor(0xffffffff);url.setHintTextColor(0xff8e8790);root.addView(url);RadioGroup type=new RadioGroup(this);type.setOrientation(RadioGroup.HORIZONTAL);RadioButton audio=new RadioButton(this);audio.setText("Audio");audio.setTextColor(0xffffffff);audio.setId(1);RadioButton video=new RadioButton(this);video.setText("Video");video.setTextColor(0xffffffff);video.setId(2);type.addView(audio);type.addView(video);audio.setChecked(true);root.addView(type);Button play=new Button(this);play.setText("PLAY STREAM");root.addView(play);play.setOnClickListener(v->start(url.getText().toString().trim(),type.getCheckedRadioButtonId()==2));setContentView(root);}
++    private void start(String raw,boolean isVideo){try{Uri uri=Uri.parse(raw);if(!"https".equalsIgnoreCase(uri.getScheme())||uri.getHost()==null)throw new IllegalArgumentException();if(isVideo){Intent i=new Intent(this,VideoPlayerActivity.class).putExtra("uri",raw);startActivity(i);}else{Intent i=new Intent(this,PlayerActivity.class).putExtra("streamUrl",raw).putExtra("streamTitle",uri.getLastPathSegment()==null?uri.getHost():uri.getLastPathSegment());startActivity(i);} }catch(Exception e){new AlertDialog.Builder(this).setMessage("Enter a valid HTTPS direct media URL. Provider pages and restricted streams are not supported.").setPositiveButton("OK",null).show();}}
++}
+diff --git a/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java b/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
+index 5ab0192..f2d834c 100644
+--- a/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
++++ b/app/src/main/java/com/mediahub/rebuilt/PlayerActivity.java
+@@ -39,9 +39,11 @@ public class PlayerActivity extends Activity {
+         List<MediaItem> indexed=MediaRepository.query(this,LibraryActivity.KIND_MUSIC);
+         if(playlistUris!=null){for(String u:playlistUris)for(MediaItem m:indexed)if(m.uri.toString().equals(u)){queue.add(m);break;}}
+         else queue.addAll(indexed);
++        String streamUrl=getIntent().getStringExtra("streamUrl");
++        if(streamUrl!=null){String streamTitle=getIntent().getStringExtra("streamTitle");queue.clear();queue.add(new MediaItem(-1,streamTitle==null?"Online stream":streamTitle,"Online stream",Uri.parse(streamUrl),0,"audio/*"));}
+         if(queue.isEmpty()){Toast.makeText(this,"No music found.",Toast.LENGTH_LONG).show();finish();return;}
+-        String wanted=getIntent().getStringExtra("uri");
++        String wanted=streamUrl!=null?streamUrl:getIntent().getStringExtra("uri");
+         for(int i=0;i<queue.size();i++)if(queue.get(i).uri.toString().equals(wanted)){index=i;break;}
+         String activeUri=getSharedPreferences("now_playing",MODE_PRIVATE).getString("uri",null);
+         if(wanted!=null&&wanted.equals(activeUri)&&PlaybackService.instance!=null&&PlaybackService.instance.isPrepared()){
+diff --git a/app/src/main/java/com/mediahub/rebuilt/SmartStorageActivity.java b/app/src/main/java/com/mediahub/rebuilt/SmartStorageActivity.java
+new file mode 100644
+index 0000000..b611fa3
+--- /dev/null
++++ b/app/src/main/java/com/mediahub/rebuilt/SmartStorageActivity.java
+@@ -0,0 +1,29 @@
++package com.mediahub.rebuilt;
++
++import android.app.Activity;
++import android.app.PendingIntent;
++import android.content.Intent;
++import android.database.Cursor;
++import android.net.Uri;
++import android.os.Build;
++import android.os.Bundle;
++import android.provider.MediaStore;
++import android.widget.ArrayAdapter;
++import android.widget.LinearLayout;
++import android.widget.ListView;
++import android.widget.TextView;
++import android.widget.Toast;
++import java.util.*;
++
++/** Storage analyzer. It only recommends cleanup; deletion always requires Android's confirmation UI. */
++public class SmartStorageActivity extends Activity {
++    private static class Entry {String name;long size;Uri uri;Entry(String n,long s,Uri u){name=n;size=s;uri=u;}}
++    private final ArrayList<Entry> entries=new ArrayList<>();private final ArrayList<String> labels=new ArrayList<>();private ArrayAdapter<String> adapter;private TextView summary;private static final int DELETE_REQ=7101;
++    @Override public void onCreate(Bundle b){super.onCreate(b);LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(20,24,20,16);root.setBackgroundColor(0xff08080c);TextView title=new TextView(this);title.setText("SMART STORAGE");title.setTextColor(0xffff4775);title.setTextSize(20);root.addView(title);summary=new TextView(this);summary.setTextColor(0xffded8e0);summary.setPadding(0,12,0,14);root.addView(summary);ListView list=new ListView(this);adapter=new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,labels);list.setAdapter(adapter);root.addView(list,new LinearLayout.LayoutParams(-1,0,1));list.setOnItemClickListener((p,v,pos,id)->showEntry(pos));setContentView(root);scan();}
++    private void scan(){entries.clear();labels.clear();long total=0;Uri base=MediaStore.Files.getContentUri("external");String[] cols={MediaStore.MediaColumns._ID,MediaStore.MediaColumns.DISPLAY_NAME,MediaStore.MediaColumns.SIZE,MediaStore.MediaColumns.MIME_TYPE};try(Cursor c=getContentResolver().query(base,cols,MediaStore.MediaColumns.SIZE+">0 AND ("+MediaStore.MediaColumns.MIME_TYPE+" LIKE 'audio/%' OR "+MediaStore.MediaColumns.MIME_TYPE+" LIKE 'video/%' OR "+MediaStore.MediaColumns.MIME_TYPE+" LIKE 'image/%')",null,MediaStore.MediaColumns.SIZE+" DESC")){if(c!=null){int ix=c.getColumnIndexOrThrow(MediaStore.MediaColumns._ID),nm=c.getColumnIndexOrThrow(MediaStore.MediaColumns.DISPLAY_NAME),sz=c.getColumnIndexOrThrow(MediaStore.MediaColumns.SIZE),mi=c.getColumnIndexOrThrow(MediaStore.MediaColumns.MIME_TYPE);while(c.moveToNext()){long size=c.getLong(sz);total+=size;if(entries.size()<100){Uri item=Uri.withAppendedPath(base,String.valueOf(c.getLong(ix)));entries.add(new Entry(c.getString(nm),size,item));}}}}catch(Exception ignored){}for(Entry e:entries)labels.add(e.name+"\n"+human(e.size));summary.setText("Indexed top files: "+entries.size()+"     Approx. media size: "+human(total)+"\nTap a file to review it. Nothing is deleted automatically.");adapter.notifyDataSetChanged();}
++    private void showEntry(int pos){Entry e=entries.get(pos);new android.app.AlertDialog.Builder(this).setTitle(e.name).setMessage("Size: "+human(e.size)+"\n\nReview before deleting. Android will ask you to confirm any deletion.").setPositiveButton("Delete…",(d,w)->delete(e)).setNegativeButton("Keep",null).show();}
++    private void delete(Entry e){if(Build.VERSION.SDK_INT>=30){try{PendingIntent pi=MediaStore.createDeleteRequest(getContentResolver(),Collections.singletonList(e.uri));startIntentSenderForResult(pi.getIntentSender(),DELETE_REQ,null,0,0,0);}catch(Exception x){Toast.makeText(this,"Could not request deletion.",Toast.LENGTH_SHORT).show();}}else Toast.makeText(this,"Use your device's file manager to remove this item.",Toast.LENGTH_LONG).show();}
++    @Override protected void onActivityResult(int r,int c,Intent d){super.onActivityResult(r,c,d);if(r==DELETE_REQ&&c==RESULT_OK)scan();}
++    private String human(long n){if(n<1024)return n+" B";if(n<1024*1024)return String.format(Locale.getDefault(),"%.1f KB",n/1024f);if(n<1024L*1024*1024)return String.format(Locale.getDefault(),"%.1f MB",n/(1024f*1024));return String.format(Locale.getDefault(),"%.2f GB",n/(1024d*1024*1024));}
++}
+diff --git a/app/src/main/java/com/mediahub/rebuilt/VaultActivity.java b/app/src/main/java/com/mediahub/rebuilt/VaultActivity.java
+new file mode 100644
+index 0000000..9cc9b78
+--- /dev/null
++++ b/app/src/main/java/com/mediahub/rebuilt/VaultActivity.java
+@@ -0,0 +1,51 @@
++package com.mediahub.rebuilt;
++
++import android.app.Activity;
++import android.content.Intent;
++import android.net.Uri;
++import android.os.Bundle;
++import android.security.keystore.KeyGenParameterSpec;
++import android.security.keystore.KeyProperties;
++import android.widget.ArrayAdapter;
++import android.widget.Button;
++import android.widget.LinearLayout;
++import android.widget.ListView;
++import android.widget.TextView;
++import android.widget.Toast;
++import android.app.AlertDialog;
++import java.io.*;
++import java.security.KeyStore;
++import java.util.*;
++import javax.crypto.Cipher;
++import javax.crypto.CipherInputStream;
++import javax.crypto.CipherOutputStream;
++import javax.crypto.KeyGenerator;
++import javax.crypto.SecretKey;
++import javax.crypto.spec.GCMParameterSpec;
++
++/** Private local vault. Files are AES-256-GCM encrypted before being written to app-private storage. */
++public class VaultActivity extends Activity {
++    private static final int PICK_IMPORT=6101, PICK_EXPORT=6102;
++    private final ArrayList<String> ids=new ArrayList<>(), names=new ArrayList<>();
++    private ArrayAdapter<String> adapter;
++    private int selected=-1;
++    private File vaultDir;
++    @Override public void onCreate(Bundle b){super.onCreate(b);vaultDir=new File(getFilesDir(),"private_vault");if(!vaultDir.exists())vaultDir.mkdirs();
++        LinearLayout root=new LinearLayout(this);root.setOrientation(1);root.setPadding(22,28,22,20);root.setBackgroundColor(0xff08080c);
++        TextView title=new TextView(this);title.setText("PRIVATE VAULT");title.setTextColor(0xffff4775);title.setTextSize(20);title.setPadding(0,0,0,10);root.addView(title);
++        TextView note=new TextView(this);note.setText("Files are encrypted on this device with AES-256-GCM. The encryption key stays in Android Keystore.");note.setTextColor(0xffc9c2cb);note.setTextSize(13);root.addView(note);
++        Button add=new Button(this);add.setText("＋  IMPORT FILE SECURELY");root.addView(add);add.setOnClickListener(v->pickImport());
++        ListView list=new ListView(this);adapter=new ArrayAdapter<>(this,android.R.layout.simple_list_item_1,names);list.setAdapter(adapter);root.addView(list,new LinearLayout.LayoutParams(-1,0,1));
++        list.setOnItemClickListener((p,v,pos,id)->{selected=pos;exportSelected();});
++        list.setOnItemLongClickListener((p,v,pos,id)->{new AlertDialog.Builder(this).setTitle(names.get(pos)).setItems(new String[]{"Export / decrypt","Delete encrypted copy"},(d,w)->{selected=pos;if(w==0)exportSelected();else deleteSelected();}).show();return true;});
++        setContentView(root);reload();
++    }
++    private void pickImport(){Intent i=new Intent(Intent.ACTION_OPEN_DOCUMENT).setType("*/*").addCategory(Intent.CATEGORY_OPENABLE);startActivityForResult(i,PICK_IMPORT);}
++    @Override protected void onActivityResult(int request,int result,Intent data){super.onActivityResult(request,result,data);if(result!=RESULT_OK||data==null||data.getData()==null)return;try{if(request==PICK_IMPORT)encryptImport(data.getData());else if(request==PICK_EXPORT)decryptExport(data.getData());}catch(Exception e){Toast.makeText(this,"Vault operation failed: "+e.getMessage(),Toast.LENGTH_LONG).show();}}
++    private SecretKey getKey() throws Exception {KeyStore ks=KeyStore.getInstance("AndroidKeyStore");ks.load(null);if(ks.containsAlias("mediahub_vault_aes"))return (SecretKey)ks.getKey("mediahub_vault_aes",null);KeyGenerator kg=KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES,"AndroidKeyStore");kg.init(new KeyGenParameterSpec.Builder("mediahub_vault_aes",KeyProperties.PURPOSE_ENCRYPT|KeyProperties.PURPOSE_DECRYPT).setBlockModes(KeyProperties.BLOCK_MODE_GCM).setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE).setKeySize(256).build());return kg.generateKey();}
++    private void encryptImport(Uri uri)throws Exception {String display="Protected file";android.database.Cursor c=getContentResolver().query(uri,new String[]{android.provider.OpenableColumns.DISPLAY_NAME},null,null,null);if(c!=null){if(c.moveToFirst())display=c.getString(0);c.close();}String id=UUID.randomUUID().toString();Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.ENCRYPT_MODE,getKey());File out=new File(vaultDir,id+".mhv");try(InputStream in=getContentResolver().openInputStream(uri);OutputStream raw=new BufferedOutputStream(new FileOutputStream(out))){raw.write(cipher.getIV());try(CipherOutputStream encrypted=new CipherOutputStream(raw,cipher)){byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)encrypted.write(buf,0,n);}}getPreferences(0).edit().putString(id,display==null?"Protected file":display).apply();reload();Toast.makeText(this,"File encrypted and added to your private vault.",Toast.LENGTH_LONG).show();}
++    private void exportSelected(){if(selected<0||selected>=ids.size())return;String name=names.get(selected);Intent i=new Intent(Intent.ACTION_CREATE_DOCUMENT).setType("application/octet-stream").addCategory(Intent.CATEGORY_OPENABLE).putExtra(Intent.EXTRA_TITLE,name);startActivityForResult(i,PICK_EXPORT);}
++    private void decryptExport(Uri target)throws Exception {String id=ids.get(selected);File src=new File(vaultDir,id+".mhv");try(InputStream raw=new BufferedInputStream(new FileInputStream(src))){byte[] iv=new byte[12];DataInputStream header=new DataInputStream(raw);header.readFully(iv);Cipher cipher=Cipher.getInstance("AES/GCM/NoPadding");cipher.init(Cipher.DECRYPT_MODE,getKey(),new GCMParameterSpec(128,iv));try(CipherInputStream in=new CipherInputStream(raw,cipher);OutputStream out=getContentResolver().openOutputStream(target)){byte[] buf=new byte[8192];int n;while((n=in.read(buf))!=-1)out.write(buf,0,n);}}Toast.makeText(this,"Decrypted file exported to your chosen location.",Toast.LENGTH_LONG).show();}
++    private void deleteSelected(){if(selected<0||selected>=ids.size())return;String id=ids.get(selected);new File(vaultDir,id+".mhv").delete();getPreferences(0).edit().remove(id).apply();reload();}
++    private void reload(){ids.clear();names.clear();Map<String,?> all=getPreferences(0).getAll();for(String id:all.keySet()){if(new File(vaultDir,id+".mhv").exists()){ids.add(id);names.add(String.valueOf(all.get(id)));}}if(adapter!=null)adapter.notifyDataSetChanged();}
++}
