@@ -316,7 +316,679 @@ jobs:
           print("Installed dedicated full-screen video playback, seek/progress controls, previous/next, completion advance and library routing.")
           PY
 
+          # Deep v2.11 fixes: route the selected URI, decode real video frames, and add the one-time launch announcement.
+          python3 - "$PROJECT_DIR" <<'PY'
+          from pathlib import Path
+          import sys
+
+          project = Path(sys.argv[1])
+          java_dir = project / "app/src/main/java/com/mediahub/rebuilt"
+          layout_dir = project / "app/src/main/res/layout"
+          drawable_dir = project / "app/src/main/res/drawable"
+          library = java_dir / "LibraryActivity.java"
+          main = java_dir / "MainActivity.java"
+          row = layout_dir / "row_media.xml"
+
+          # The normal tap path used an Intent extra while the player read only Intent.data.
+          # Pass both the selected URI and title, so the exact tapped video is opened.
+          source = library.read_text()
+          broken_route = 'else if(kind==KIND_VIDEO){Intent i=new Intent(this,VideoPlayerActivity.class);i.putExtra("uri",m.uri.toString());startActivity(i);}'
+          fixed_route = 'else if(kind==KIND_VIDEO){Intent i=new Intent(this,VideoPlayerActivity.class);i.setData(m.uri);i.putExtra("uri",m.uri.toString());i.putExtra("title",m.title);startActivity(i);}'
+          if broken_route in source:
+              source = source.replace(broken_route, fixed_route, 1)
+          elif fixed_route not in source:
+              raise SystemExit("Could not find the standard video-tap route; refusing an unsafe patch.")
+
+          # Replace the generic-logo row binding with asynchronous, cached video-frame thumbnails.
+          old_adapter_start = "    private class MediaAdapter extends ArrayAdapter<MediaItem>{"
+          old_adapter_end = "    private class PhotoAdapter extends ArrayAdapter<MediaItem> {"
+          if source.count(old_adapter_start) != 1 or source.count(old_adapter_end) != 1:
+              raise SystemExit("Could not safely locate MediaAdapter for thumbnail replacement.")
+          a = source.index(old_adapter_start)
+          b = source.index(old_adapter_end, a)
+          adapter = r'''    private final android.util.LruCache<String, Bitmap> videoThumbnailCache =
+              new android.util.LruCache<String, Bitmap>(8 * 1024) {
+                  @Override protected int sizeOf(String key, Bitmap value) {
+                      return Math.max(1, value.getByteCount() / 1024);
+                  }
+              };
+
+          private class MediaAdapter extends ArrayAdapter<MediaItem>{
+              MediaAdapter(){super(LibraryActivity.this,0,shown);}
+              @Override public android.view.View getView(int position,android.view.View convert,android.view.ViewGroup parent){
+                  android.view.View row=convert;
+                  if(row==null) row=getLayoutInflater().inflate(R.layout.row_media,parent,false);
+                  MediaItem item=getItem(position);
+                  ((TextView)row.findViewById(R.id.rowTitle)).setText(item.title);
+                  String sub=item.artist==null||item.artist.trim().isEmpty()?item.mime:item.artist;
+                  ((TextView)row.findViewById(R.id.rowSubtitle)).setText(sub==null?"On this device":sub);
+                  ((TextView)row.findViewById(R.id.rowGlyph)).setText(kind==KIND_VIDEO?"▷":kind==KIND_PHOTO?"▧":"♫");
+                  ImageView artwork=row.findViewById(R.id.rowThumbnail);
+                  if(kind==KIND_VIDEO) bindVideoThumbnail(item,artwork);
+                  else {
+                      artwork.setTag(null);
+                      artwork.setImageResource(R.drawable.ic_mediahub);
+                      artwork.setScaleType(ImageView.ScaleType.CENTER_CROP);
+                  }
+                  return row;
+              }
+          }
+
+          private void bindVideoThumbnail(MediaItem item, ImageView image) {
+              final String key = item.uri.toString();
+              image.setTag(key);
+              image.setScaleType(ImageView.ScaleType.CENTER_CROP);
+              Bitmap cached = videoThumbnailCache.get(key);
+              if (cached != null && !cached.isRecycled()) {
+                  image.setImageBitmap(cached);
+                  return;
+              }
+              image.setImageDrawable(null);
+              image.setBackgroundColor(0xFF202027);
+              thumbnailExecutor.execute(() -> {
+                  Bitmap frame = extractVideoThumbnail(item.uri);
+                  if (frame == null) return;
+                  videoThumbnailCache.put(key, frame);
+                  runOnUiThread(() -> {
+                      if (!isFinishing() && key.equals(image.getTag())) image.setImageBitmap(frame);
+                  });
+              });
+          }
+
+          private Bitmap extractVideoThumbnail(android.net.Uri uri) {
+              android.media.MediaMetadataRetriever retriever = new android.media.MediaMetadataRetriever();
+              try {
+                  retriever.setDataSource(LibraryActivity.this, uri);
+                  Bitmap frame = null;
+                  if (Build.VERSION.SDK_INT >= 27) {
+                      frame = retriever.getScaledFrameAtTime(1_000_000L,
+                          android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 384, 216);
+                  }
+                  if (frame == null) {
+                      frame = retriever.getFrameAtTime(1_000_000L,
+                          android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                  }
+                  if (frame == null) {
+                      if (Build.VERSION.SDK_INT >= 27) {
+                          frame = retriever.getScaledFrameAtTime(0L,
+                              android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC, 384, 216);
+                      } else {
+                          frame = retriever.getFrameAtTime(0L,
+                              android.media.MediaMetadataRetriever.OPTION_CLOSEST_SYNC);
+                      }
+                  }
+                  if (frame == null) return null;
+                  int w = frame.getWidth(), h = frame.getHeight();
+                  float scale = Math.min(1f, Math.min(384f / Math.max(1,w), 216f / Math.max(1,h)));
+                  if (scale < 1f) {
+                      Bitmap scaled = Bitmap.createScaledBitmap(frame,
+                          Math.max(1,Math.round(w*scale)), Math.max(1,Math.round(h*scale)), true);
+                      if (scaled != frame) frame.recycle();
+                      frame = scaled;
+                  }
+                  return frame;
+              } catch (Exception ignored) {
+                  return null;
+              } finally {
+                  try { retriever.release(); } catch (Exception ignored) { }
+              }
+          }
+
+          '''
+          source = source[:a] + adapter + source[b:]
+          library.write_text(source)
+
+          # Remove the app-logo placeholder from video rows and give the image a stable recycling ID.
+          xml = row.read_text()
+          xml = xml.replace('<ImageView android:layout_width="48dp" android:layout_height="48dp" android:src="@drawable/ic_mediahub"',
+                            '<ImageView android:id="@+id/rowThumbnail" android:layout_width="48dp" android:layout_height="48dp"')
+          if 'android:id="@+id/rowThumbnail"' not in xml:
+              raise SystemExit("Could not add rowThumbnail ID to row_media.xml.")
+          row.write_text(xml)
+
+          # Harden the player lifecycle: wait for OnPrepared before starting, support both URI forms,
+          # surface decoder failures, and stop attaching a second overlapping MediaController.
+          player = java_dir / "VideoPlayerActivity.java"
+          player.write_text(r'''package com.mediahub.rebuilt;
+
+          import android.app.Activity;
+          import android.net.Uri;
+          import android.os.Bundle;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.view.View;
+          import android.view.WindowManager;
+          import android.widget.Button;
+          import android.widget.SeekBar;
+          import android.widget.TextView;
+          import android.widget.VideoView;
+          import java.util.ArrayList;
+          import java.util.List;
+          import java.util.Locale;
+
+          public class VideoPlayerActivity extends Activity {
+              private VideoView video;
+              private SeekBar seek;
+              private TextView title, elapsed, duration, status;
+              private Button play, previous, next, fullscreen;
+              private final Handler handler = new Handler(Looper.getMainLooper());
+              private final ArrayList<MediaItem> queue = new ArrayList<>();
+              private int index = -1;
+              private boolean seeking = false;
+              private boolean prepared = false;
+              private boolean playWhenReady = true;
+              private boolean resumeAfterPause = false;
+          private Uri currentUri;
+          private boolean loadFailed = false;
+              private boolean controlsVisible = true;
+
+              @Override public void onCreate(Bundle state) {
+                  super.onCreate(state);
+                  getWindow().addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON);
+                  setContentView(R.layout.activity_video);
+                  video = findViewById(R.id.videoView);
+                  seek = findViewById(R.id.videoSeek);
+                  title = findViewById(R.id.videoTitle);
+                  elapsed = findViewById(R.id.videoElapsed);
+                  duration = findViewById(R.id.videoDuration);
+                  status = findViewById(R.id.videoStatus);
+                  play = findViewById(R.id.videoPlay);
+                  previous = findViewById(R.id.videoPrevious);
+                  next = findViewById(R.id.videoNext);
+                  fullscreen = findViewById(R.id.videoFullscreen);
+
+                  List<MediaItem> items = MediaRepository.query(this, LibraryActivity.KIND_VIDEO);
+                  if (items != null) queue.addAll(items);
+
+                  Uri requested = getIntent().getData();
+                  if (requested == null) {
+                      String extraUri = getIntent().getStringExtra("uri");
+                      if (extraUri != null && !extraUri.trim().isEmpty()) {
+                          try { requested = Uri.parse(extraUri); } catch (Exception ignored) { }
+                      }
+                  }
+                  String wanted = requested == null ? null : requested.toString();
+                  if (wanted != null) {
+                      for (int i=0; i<queue.size(); i++) {
+                          if (queue.get(i).uri != null && wanted.equals(queue.get(i).uri.toString())) {
+                              index = i;
+                              break;
+                          }
+                      }
+                  }
+
+                  String requestedTitle = getIntent().getStringExtra("title");
+                  title.setText(requestedTitle == null || requestedTitle.trim().isEmpty()
+                      ? "MEDIAHUB PRO VIDEO" : requestedTitle);
+
+                  video.setOnPreparedListener(mp -> {
+                      prepared = true;
+                      status.setVisibility(View.GONE);
+                      int total = video.getDuration();
+                      duration.setText(time(total));
+                      seek.setMax(Math.max(1,total));
+                      if (playWhenReady) {
+                          video.start();
+                          play.setText("Ⅱ");
+                          handler.removeCallbacks(updateTask);
+                          handler.post(updateTask);
+                      } else {
+                          play.setText("▶");
+                      }
+                  });
+
+                  video.setOnCompletionListener(mp -> playNext(true));
+                  video.setOnErrorListener((mp, what, extra) -> {
+                      prepared = false;
+                      loadFailed = true;
+                      handler.removeCallbacks(updateTask);
+                      play.setText("▶");
+                      status.setText("This video could not be decoded. The file may use a format or codec that this device does not support.");
+                      status.setVisibility(View.VISIBLE);
+                      return true;
+                  });
+
+                  play.setOnClickListener(v -> togglePlayback());
+                  previous.setOnClickListener(v -> playPrevious());
+                  next.setOnClickListener(v -> playNext(false));
+                  fullscreen.setOnClickListener(v -> toggleFullscreen());
+                  seek.setOnSeekBarChangeListener(new SeekBar.OnSeekBarChangeListener() {
+                      @Override public void onStartTrackingTouch(SeekBar b) { if (prepared) seeking=true; }
+                      @Override public void onProgressChanged(SeekBar b,int value,boolean user) {
+                          if (user) elapsed.setText(time(value));
+                      }
+                      @Override public void onStopTrackingTouch(SeekBar b) {
+                          if (prepared) video.seekTo(b.getProgress());
+                          seeking=false;
+                      }
+                  });
+
+                  if (requested != null) {
+                      startVideo(requested);
+                  } else if (!queue.isEmpty()) {
+                      startAt(0);
+                  } else {
+                      status.setText("No videos were found. Add a media folder or check video access in Android settings.");
+                      status.setVisibility(View.VISIBLE);
+                      play.setEnabled(false);
+                      previous.setEnabled(false);
+                      next.setEnabled(false);
+                  }
+              }
+
+              private void startAt(int position) {
+                  if (position < 0 || position >= queue.size()) return;
+                  index = position;
+                  MediaItem item = queue.get(index);
+                  title.setText(item.title == null ? "MEDIAHUB PRO VIDEO" : item.title);
+                  startVideo(item.uri);
+              }
+
+              private void startVideo(Uri uri) {
+                  if (uri == null) return;
+                  currentUri = uri;
+                  loadFailed = false;
+                  handler.removeCallbacks(updateTask);
+                  prepared = false;
+                  playWhenReady = true;
+                  seeking = false;
+                  seek.setProgress(0);
+                  elapsed.setText("0:00");
+                  duration.setText("0:00");
+                  play.setText("…");
+                  status.setText("Preparing video…");
+                  status.setVisibility(View.VISIBLE);
+                  try {
+                      video.stopPlayback();
+                      video.setVideoURI(uri);
+                  } catch (RuntimeException e) {
+                      loadFailed = true;
+                      status.setText("Unable to open this video. Check that the file still exists and MEDIAHUB PRO has access.");
+                      status.setVisibility(View.VISIBLE);
+                      play.setText("▶");
+                  }
+              }
+
+              private void togglePlayback() {
+                  if (!prepared) {
+                      if (loadFailed && currentUri != null) { startVideo(currentUri); return; }
+                      playWhenReady = !playWhenReady;
+                      play.setText(playWhenReady ? "…" : "▶");
+                      return;
+                  }
+                  if (video.isPlaying()) {
+                      video.pause();
+                      play.setText("▶");
+                      handler.removeCallbacks(updateTask);
+                  } else {
+                      video.start();
+                      play.setText("Ⅱ");
+                      handler.removeCallbacks(updateTask);
+                      handler.post(updateTask);
+                  }
+              }
+
+              private void playNext(boolean automatic) {
+                  if (queue.isEmpty()) return;
+                  if (index < 0) index = 0;
+                  else if (index + 1 < queue.size()) index++;
+                  else if (automatic) {
+                      if (prepared) {
+                          video.seekTo(0);
+                          video.pause();
+                      }
+                      play.setText("▶");
+                      handler.removeCallbacks(updateTask);
+                      return;
+                  } else index = 0;
+                  startAt(index);
+              }
+
+              private void playPrevious() {
+                  if (prepared && video.getCurrentPosition() > 3000) {
+                      video.seekTo(0);
+                      return;
+                  }
+                  if (queue.isEmpty()) {
+                      if (prepared) video.seekTo(0);
+                      return;
+                  }
+                  index = index <= 0 ? queue.size()-1 : index-1;
+                  startAt(index);
+              }
+
+              private final Runnable updateTask = new Runnable() {
+                  @Override public void run() {
+                      if (prepared && video != null && video.isPlaying()) {
+                          if (!seeking) seek.setProgress(video.getCurrentPosition());
+                          elapsed.setText(time(video.getCurrentPosition()));
+                          handler.postDelayed(this,500);
+                      }
+                  }
+              };
+
+              private String time(int ms) {
+                  int seconds=Math.max(0,ms/1000), h=seconds/3600, m=(seconds%3600)/60, s=seconds%60;
+                  return h>0
+                      ? String.format(Locale.getDefault(),"%d:%02d:%02d",h,m,s)
+                      : String.format(Locale.getDefault(),"%d:%02d",m,s);
+              }
+
+              private void toggleFullscreen() {
+                  controlsVisible = !controlsVisible;
+                  if (controlsVisible) {
+                      getWindow().getDecorView().setSystemUiVisibility(View.SYSTEM_UI_FLAG_VISIBLE);
+                  } else {
+                      getWindow().getDecorView().setSystemUiVisibility(
+                          View.SYSTEM_UI_FLAG_FULLSCREEN | View.SYSTEM_UI_FLAG_HIDE_NAVIGATION |
+                          View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY | View.SYSTEM_UI_FLAG_LAYOUT_STABLE |
+                          View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION | View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN);
+                  }
+              }
+
+              @Override protected void onPause() {
+                  if (prepared && video != null && video.isPlaying()) {
+                      resumeAfterPause = true;
+                      video.pause();
+                      play.setText("▶");
+                      handler.removeCallbacks(updateTask);
+                  }
+                  super.onPause();
+              }
+
+              @Override protected void onResume() {
+                  super.onResume();
+                  if (resumeAfterPause && prepared && video != null) {
+                      resumeAfterPause = false;
+                      video.start();
+                      play.setText("Ⅱ");
+                      handler.removeCallbacks(updateTask);
+                      handler.post(updateTask);
+                  }
+              }
+
+              @Override protected void onDestroy() {
+                  handler.removeCallbacks(updateTask);
+                  if (video != null) video.stopPlayback();
+                  super.onDestroy();
+              }
+          }
+          ''')
+
+          (layout_dir / "activity_video.xml").write_text(r'''<?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:layout_width="match_parent" android:layout_height="match_parent"
+              android:orientation="vertical" android:background="#050507">
+              <LinearLayout android:layout_width="match_parent" android:layout_height="56dp"
+                  android:gravity="center_vertical" android:paddingHorizontal="16dp" android:background="#101014">
+                  <TextView android:id="@+id/videoTitle" android:layout_width="0dp" android:layout_height="wrap_content"
+                      android:layout_weight="1" android:text="MEDIAHUB PRO VIDEO" android:textColor="#FFFFFF"
+                      android:textStyle="bold" android:textSize="15sp" android:maxLines="1"/>
+                  <Button android:id="@+id/videoFullscreen" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                      android:text="⛶" android:textColor="#FFFFFF" android:backgroundTint="#29212B"/>
+              </LinearLayout>
+              <FrameLayout android:layout_width="match_parent" android:layout_height="0dp" android:layout_weight="1"
+                  android:background="#000000">
+                  <VideoView android:id="@+id/videoView" android:layout_width="match_parent"
+                      android:layout_height="match_parent" android:background="#000000"/>
+                  <TextView android:id="@+id/videoStatus" android:layout_width="match_parent"
+                      android:layout_height="wrap_content" android:layout_gravity="center"
+                      android:gravity="center" android:padding="24dp" android:text="Preparing video…"
+                      android:textColor="#D7D4DC" android:textSize="14sp" android:background="#B0101014"/>
+              </FrameLayout>
+              <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                  android:orientation="vertical" android:paddingHorizontal="16dp" android:paddingTop="10dp"
+                  android:paddingBottom="14dp" android:background="#111014">
+                  <SeekBar android:id="@+id/videoSeek" android:layout_width="match_parent"
+                      android:layout_height="wrap_content" android:progressTint="#FF3475" android:thumbTint="#FF4771"/>
+                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content">
+                      <TextView android:id="@+id/videoElapsed" android:layout_width="0dp" android:layout_height="wrap_content"
+                          android:layout_weight="1" android:text="0:00" android:textColor="#C9C2CB"/>
+                      <TextView android:id="@+id/videoDuration" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="0:00" android:textColor="#C9C2CB"/>
+                  </LinearLayout>
+                  <LinearLayout android:layout_width="match_parent" android:layout_height="wrap_content"
+                      android:gravity="center" android:orientation="horizontal" android:paddingTop="8dp">
+                      <Button android:id="@+id/videoPrevious" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="|◀" android:textColor="#FFFFFF" android:backgroundTint="#29212B"/>
+                      <Button android:id="@+id/videoPlay" android:layout_width="76dp" android:layout_height="56dp"
+                          android:text="…" android:textSize="20sp" android:textColor="#FFFFFF" android:backgroundTint="#F52E67"/>
+                      <Button android:id="@+id/videoNext" android:layout_width="wrap_content" android:layout_height="wrap_content"
+                          android:text="▶|" android:textColor="#FFFFFF" android:backgroundTint="#29212B"/>
+                  </LinearLayout>
+              </LinearLayout>
+          </LinearLayout>
+          ''', encoding="utf-8")
+
+          # One-time, animated COMETOS LAUNCHER 7 announcement with a Nairobi-time live countdown.
+          main_source = main.read_text()
+          broken_resume = '@Override protected void onResume(){super.onResume();if(summary!=null){updateSummary();updateStorageLabel();refreshNowPlaying();}}'
+          fixed_resume = '''@Override protected void onResume(){
+              super.onResume();
+              if(summary!=null){
+                  updateSummary(); updateStorageLabel(); refreshNowPlaying();
+                  new android.os.Handler(android.os.Looper.getMainLooper()).postDelayed(() -> {
+                      if(!isFinishing() && !isDestroyed()) CometosAnnouncement.showIfNeeded(this);
+                  }, 900);
+              }
+          }'''
+          if broken_resume in main_source:
+              main_source = main_source.replace(broken_resume, fixed_resume, 1)
+          elif "CometosAnnouncement.showIfNeeded(this)" not in main_source:
+              raise SystemExit("Could not locate MainActivity.onResume for the announcement hook.")
+          main.write_text(main_source)
+
+          (java_dir / "CometosAnnouncement.java").write_text(r'''package com.mediahub.rebuilt;
+
+          import android.app.Activity;
+          import android.app.Dialog;
+          import android.graphics.Color;
+          import android.os.Handler;
+          import android.os.Looper;
+          import android.view.View;
+          import android.view.Window;
+          import android.view.WindowManager;
+          import android.view.animation.DecelerateInterpolator;
+          import android.animation.Animator;
+          import android.animation.AnimatorListenerAdapter;
+          import android.animation.AnimatorSet;
+          import android.animation.ObjectAnimator;
+          import android.widget.TextView;
+          import java.util.Calendar;
+          import java.util.TimeZone;
+
+          public final class CometosAnnouncement {
+              private static final String PREFS = "mediahub_cometos";
+              private static final String SHOWN = "launcher7_announcement_shown";
+              private static final TimeZone NAIROBI = TimeZone.getTimeZone("Africa/Nairobi");
+              private CometosAnnouncement() {}
+
+              public static void showIfNeeded(Activity activity) {
+                  if (activity == null || activity.isFinishing() || activity.isDestroyed()) return;
+                  android.content.SharedPreferences prefs = activity.getSharedPreferences(PREFS, Activity.MODE_PRIVATE);
+                  if (prefs.getBoolean(SHOWN, false)) return;
+                  prefs.edit().putBoolean(SHOWN, true).apply();
+
+                  Dialog dialog = new Dialog(activity);
+                  dialog.requestWindowFeature(Window.FEATURE_NO_TITLE);
+                  dialog.setContentView(R.layout.dialog_cometos_announcement);
+                  dialog.setCancelable(true);
+                  dialog.setCanceledOnTouchOutside(false);
+                  Window window = dialog.getWindow();
+                  if (window != null) {
+                      window.setBackgroundDrawableResource(android.R.color.transparent);
+                      window.addFlags(WindowManager.LayoutParams.FLAG_DIM_BEHIND);
+                      WindowManager.LayoutParams params = window.getAttributes();
+                      params.dimAmount = 0.78f;
+                      window.setAttributes(params);
+                  }
+
+                  View card = dialog.findViewById(R.id.announcementCard);
+                  View accent = dialog.findViewById(R.id.announcementAccent);
+                  TextView headline = dialog.findViewById(R.id.announcementHeadline);
+                  TextView description = dialog.findViewById(R.id.announcementDescription);
+                  TextView launchLabel = dialog.findViewById(R.id.announcementLaunchLabel);
+                  TextView countdown = dialog.findViewById(R.id.announcementCountdown);
+                  View close = dialog.findViewById(R.id.announcementClose);
+
+                  long launchAt = launchTime();
+                  boolean upcoming = System.currentTimeMillis() < launchAt;
+                  headline.setText(upcoming ? "A NEW EXPERIENCE IS COMING" : "A NEW EXPERIENCE IS HERE");
+                  description.setText(upcoming
+                      ? "The next generation of your launcher experience is almost here."
+                      : "The next generation of your launcher experience has arrived.");
+                  launchLabel.setText(upcoming ? "LAUNCHING TONIGHT" : "NOW AVAILABLE");
+
+                  Handler handler = new Handler(Looper.getMainLooper());
+                  Runnable ticker = new Runnable() {
+                      @Override public void run() {
+                          long remaining = launchAt - System.currentTimeMillis();
+                          if (remaining <= 0) {
+                              countdown.setText("THE LAUNCH WINDOW IS OPEN");
+                          } else {
+                              long total = remaining / 1000L;
+                              long days = total / 86400L;
+                              long hours = (total % 86400L) / 3600L;
+                              long minutes = (total % 3600L) / 60L;
+                              long seconds = total % 60L;
+                              String value = days > 0
+                                  ? String.format(java.util.Locale.ROOT, "LAUNCH IN %dD %02dH %02dM", days, hours, minutes)
+                                  : String.format(java.util.Locale.ROOT, "LAUNCH IN %02dH %02dM %02dS", hours, minutes, seconds);
+                              countdown.setText(value);
+                              handler.postDelayed(this, 1000L);
+                          }
+                      }
+                  };
+
+                  ObjectAnimator glow = ObjectAnimator.ofFloat(accent, View.ALPHA, 0.45f, 1f);
+                  glow.setDuration(950L);
+                  glow.setRepeatCount(ObjectAnimator.INFINITE);
+                  glow.setRepeatMode(ObjectAnimator.REVERSE);
+                  close.setOnClickListener(v -> dialog.dismiss());
+                  dialog.setOnDismissListener(d -> { handler.removeCallbacks(ticker); glow.cancel(); });
+                  dialog.show();
+                  if (window != null) {
+                      window.setLayout((int)(activity.getResources().getDisplayMetrics().widthPixels * 0.90f),
+                          WindowManager.LayoutParams.WRAP_CONTENT);
+                  }
+                  card.setAlpha(0f);
+                  card.setScaleX(0.92f);
+                  card.setScaleY(0.92f);
+                  card.animate().alpha(1f).scaleX(1f).scaleY(1f).setDuration(520L)
+                      .setInterpolator(new DecelerateInterpolator(1.6f)).start();
+
+                  glow.start();
+
+                  TextView brand = dialog.findViewById(R.id.announcementBrand);
+                  ObjectAnimator brandIn = ObjectAnimator.ofFloat(brand, View.TRANSLATION_Y, 18f, 0f);
+                  brandIn.setDuration(650L);
+                  brandIn.setStartDelay(150L);
+                  brandIn.setInterpolator(new DecelerateInterpolator(1.5f));
+                  brandIn.start();
+
+                  ticker.run();
+              }
+
+              private static long launchTime() {
+                  Calendar c = Calendar.getInstance(NAIROBI);
+                  c.set(Calendar.YEAR, 2026);
+                  c.set(Calendar.MONTH, Calendar.NOVEMBER);
+                  c.set(Calendar.DAY_OF_MONTH, 17);
+                  c.set(Calendar.HOUR_OF_DAY, 1);
+                  c.set(Calendar.MINUTE, 0);
+                  c.set(Calendar.SECOND, 0);
+                  c.set(Calendar.MILLISECOND, 0);
+                  return c.getTimeInMillis();
+              }
+          }
+          ''')
+
+          (layout_dir / "dialog_cometos_announcement.xml").write_text(r'''<?xml version="1.0" encoding="utf-8"?>
+          <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+              android:id="@+id/announcementCard"
+              android:layout_width="match_parent" android:layout_height="wrap_content"
+              android:orientation="vertical" android:gravity="center_horizontal"
+              android:paddingStart="26dp" android:paddingEnd="26dp"
+              android:paddingTop="30dp" android:paddingBottom="24dp"
+              android:background="@drawable/cometos_announcement_bg">
+              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:text="MEDIAHUB PRO  /  PRESENTS" android:textColor="#FF8CA7"
+                  android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.18"/>
+              <View android:id="@+id/announcementAccent" android:layout_width="54dp"
+                  android:layout_height="3dp" android:layout_marginTop="19dp"
+                  android:background="#FF4F7B"/>
+              <TextView android:id="@+id/announcementHeadline" android:layout_width="match_parent"
+                  android:layout_height="wrap_content" android:layout_marginTop="21dp"
+                  android:gravity="center" android:text="A NEW EXPERIENCE IS COMING"
+                  android:textColor="#F1EAF0" android:textSize="13sp"
+                  android:textStyle="bold" android:letterSpacing="0.08"/>
+              <TextView android:id="@+id/announcementBrand" android:layout_width="match_parent"
+                  android:layout_height="wrap_content" android:layout_marginTop="12dp"
+                  android:gravity="center" android:text="COMETOS\nLAUNCHER 7"
+                  android:textColor="#FFFFFF" android:textSize="31sp"
+                  android:textStyle="bold" android:letterSpacing="0.015" android:lineSpacingExtra="1dp"/>
+              <TextView android:id="@+id/announcementDescription" android:layout_width="match_parent"
+                  android:layout_height="wrap_content" android:layout_marginTop="13dp"
+                  android:gravity="center" android:text="The next generation of your launcher experience is almost here."
+                  android:textColor="#C7C0CC" android:textSize="13sp" android:lineSpacingExtra="4dp"/>
+              <TextView android:id="@+id/announcementLaunchLabel" android:layout_width="wrap_content"
+                  android:layout_height="wrap_content" android:layout_marginTop="27dp"
+                  android:paddingStart="15dp" android:paddingEnd="15dp"
+                  android:paddingTop="7dp" android:paddingBottom="7dp"
+                  android:text="LAUNCHING TONIGHT" android:textColor="#FFD6E0"
+                  android:textSize="10sp" android:textStyle="bold" android:letterSpacing="0.12"
+                  android:background="#36FF4F7B"/>
+              <TextView android:layout_width="wrap_content" android:layout_height="wrap_content"
+                  android:layout_marginTop="13dp" android:text="17 NOVEMBER  ·  1:00 AM (EAT)"
+                  android:textColor="#FFFFFF" android:textSize="13sp" android:textStyle="bold"/>
+              <TextView android:id="@+id/announcementCountdown" android:layout_width="wrap_content"
+                  android:layout_height="wrap_content" android:layout_marginTop="10dp"
+                  android:text="LAUNCH COUNTDOWN" android:textColor="#FF91AA"
+                  android:textSize="11sp" android:textStyle="bold" android:letterSpacing="0.08"/>
+              <TextView android:id="@+id/announcementClose" android:layout_width="match_parent"
+                  android:layout_height="48dp" android:layout_marginTop="26dp"
+                  android:gravity="center" android:text="GOT IT"
+                  android:textColor="#FFFFFF" android:textSize="12sp" android:textStyle="bold"
+                  android:letterSpacing="0.12" android:background="#F34B78"
+                  android:clickable="true" android:focusable="true"/>
+          </LinearLayout>
+          ''', encoding="utf-8")
+
+          (drawable_dir / "cometos_announcement_bg.xml").write_text(r'''<?xml version="1.0" encoding="utf-8"?>
+          <shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
+              <gradient android:type="linear" android:angle="315"
+                  android:startColor="#241820" android:centerColor="#15121B" android:endColor="#0B0B10"/>
+              <corners android:radius="28dp"/>
+              <stroke android:width="1dp" android:color="#55FF6D91"/>
+          </shape>
+          ''', encoding="utf-8")
+          print("Applied v2.11 fixes: correct URI routing, real video-frame thumbnails, prepared-state playback, and animated Cometos Launcher 7 announcement.")
+          PY
+
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
+
+      - name: Capture source files for v2.11 review
+        shell: bash
+        run: |
+          set -euo pipefail
+          python3 - "$PROJECT_DIR" "$RUNNER_TEMP/mediahub-v2.11-source-review.tar.gz" <<'PY'
+          from pathlib import Path
+          import sys, tarfile
+          root = Path(sys.argv[1]) / "app/src/main"
+          target = Path(sys.argv[2])
+          files = [p for p in root.rglob("*") if p.is_file() and p.suffix in (".java", ".xml")]
+          with tarfile.open(target, "w:gz") as archive:
+              for path in files:
+                  archive.add(path, arcname=path.relative_to(root.parent.parent))
+          print(f"Captured {len(files)} Android source/resource files for review.")
+          PY
+
+      - name: Upload source review bundle
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.11-source-review
+          path: ${{ runner.temp }}/mediahub-v2.11-source-review.tar.gz
+          retention-days: 3
 
       - name: Validate package and update version
         shell: bash
@@ -334,14 +1006,14 @@ jobs:
 
           if not re.search(r"""applicationId\s*["']com\.mediahub\.rebuilt["']""", gradle):
               raise SystemExit("Unexpected applicationId; refusing to change app identity.")
-          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.10'", gradle, count=1)
-          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 10", gradle, count=1)
+          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '2.11'", gradle, count=1)
+          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 11", gradle, count=1)
           if name_count != 1 or code_count != 1:
               raise SystemExit("Could not safely set versionName/versionCode in app/build.gradle.")
           if "NearbyTransferActivity" not in manifest:
               raise SystemExit("NearbyTransferActivity missing from AndroidManifest.xml")
           gradle_path.write_text(gradle)
-          print("OK: applicationId preserved; versionName=2.9; versionCode=9; NearbyTransferActivity registered")
+          print("OK: applicationId preserved; versionName=2.11; versionCode=11; NearbyTransferActivity registered")
           PY
 
       - name: Build debug APK
@@ -357,7 +1029,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.10-debug-test
+          name: MEDIAHUB-PRO-v2.11-debug-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -415,13 +1087,13 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.10 APK
+      - name: Build signed v2.11 APK
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.10 APK signature
+      - name: Verify v2.11 APK signature
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         shell: bash
         run: |
@@ -433,21 +1105,24 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Publish MEDIAHUB-PRO v2.10 and trigger in-app update prompt
+      - name: Publish MEDIAHUB-PRO v2.11 and trigger in-app update prompt
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.10
+          tag_name: v2.11
           target_commitish: ${{ github.sha }}
-          name: MEDIAHUB-PRO v2.10
+          name: MEDIAHUB-PRO v2.11
           body: |
-            MEDIAHUB-PRO v2.10 offline sharing release.
+            MEDIAHUB-PRO v2.11 video playback and library improvements.
 
             - Redesigned Update Center with version information, check status, history and progress.
             - Nearby Connections peer-to-peer transfer without internet, mobile data, Wi-Fi router or hotspot; Bluetooth and Wi-Fi radios must be enabled.
             - Nearby device discovery, authentication prompts, Send/Receive modes and file transfer progress.
             - Retained QR/code-paired local Wi-Fi transfer as a fallback.
-            - Actual photo thumbnails loaded asynchronously; no app-logo substitute.
+            - Real video-frame thumbnails generated asynchronously and cached; no generic app-logo substitute in the video library.
+            - Fixed video tap routing so the selected content URI reaches the player.
+            - Playback now starts only after the media decoder is prepared, with clear errors for unsupported codecs.
+            - Animated, one-time COMETOS LAUNCHER 7 announcement with a Kenya-time countdown to 17 November 2026 at 1:00 AM EAT.
             - Hamburger navigation menu; no bottom navigation.
             - Xender remains available through Android's standard sharing chooser.
             - Online Media remains COMING SOON.
