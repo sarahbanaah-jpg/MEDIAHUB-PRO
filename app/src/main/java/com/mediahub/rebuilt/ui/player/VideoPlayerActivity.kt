@@ -11,6 +11,7 @@ import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.PlayerView
+import com.mediahub.rebuilt.diagnostics.Diagnostics
 
 class VideoPlayerActivity : AppCompatActivity() {
     private var player: ExoPlayer? = null
@@ -37,6 +38,7 @@ class VideoPlayerActivity : AppCompatActivity() {
             playerView.player = exo
             exo.addListener(object : Player.Listener {
                 override fun onPlayerError(error: PlaybackException) {
+                    Diagnostics.recordIssue(this@VideoPlayerActivity, "VideoPlayerActivity", error)
                     Toast.makeText(this@VideoPlayerActivity, "Unable to play this video format: ${error.errorCodeName}", Toast.LENGTH_LONG).show()
                 }
             })
