@@ -33,7 +33,7 @@ if "androidx.work:work-runtime" not in g:
     needle = "implementation 'com.google.firebase:firebase-messaging'"
     if needle not in g:
         raise SystemExit("Firebase Messaging dependency missing; cannot safely add update polling.")
-    g = g.replace(needle, needle + "\n    implementation 'androidx.work:work-runtime:2.10.5'", 1)
+    g = g.replace(needle, needle + "\n    implementation 'androidx.work:work-runtime:2.12.0'", 1)
 gradle.write_text(g, encoding="utf-8")
 properties = project / "gradle.properties"
 props = properties.read_text(encoding="utf-8") if properties.is_file() else ""
