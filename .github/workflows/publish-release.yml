@@ -1,0 +1,116 @@
+name: Publish MEDIAHUB-PRO Release
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: New release tag matching versionName (e.g. v2.15.1)
+        required: true
+        default: v2.15.1
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mediahub-pro-publish
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build, verify, and publish APK
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android build packages
+        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Validate version and signing secrets
+        env:
+          STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+          TAG_NAME: ${{ inputs.tag_name }}
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          set -euo pipefail
+          test -n "$STORE_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$ENCRYPTION_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD"; exit 1; }
+          test -s signing/mediahub-release.jks.enc
+          VERSION_NAME="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+          test -n "$VERSION_NAME"
+          test "$TAG_NAME" = "v$VERSION_NAME" || { echo "::error::Tag $TAG_NAME must be v$VERSION_NAME"; exit 1; }
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "::error::Release $TAG_NAME already exists. Bump version for a new tag."
+            exit 1
+          fi
+          echo "APP_VERSION=$VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Decrypt release signing key
+        env:
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -in signing/mediahub-release.jks.enc \
+            -out /tmp/mediahub-release.jks \
+            -pass env:ENCRYPTION_PASSWORD
+          chmod 600 /tmp/mediahub-release.jks
+
+      - name: Build signed release APK
+        env:
+          MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify APK and prepare named asset
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          test "$(stat -c %s "$APK")" -ge $((4 * 1024 * 1024))
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionName='$APP_VERSION'"
+          sha256sum "$APK"
+          ls -lh "$APK"
+          cp "$APK" "MEDIAHUB-PRO-v${APP_VERSION}.apk"
+
+      - name: Create release with APK attached
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          NOTES="MEDIAHUB-PRO ${TAG_NAME}
+
+Premium Liquid Glass UI update.
+
+- Deep dark theme with rose accent
+- Redesigned home dashboard (hero + library stats)
+- Liquid glass bottom navigation with active pills
+- Improved media grid cards
+- Package: com.mediahub.rebuilt
+- Signed with the official MEDIAHUB-PRO release key
+
+Install over the previous version — Android will ask to update."
+
+          gh release create "$TAG_NAME" \
+            "MEDIAHUB-PRO-v${APP_VERSION}.apk" \
+            --title "MEDIAHUB-PRO $TAG_NAME — Liquid Glass UI" \
+            --notes "$NOTES" \
+            --target main
+
+          echo "Published: https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME"
