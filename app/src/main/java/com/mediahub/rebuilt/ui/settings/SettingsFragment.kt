@@ -10,6 +10,7 @@ import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -22,19 +23,19 @@ import kotlinx.coroutines.withContext
 
 class SettingsFragment : Fragment() {
     override fun onCreateView(inflater: android.view.LayoutInflater, container: android.view.ViewGroup?, savedInstanceState: Bundle?): android.view.View {
-        val scroll = ScrollView(requireContext()).apply { setBackgroundColor(0xFF09070D.toInt()) }
+        val scroll = ScrollView(requireContext()).apply { setBackgroundColor(0xFF08060C.toInt()) }
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(34), dp(20), dp(112))
         }
         scroll.addView(root)
         root.addView(TextView(requireContext()).apply {
-            text = "Settings"; setTextColor(0xFFFFFFFF.toInt()); textSize = 29f
+            text = "Settings"; setTextColor(0xFFFFF7FB.toInt()); textSize = 29f
             setTypeface(null, Typeface.BOLD)
         })
         root.addView(TextView(requireContext()).apply {
-            text = "MEDIAHUB PRO  ·  ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n\nManage your library access, updates and app health."
-            setTextColor(0xFFBDB4C2.toInt()); textSize = 14f; setPadding(0, dp(10), 0, dp(20))
+            text = "MEDIAHUB PRO  ·  ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n\nManage library access, updates and app health."
+            setTextColor(0xFFC9B8C8.toInt()); textSize = 14f; setPadding(0, dp(10), 0, dp(20))
         })
         section(root, "APP")
         root.addView(action("Manage media permissions") {
@@ -55,11 +56,37 @@ class SettingsFragment : Fragment() {
             Toast.makeText(requireContext(), if (enabled) "Update notifications enabled" else "Update notifications disabled", Toast.LENGTH_SHORT).show()
         })
         root.addView(action("Check for updates") {
-            it.text = "Checking for updates…"
-            UpdateChecker.check(requireContext(), notify = false) { version ->
+            it.text = "Checking…"
+            UpdateChecker.check(requireContext(), notify = true) { info ->
                 if (!isAdded) return@check
                 it.text = "Check for updates"
-                Toast.makeText(requireContext(), if (version == null) "No newer published release found, or update check could not connect." else "MediaHub Pro $version is available.", Toast.LENGTH_LONG).show()
+                if (info == null) {
+                    Toast.makeText(requireContext(), "You are on the latest version.", Toast.LENGTH_LONG).show()
+                    return@check
+                }
+                val canInstall = !info.apkUrl.isNullOrBlank()
+                AlertDialog.Builder(requireContext())
+                    .setTitle("Update ${info.version}")
+                    .setMessage(
+                        if (canInstall) "Download and install MediaHub Pro ${info.version} now?"
+                        else "Open the release page to download MediaHub Pro ${info.version}?"
+                    )
+                    .setNegativeButton("Cancel", null)
+                    .setPositiveButton(if (canInstall) "Update now" else "Open") { _, _ ->
+                        if (canInstall) {
+                            Toast.makeText(requireContext(), "Downloading update…", Toast.LENGTH_SHORT).show()
+                            viewLifecycleOwner.lifecycleScope.launch {
+                                val err = UpdateChecker.downloadAndInstall(requireContext(), info.apkUrl!!)
+                                if (err != null && isAdded) {
+                                    Toast.makeText(requireContext(), err, Toast.LENGTH_LONG).show()
+                                    startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
+                                }
+                            }
+                        } else {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(info.releaseUrl)))
+                        }
+                    }
+                    .show()
             }
         })
         section(root, "DIAGNOSTICS")
@@ -99,15 +126,15 @@ class SettingsFragment : Fragment() {
             Toast.makeText(requireContext(), "Saved crash report cleared", Toast.LENGTH_SHORT).show()
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Diagnostic ZIPs include app version, device/Android details, permission status and the last recorded app crash. Personal photos, videos and music are not included. Nothing is sent until you choose a WhatsApp chat and tap Send."
-            setTextColor(0xFF8E8492.toInt()); textSize = 12f; setPadding(0, dp(14), 0, 0)
+            text = "Updates are checked automatically on launch and once a day in the background. When a new version is published, you get a notification and can install from inside the app."
+            setTextColor(0xFF8E7F93.toInt()); textSize = 12f; setPadding(0, dp(14), 0, 0)
         })
         return scroll
     }
 
     private fun section(root: LinearLayout, title: String) {
         root.addView(TextView(requireContext()).apply {
-            text = title; setTextColor(0xFFFF7898.toInt()); textSize = 11f
+            text = title; setTextColor(0xFFFF5C8A.toInt()); textSize = 11f
             setTypeface(null, Typeface.BOLD); setPadding(0, dp(14), 0, dp(9))
         })
     }
@@ -118,11 +145,11 @@ class SettingsFragment : Fragment() {
     }
 
     private fun action(title: String, click: (TextView) -> Unit) = TextView(requireContext()).apply {
-        text = title; setTextColor(0xFFFFFFFF.toInt()); textSize = 14f
+        text = title; setTextColor(0xFFFFF7FB.toInt()); textSize = 14f
         setPadding(dp(16), dp(17), dp(16), dp(17))
         background = GradientDrawable().apply {
-            setColor(0xFF1B1520.toInt()); cornerRadius = dp(16).toFloat()
-            setStroke(dp(1), 0x55F06A9B)
+            setColor(0xFF1A1422.toInt()); cornerRadius = dp(16).toFloat()
+            setStroke(dp(1), 0x28FFFFFF)
         }
         isClickable = true; isFocusable = true; setOnClickListener { click(this) }
         layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) }

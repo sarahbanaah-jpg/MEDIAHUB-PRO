@@ -11,6 +11,7 @@ import android.view.View
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -19,6 +20,7 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ui.home.HomeFragment
 import com.mediahub.rebuilt.ui.music.MusicFragment
@@ -26,14 +28,13 @@ import com.mediahub.rebuilt.ui.photos.PhotosFragment
 import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
 import com.mediahub.rebuilt.updates.UpdateChecker
+import kotlinx.coroutines.launch
 
-/**
- * Single-activity host with premium Liquid Glass bottom navigation.
- */
 class MainActivity : AppCompatActivity() {
 
     private lateinit var contentContainer: FrameLayout
     private lateinit var bottomNav: LinearLayout
+    private var updateDialogShown = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -58,13 +59,76 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        UpdateChecker.check(this)
+        // Silent check on launch (may post notification + show dialog)
+        UpdateChecker.check(this, notify = true) { info ->
+            if (info != null && !isFinishing) showUpdateDialog(info.version, info.apkUrl, info.releaseUrl)
+        }
+
+        handleUpdateIntent(intent)
 
         if (hasMediaPermissions()) {
             showMainUi()
         } else {
             requestMediaPermissions()
         }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        handleUpdateIntent(intent)
+    }
+
+    private fun handleUpdateIntent(intent: Intent?) {
+        if (intent?.getBooleanExtra(UpdateChecker.EXTRA_UPDATE_AVAILABLE, false) != true) return
+        val version = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_VERSION) ?: return
+        val apkUrl = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_APK_URL)
+        val releaseUrl = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_RELEASE_URL)
+        showUpdateDialog(version, apkUrl, releaseUrl)
+    }
+
+    private fun showUpdateDialog(version: String, apkUrl: String?, releaseUrl: String?) {
+        if (updateDialogShown || isFinishing) return
+        updateDialogShown = true
+
+        val canInstall = !apkUrl.isNullOrBlank()
+        val message = if (canInstall) {
+            "MediaHub Pro $version is available.\n\nTap Update now to download and install inside the app."
+        } else {
+            "MediaHub Pro $version is available.\n\nOpen the release page to download the APK."
+        }
+
+        val builder = AlertDialog.Builder(this)
+            .setTitle("Update available")
+            .setMessage(message)
+            .setNegativeButton("Later") { d, _ ->
+                updateDialogShown = false
+                d.dismiss()
+            }
+
+        if (canInstall) {
+            builder.setPositiveButton("Update now") { _, _ ->
+                Toast.makeText(this, "Downloading update…", Toast.LENGTH_SHORT).show()
+                lifecycleScope.launch {
+                    val error = UpdateChecker.downloadAndInstall(this@MainActivity, apkUrl!!)
+                    updateDialogShown = false
+                    if (error != null) {
+                        Toast.makeText(this@MainActivity, error, Toast.LENGTH_LONG).show()
+                        if (!releaseUrl.isNullOrBlank()) {
+                            startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl)))
+                        }
+                    }
+                }
+            }
+        } else if (!releaseUrl.isNullOrBlank()) {
+            builder.setPositiveButton("Open download") { _, _ ->
+                updateDialogShown = false
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(releaseUrl)))
+            }
+        }
+
+        builder.setOnDismissListener { updateDialogShown = false }
+        builder.show()
     }
 
     private fun hasMediaPermissions(): Boolean {
@@ -148,7 +212,6 @@ class MainActivity : AppCompatActivity() {
             label?.setTextColor(if (active) activeColor else inactiveColor)
             icon?.setTextColor(if (active) activeColor else inactiveColor)
             label?.typeface = if (active) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            // Soft pill highlight on active tab
             view.setBackgroundResource(if (active) R.drawable.bg_nav_pill_active else 0)
         }
     }
