@@ -58,7 +58,8 @@ replacement = """try {
                 .setConstraints(updateConstraints).build();
         androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
                 "mediahub_release_update_poll", androidx.work.ExistingPeriodicWorkPolicy.KEEP, updateWork);
-        requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);"""
+        requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying();
+        try { UpdateManager.checkIfDue(this); }"""
 s = replace_once(s, anchor, replacement, "MainActivity update-topic subscription")
 main.write_text(s, encoding="utf-8")
 
