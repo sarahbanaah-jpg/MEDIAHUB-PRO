@@ -28,8 +28,7 @@ import com.mediahub.rebuilt.ui.videos.VideosFragment
 import com.mediahub.rebuilt.updates.UpdateChecker
 
 /**
- * Single-activity host with Liquid Glass bottom navigation.
- * Permissions are requested before any MediaStore access.
+ * Single-activity host with premium Liquid Glass bottom navigation.
  */
 class MainActivity : AppCompatActivity() {
 
@@ -38,8 +37,7 @@ class MainActivity : AppCompatActivity() {
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
-    ) { results ->
-        // Partial access is supported; if everything was denied, explain how to grant access.
+    ) {
         if (hasMediaPermissions()) showMainUi() else showPermissionDenied()
     }
 
@@ -56,7 +54,7 @@ class MainActivity : AppCompatActivity() {
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bars.bottom + dp(8))
+            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bars.bottom + dp(6))
             insets
         }
 
@@ -71,12 +69,15 @@ class MainActivity : AppCompatActivity() {
 
     private fun hasMediaPermissions(): Boolean {
         if (Build.VERSION.SDK_INT < 33) {
-            return ContextCompat.checkSelfPermission(this, Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+            return ContextCompat.checkSelfPermission(
+                this, Manifest.permission.READ_EXTERNAL_STORAGE
+            ) == PackageManager.PERMISSION_GRANTED
         }
         val audio = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_AUDIO) == PackageManager.PERMISSION_GRANTED
         val video = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VIDEO) == PackageManager.PERMISSION_GRANTED
         val images = ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_IMAGES) == PackageManager.PERMISSION_GRANTED
-        val selected = Build.VERSION.SDK_INT >= 34 && ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
+        val selected = Build.VERSION.SDK_INT >= 34 &&
+            ContextCompat.checkSelfPermission(this, Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED) == PackageManager.PERMISSION_GRANTED
         return audio || video || images || selected
     }
 
@@ -124,7 +125,6 @@ class MainActivity : AppCompatActivity() {
             R.id.navPhotos to { PhotosFragment() },
             R.id.navSettings to { SettingsFragment() }
         )
-
         tabs.forEach { (id, createFragment) ->
             findViewById<View>(id).setOnClickListener {
                 switchTo(createFragment(), id)
@@ -137,13 +137,19 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.contentContainer, fragment)
             .commit()
 
+        val activeColor = 0xFFFF5C8A.toInt()
+        val inactiveColor = 0xFF8E7F93.toInt()
+
         listOf(R.id.navHome, R.id.navVideos, R.id.navMusic, R.id.navPhotos, R.id.navSettings).forEach { id ->
             val view = findViewById<View>(id)
             val label = view.findViewWithTag<TextView>("label")
             val icon = view.findViewWithTag<TextView>("icon")
             val active = id == activeId
-            label?.setTextColor(if (active) 0xFFFF6B8A.toInt() else 0xFFB0A0B0.toInt())
-            icon?.setTextColor(if (active) 0xFFFF6B8A.toInt() else 0xFFB0A0B0.toInt())
+            label?.setTextColor(if (active) activeColor else inactiveColor)
+            icon?.setTextColor(if (active) activeColor else inactiveColor)
+            label?.typeface = if (active) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
+            // Soft pill highlight on active tab
+            view.setBackgroundResource(if (active) R.drawable.bg_nav_pill_active else 0)
         }
     }
 

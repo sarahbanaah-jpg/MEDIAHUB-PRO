@@ -17,6 +17,9 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Premium media grid cards with soft glass borders and rounded thumbnails.
+ */
 class MediaGridAdapter(
     private val context: Context,
     private val items: List<MediaItem>,
@@ -33,29 +36,34 @@ class MediaGridAdapter(
     override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): Holder {
         val density = context.resources.displayMetrics.density
         fun dp(value: Int) = (value * density).toInt()
+
         val image = ImageView(context).apply {
-            layoutParams = LinearLayout.LayoutParams(-1, dp(if (videos) 112 else 116))
+            layoutParams = LinearLayout.LayoutParams(-1, dp(if (videos) 118 else 122))
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
                 setColor(0xFF241D29.toInt())
-                cornerRadius = dp(12).toFloat()
+                cornerRadius = dp(14).toFloat()
             }
+            clipToOutline = true
         }
+
         val title = TextView(context).apply {
             setTextColor(0xFFF5EDF7.toInt())
-            textSize = 12f
+            textSize = 12.5f
             maxLines = 2
             setTypeface(null, Typeface.BOLD)
-            setPadding(dp(3), dp(7), dp(3), dp(3))
+            setPadding(dp(4), dp(8), dp(4), dp(2))
         }
+
         val card = LinearLayout(context).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(6), dp(6), dp(6), dp(8))
+            setPadding(dp(7), dp(7), dp(7), dp(10))
             background = GradientDrawable().apply {
-                setColor(0xFF17121C.toInt())
-                cornerRadius = dp(17).toFloat()
-                setStroke(dp(1), 0x22FFFFFF)
+                setColor(0xFF1A1422.toInt())
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(1), 0x28FFFFFF)
             }
+            elevation = 4f * density
             addView(image)
             addView(title)
             isClickable = true
@@ -68,14 +76,21 @@ class MediaGridAdapter(
         val item = items[position]
         holder.job?.cancel()
         holder.image.tag = item.uri.toString()
-        holder.image.setImageResource(if (videos) android.R.drawable.ic_media_play else android.R.drawable.ic_menu_gallery)
+        holder.image.setImageResource(
+            if (videos) android.R.drawable.ic_media_play else android.R.drawable.ic_menu_gallery
+        )
         holder.title.text = item.title
-        holder.card.setOnClickListener { onClick(holder.bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION } ?: return@setOnClickListener) }
+        holder.card.setOnClickListener {
+            val pos = holder.bindingAdapterPosition
+            if (pos != RecyclerView.NO_POSITION) onClick(pos)
+        }
         holder.job = scope.launch {
             val bitmap = withContext(Dispatchers.IO) {
                 MediaThumbnails.load(context, item.uri, 420, 320)
             }
-            if (holder.image.tag == item.uri.toString() && bitmap != null) holder.image.setImageBitmap(bitmap)
+            if (holder.image.tag == item.uri.toString() && bitmap != null) {
+                holder.image.setImageBitmap(bitmap)
+            }
         }
     }
 
