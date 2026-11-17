@@ -1091,6 +1091,7 @@ jobs:
           print("Firebase connected: project=mediahub-pro-11393, package=com.mediahub.rebuilt; Google Services plugin and Firebase Analytics configured.")
           PY
 
+          python3 "$GITHUB_WORKSPACE/release_patches/apply-v3.1-feature-updates.py" "$PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Capture source files for v2.13 review
@@ -1112,7 +1113,7 @@ jobs:
       - name: Upload source review bundle
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v3.0.0-source-review
+          name: MEDIAHUB-PRO-v3.1.0-source-review
           path: ${{ runner.temp }}/mediahub-v2.13-source-review.tar.gz
           retention-days: 3
 
@@ -1132,8 +1133,8 @@ jobs:
 
           if not re.search(r"""applicationId\s*["']com\.mediahub\.rebuilt["']""", gradle):
               raise SystemExit("Unexpected applicationId; refusing to change app identity.")
-          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '3.0.0'", gradle, count=1)
-          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 30", gradle, count=1)
+          gradle, name_count = re.subn(r"""versionName\s*["'][^"']+["']""", "versionName '3.1.0'", gradle, count=1)
+          gradle, code_count = re.subn(r"versionCode\s+\d+\b", "versionCode 31", gradle, count=1)
           if name_count != 1 or code_count != 1:
               raise SystemExit("Could not safely set versionName/versionCode in app/build.gradle.")
           if "NearbyTransferActivity" not in manifest:
@@ -1186,7 +1187,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v3.0.0-debug-test
+          name: MEDIAHUB-PRO-v3.1.0-debug-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -1244,13 +1245,13 @@ jobs:
           p.write_text(s)
           PY
 
-      - name: Build signed v2.13 APK
+      - name: Build signed v3.1.0 APK
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleRelease
 
-      - name: Verify v2.13 APK signature
+      - name: Verify v3.1.0 APK signature
         if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails') || github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android'
         shell: bash
         run: |
@@ -1262,30 +1263,34 @@ jobs:
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Upload signed v2.13 installation test APK
+      - name: Upload signed v3.1.0 installation test APK
         if: github.event_name == 'push' && (github.ref == 'refs/heads/fix/v2.13-exoplayer-texture-video' || github.ref == 'refs/heads/feature/reference-home-ui' || github.ref == 'refs/heads/rebuild/v3-clean-android')
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v3.0.0-signed-install-test
+          name: MEDIAHUB-PRO-v3.1.0-signed-install-test
           path: ${{ runner.temp }}/mediahub-source/**/app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Publish MEDIAHUB-PRO v2.13 and trigger in-app update prompt
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails')
+      - name: Publish MEDIAHUB-PRO v3.1.0 and trigger in-app update prompt
+        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails' || github.ref == 'refs/heads/rebuild/v3-clean-android')
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.13
+          tag_name: v3.1.0
           target_commitish: ${{ github.sha }}
-          name: MEDIAHUB-PRO v2.13
+          name: MEDIAHUB-PRO v3.1.0
           body: |
-            MEDIAHUB-PRO v2.13 video playback and library improvements.
+            MEDIAHUB-PRO v3.1.0 media-library, playback, update and visual improvements.
 
             - Redesigned Update Center with version information, check status, history and progress.
             - Nearby Connections peer-to-peer transfer without internet, mobile data, Wi-Fi router or hotspot; Bluetooth and Wi-Fi radios must be enabled.
             - Nearby device discovery, authentication prompts, Send/Receive modes and file transfer progress.
             - Retained QR/code-paired local Wi-Fi transfer as a fallback.
             - Real video-frame thumbnails generated asynchronously and cached; no generic app-logo substitute in the video library.
+            - Real photo thumbnails are loaded from the device media library; photo/video previews appear before opening items.
+            - MediaSession-backed lock-screen playback metadata and previous, play/pause and next controls.
+            - Liquid-glass translucent cards, highlights and layered gradients across the app.
+            - Mandatory in-app update prompt and Firebase Cloud Messaging topic receiver for required-update alerts (trusted sender must publish to mediahub_updates).
             - Fixed video tap routing so the selected content URI reaches the player.
             - Playback now starts only after the media decoder is prepared, with clear errors for unsupported codecs.
             - Animated, one-time COMETOS LAUNCHER 7 announcement with a Kenya-time countdown to 17 November 2026 at 1:00 AM EAT.
