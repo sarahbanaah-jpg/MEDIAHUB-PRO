@@ -42,6 +42,11 @@ class SettingsFragment : Fragment() {
                 data = Uri.fromParts("package", requireContext().packageName, null)
             })
         })
+        root.addView(action("Manage notification permissions") {
+            startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().packageName)
+            })
+        })
         root.addView(action(updateNotificationLabel()) {
             val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
             val enabled = !prefs.getBoolean("update_notifications", true)
@@ -54,7 +59,7 @@ class SettingsFragment : Fragment() {
             UpdateChecker.check(requireContext(), notify = false) { version ->
                 if (!isAdded) return@check
                 it.text = "Check for updates"
-                Toast.makeText(requireContext(), if (version == null) "You're using the latest published version." else "MediaHub Pro $version is available.", Toast.LENGTH_LONG).show()
+                Toast.makeText(requireContext(), if (version == null) "No newer published release found, or update check could not connect." else "MediaHub Pro $version is available.", Toast.LENGTH_LONG).show()
             }
         })
         section(root, "DIAGNOSTICS")
