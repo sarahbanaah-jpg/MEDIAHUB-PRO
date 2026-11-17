@@ -68,7 +68,7 @@ class MediaGridAdapter(
         val item = items[position]
         holder.job?.cancel()
         holder.image.tag = item.uri.toString()
-        holder.image.setImageDrawable(null)
+        holder.image.setImageResource(if (videos) android.R.drawable.ic_media_play else android.R.drawable.ic_menu_gallery)
         holder.title.text = item.title
         holder.card.setOnClickListener { onClick(holder.bindingAdapterPosition.takeIf { it != RecyclerView.NO_POSITION } ?: return@setOnClickListener) }
         holder.job = scope.launch {
