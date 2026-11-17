@@ -1052,7 +1052,7 @@ jobs:
           if "com.google.gms.google-services" not in root_text:
               match = re.search(r"plugins\s*\{", root_text)
               if match:
-                  root_text = root_text[:match.end()] + "\n    id 'com.google.gms.google-services' version '4.6.0' apply false" + root_text[match.end():]
+                  root_text = root_text[:match.end()] + "\n    id 'com.google.gms.google-services' version '4.6.0' apply false\n" + root_text[match.end():]
               else:
                   root_text = "plugins { id 'com.google.gms.google-services' version '4.6.0' apply false }\n" + root_text
               root_gradle.write_text(root_text, encoding="utf-8")
@@ -1066,7 +1066,7 @@ jobs:
               match = re.search(r"plugins\s*\{", app_text)
               if not match:
                   raise SystemExit("Could not find the app Gradle plugins block.")
-              app_text = app_text[:match.end()] + "\n    id 'com.google.gms.google-services'" + app_text[match.end():]
+              app_text = app_text[:match.end()] + "\n    id 'com.google.gms.google-services'\n" + app_text[match.end():]
 
           firebase_dependencies = [
               "implementation platform('com.google.firebase:firebase-bom:35.2.0')",
