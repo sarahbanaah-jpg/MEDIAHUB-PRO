@@ -25,6 +25,7 @@ import com.mediahub.rebuilt.ui.music.MusicFragment
 import com.mediahub.rebuilt.ui.photos.PhotosFragment
 import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
+import com.mediahub.rebuilt.ui.welcome.WelcomeVoice
 import com.mediahub.rebuilt.updates.UpdateChecker
 
 class MainActivity : AppCompatActivity() {
@@ -55,6 +56,9 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bars.bottom + dp(6))
             insets
         }
+
+        // Male welcome voice (not female)
+        WelcomeVoice.speakOnce(this)
 
         UpdateChecker.check(this, notify = true) { info ->
             if (info != null && !isFinishing) {
@@ -154,8 +158,8 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.contentContainer, fragment)
             .commit()
 
-        val activeColor = 0xFFFF5C8A.toInt()
-        val inactiveColor = 0xFF8E7F93.toInt()
+        val activeColor = 0xFFFF2D95.toInt()
+        val inactiveColor = 0xFF9A8BB0.toInt()
         listOf(R.id.navHome, R.id.navVideos, R.id.navMusic, R.id.navPhotos, R.id.navSettings).forEach { id ->
             val view = findViewById<View>(id)
             val label = view.findViewWithTag<TextView>("label")

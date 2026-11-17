@@ -23,132 +23,130 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Polished liquid-glass home inspired by premium file managers:
+ * search bar, recents strip, category grid, storage cards.
+ */
 class HomeFragment : Fragment() {
     private lateinit var summary: TextView
     private lateinit var recent: LinearLayout
-    private lateinit var statsRow: LinearLayout
-    private lateinit var performanceCard: LinearLayout
-    private lateinit var updateCard: LinearLayout
+    private lateinit var categoryGrid: LinearLayout
+    private lateinit var updateStatus: TextView
 
-    override fun onCreateView(
-        inflater: LayoutInflater,
-        container: ViewGroup?,
-        savedInstanceState: Bundle?
-    ): View {
+    override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val scroll = ScrollView(requireContext()).apply {
-            setBackgroundColor(0xFF0B0618.toInt())
-            clipToPadding = false
+            setBackgroundColor(0xFF0A0714.toInt())
             isFillViewport = true
+            clipToPadding = false
         }
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(48), dp(20), dp(120))
+            setPadding(dp(16), dp(40), dp(16), dp(120))
         }
         scroll.addView(root)
 
+        // Search-style glass bar
+        root.addView(LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = GradientDrawable().apply {
+                setColor(0xCC14101F.toInt())
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), 0x40FFFFFF)
+            }
+            addView(TextView(requireContext()).apply {
+                text = "⌕"
+                setTextColor(0xFF9A8BB0.toInt())
+                textSize = 18f
+                setPadding(0, 0, dp(12), 0)
+            })
+            addView(TextView(requireContext()).apply {
+                text = "Search music, videos, photos"
+                setTextColor(0xFF9A8BB0.toInt())
+                textSize = 15f
+                layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+            })
+        })
+
+        // Brand line
         root.addView(TextView(requireContext()).apply {
             text = "MEDIAHUB PRO"
             setTextColor(0xFFFF2D95.toInt())
             textSize = 11f
-            letterSpacing = 0.22f
+            letterSpacing = 0.2f
             setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(20), 0, dp(4))
         })
-
         root.addView(TextView(requireContext()).apply {
-            text = "Listen and enjoy\nyour music."
+            text = "Listen and enjoy your media"
             setTextColor(0xFFFFFFFF.toInt())
-            textSize = 30f
+            textSize = 24f
             setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(10), 0, dp(6))
-            setLineSpacing(0f, 1.05f)
+            setPadding(0, 0, 0, dp(16))
         })
 
-        root.addView(TextView(requireContext()).apply {
-            text = "Experience personalized media designed to elevate every moment."
-            setTextColor(0xFFD4C4E8.toInt())
-            textSize = 14f
-            setPadding(0, 0, 0, dp(18))
-        })
-
-        val hero = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(20), dp(22), dp(20), dp(22))
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0xFF7B2FF7.toInt(), 0xFFFF2D95.toInt(), 0xFF1A0A30.toInt())
-            ).apply { cornerRadius = dp(28).toFloat() }
-        }
-        hero.addView(TextView(requireContext()).apply {
-            text = "YOUR LIBRARY"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 11f
-            letterSpacing = 0.14f
-            setTypeface(null, Typeface.BOLD)
-        })
-        hero.addView(TextView(requireContext()).apply {
-            text = "Music, videos and photos in one neon glass hub."
-            setTextColor(0xFFFFF0F8.toInt())
-            textSize = 15f
-            setPadding(0, dp(8), 0, 0)
-        })
-        root.addView(hero)
-
-        statsRow = LinearLayout(requireContext()).apply {
+        // Recents header
+        val recentsHeader = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
-            setPadding(0, dp(16), 0, dp(4))
+            gravity = Gravity.CENTER_VERTICAL
         }
-        root.addView(statsRow)
-
-        summary = TextView(requireContext()).apply {
-            text = "Scanning your library…"
+        recentsHeader.addView(TextView(requireContext()).apply {
+            text = "Recents"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 17f
+            setTypeface(null, Typeface.BOLD)
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        })
+        recentsHeader.addView(TextView(requireContext()).apply {
+            text = "See all"
             setTextColor(0xFFFF6BB5.toInt())
             textSize = 13f
-            setPadding(0, dp(10), 0, dp(4))
-        }
-        root.addView(summary)
+        })
+        root.addView(recentsHeader)
 
-        updateCard = LinearLayout(requireContext()).apply {
+        recent = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(0, dp(12), 0, dp(8))
+        }
+        root.addView(recent)
+
+        // Categories
+        root.addView(TextView(requireContext()).apply {
+            text = "Categories"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 17f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(16), 0, dp(12))
+        })
+
+        categoryGrid = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+        }
+        root.addView(categoryGrid)
+
+        // Update glass card
+        val updateCard = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = glass()
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+            background = glassCard()
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) }
         }
         updateCard.addView(TextView(requireContext()).apply {
             text = "APP UPDATE"
             setTextColor(0xFFFF6BB5.toInt())
             textSize = 11f
-            letterSpacing = 0.12f
             setTypeface(null, Typeface.BOLD)
+            letterSpacing = 0.1f
         })
-        updateCard.addView(TextView(requireContext()).apply {
-            tag = "update_status"
+        updateStatus = TextView(requireContext()).apply {
             text = "Checking…  ·  v${BuildConfig.VERSION_NAME}"
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 14f
             setPadding(0, dp(8), 0, 0)
-        })
+        }
+        updateCard.addView(updateStatus)
         root.addView(updateCard)
-
-        performanceCard = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(16), dp(16), dp(16))
-            background = glass()
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
-        }
-        performanceCard.addView(TextView(requireContext()).apply {
-            text = "DEVICE PERFORMANCE"
-            setTextColor(0xFF9B6DFF.toInt())
-            textSize = 11f
-            letterSpacing = 0.12f
-            setTypeface(null, Typeface.BOLD)
-        })
-        root.addView(performanceCard)
-
-        recent = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(0, dp(8), 0, 0)
-        }
-        root.addView(recent)
 
         root.addView(TextView(requireContext()).apply {
             text = "© Grimy. All rights reserved."
@@ -163,72 +161,77 @@ class HomeFragment : Fragment() {
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         viewLifecycleOwner.lifecycleScope.launch {
-            val context = requireContext()
-            val snap = withContext(Dispatchers.IO) { DevicePerformance.snapshot(context) }
-            DevicePerformance.summaryLines(snap).forEach { line ->
-                performanceCard.addView(TextView(context).apply {
-                    text = line
-                    setTextColor(0xFFD4C4E8.toInt())
-                    textSize = 13f
-                    setPadding(0, dp(6), 0, 0)
-                })
-            }
+            val ctx = requireContext()
+            val music = MediaRepository.loadMusic(ctx)
+            val videos = MediaRepository.loadVideos(ctx)
+            val photos = MediaRepository.loadPhotos(ctx)
+            val snap = withContext(Dispatchers.IO) { DevicePerformance.snapshot(ctx) }
 
-            val videos = MediaRepository.loadVideos(context)
-            val music = MediaRepository.loadMusic(context)
-            val photos = MediaRepository.loadPhotos(context)
-
-            summary.text = "Library ready"
-            statsRow.removeAllViews()
-            statsRow.addView(statChip("${music.size}", "Songs", 0xFFFF2D95.toInt()))
-            statsRow.addView(statChip("${videos.size}", "Videos", 0xFF9B6DFF.toInt()))
-            statsRow.addView(statChip("${photos.size}", "Photos", 0xFF5CE1FF.toInt()))
-
+            // Recents strip
             recent.removeAllViews()
-            recent.addView(TextView(context).apply {
-                text = "Recently added"
-                setTextColor(0xFFFFFFFF.toInt())
-                textSize = 18f
-                setTypeface(null, Typeface.BOLD)
-                setPadding(0, dp(18), 0, dp(12))
-            })
-
-            val latest = (music + videos + photos).sortedByDescending { it.dateAdded }.take(10)
+            val latest = (music + videos + photos).sortedByDescending { it.dateAdded }.take(4)
             if (latest.isEmpty()) {
-                recent.addView(TextView(context).apply {
-                    text = "Your library is empty. Add media on your device and grant access."
+                recent.addView(TextView(ctx).apply {
+                    text = "No recent media yet"
                     setTextColor(0xFF9A8BB0.toInt())
                     textSize = 14f
+                    setPadding(dp(4), dp(8), dp(4), dp(8))
                 })
             } else {
-                latest.forEach { item -> recent.addView(mediaRow(item)) }
+                latest.forEach { recent.addView(recentRow(it)) }
             }
+
+            // Category grid 2x3 style
+            categoryGrid.removeAllViews()
+            fun rowOf(a: View, b: View): LinearLayout {
+                return LinearLayout(ctx).apply {
+                    orientation = LinearLayout.HORIZONTAL
+                    addView(a)
+                    addView(b)
+                    layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
+                }
+            }
+            categoryGrid.addView(rowOf(
+                catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()),
+                catCard("▶", "Videos", "${videos.size} files", 0xFF9B6DFF.toInt())
+            ))
+            categoryGrid.addView(rowOf(
+                catCard("▣", "Images", "${photos.size} photos", 0xFF5CE1FF.toInt()),
+                catCard("↓", "Downloads", "Library", 0xFFFF6BB5.toInt())
+            ))
+            categoryGrid.addView(rowOf(
+                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFA78BFA.toInt()),
+                catCard("⚡", "Performance", "${snap.availableRamMb} MB RAM", 0xFF5EEAD4.toInt())
+            ))
         }
 
         UpdateChecker.check(requireContext(), notify = false) { info ->
             if (!isAdded) return@check
-            val status = updateCard.findViewWithTag<TextView>("update_status")
             if (info == null) {
-                status?.text = "You're up to date  ·  v${BuildConfig.VERSION_NAME}"
+                updateStatus.text = "You're up to date  ·  v${BuildConfig.VERSION_NAME}"
             } else {
-                status?.text = "v${info.version} available  ·  tap to update"
-                updateCard.setOnClickListener { UpdateChecker.openUpdateScreen(requireContext(), info) }
+                updateStatus.text = "v${info.version} available  ·  tap to update"
+                updateStatus.setOnClickListener { UpdateChecker.openUpdateScreen(requireContext(), info) }
             }
         }
     }
 
-    private fun mediaRow(item: MediaItem): View {
+    private fun recentRow(item: MediaItem): View {
         val row = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(12), dp(10), dp(12), dp(10))
-            background = glass()
+            background = glassCard()
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
         }
         val thumb = ImageView(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             scaleType = ImageView.ScaleType.CENTER_CROP
-            setBackgroundColor(0xFF22153A.toInt())
+            background = GradientDrawable().apply {
+                setColor(0xFF22153A.toInt())
+                cornerRadius = dp(12).toFloat()
+            }
+            clipToOutline = true
         }
         row.addView(thumb)
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -261,35 +264,41 @@ class HomeFragment : Fragment() {
         return row
     }
 
-    private fun glass() = GradientDrawable().apply {
-        setColor(0xFF160E28.toInt())
-        cornerRadius = dp(16).toFloat()
-        setStroke(dp(1), 0x28FFFFFF)
+    private fun catCard(icon: String, title: String, subtitle: String, accent: Int): View {
+        val card = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(16), dp(16), dp(16), dp(16))
+            background = glassCard()
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginEnd = dp(5)
+                marginStart = dp(5)
+            }
+        }
+        card.addView(TextView(requireContext()).apply {
+            text = icon
+            setTextColor(accent)
+            textSize = 22f
+        })
+        card.addView(TextView(requireContext()).apply {
+            text = title
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 14f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(10), 0, 0)
+        })
+        card.addView(TextView(requireContext()).apply {
+            text = subtitle
+            setTextColor(0xFF9A8BB0.toInt())
+            textSize = 12f
+            setPadding(0, dp(4), 0, 0)
+        })
+        return card
     }
 
-    private fun statChip(value: String, label: String, accent: Int): View {
-        val chip = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-            gravity = Gravity.CENTER
-            setPadding(dp(12), dp(14), dp(12), dp(14))
-            background = glass()
-            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) }
-        }
-        chip.addView(TextView(requireContext()).apply {
-            text = value
-            setTextColor(accent)
-            textSize = 20f
-            setTypeface(null, Typeface.BOLD)
-            gravity = Gravity.CENTER
-        })
-        chip.addView(TextView(requireContext()).apply {
-            text = label
-            setTextColor(0xFF9A8BB0.toInt())
-            textSize = 11f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(2), 0, 0)
-        })
-        return chip
+    private fun glassCard() = GradientDrawable().apply {
+        setColor(0xFF16122A.toInt())
+        cornerRadius = dp(20).toFloat()
+        setStroke(dp(1), 0x33FFFFFF)
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
