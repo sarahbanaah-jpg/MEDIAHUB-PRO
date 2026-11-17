@@ -1,0 +1,99 @@
+name: Publish signed MEDIAHUB-PRO APK
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag_name:
+        description: Existing or new release tag (must match app versionName, e.g. v2.14.0)
+        required: true
+        default: v2.14.0
+        type: string
+
+permissions:
+  contents: write
+
+concurrency:
+  group: mediahub-pro-publish
+  cancel-in-progress: false
+
+jobs:
+  build-and-publish:
+    name: Build, verify, and publish APK
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out source
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Set up Android SDK
+        uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
+
+      - name: Install Android build packages
+        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
+
+      - name: Set up Gradle 8.7
+        uses: gradle/actions/setup-gradle@v4
+        with:
+          gradle-version: '8.7'
+
+      - name: Validate version and signing secrets
+        env:
+          STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          test -n "$STORE_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEYSTORE_PASSWORD repository secret"; exit 1; }
+          test -n "$ENCRYPTION_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD repository secret"; exit 1; }
+          test -s signing/mediahub-release.jks.enc
+          VERSION_NAME="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
+          test -n "$VERSION_NAME"
+          test "$TAG_NAME" = "v$VERSION_NAME" || { echo "::error::Tag $TAG_NAME does not match app version v$VERSION_NAME"; exit 1; }
+          echo "APP_VERSION=$VERSION_NAME" >> "$GITHUB_ENV"
+
+      - name: Decrypt release signing key
+        env:
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -in signing/mediahub-release.jks.enc \
+            -out /tmp/mediahub-release.jks \
+            -pass env:ENCRYPTION_PASSWORD
+          chmod 600 /tmp/mediahub-release.jks
+
+      - name: Build signed release APK
+        env:
+          MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify APK package, version, and signature
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          test "$(stat -c %s "$APK")" -ge $((4 * 1024 * 1024))
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionName='$APP_VERSION'"
+          sha256sum "$APK"
+          ls -lh "$APK"
+
+      - name: Create release if needed and attach APK
+        env:
+          GH_TOKEN: ${{ github.token }}
+          TAG_NAME: ${{ inputs.tag_name }}
+        run: |
+          set -euo pipefail
+          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            gh release create "$TAG_NAME" --title "MEDIAHUB-PRO $TAG_NAME" --notes "Signed Android APK release."
+          fi
+          gh release upload "$TAG_NAME" app/build/outputs/apk/release/app-release.apk --clobber
+          gh release edit "$TAG_NAME" --title "MEDIAHUB-PRO $TAG_NAME" --notes "Signed Android APK. Built and signature-verified by GitHub Actions."
