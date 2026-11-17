@@ -61,6 +61,7 @@ dependencies {
     implementation("androidx.lifecycle:lifecycle-viewmodel-ktx:2.8.6")
     implementation("androidx.recyclerview:recyclerview:1.3.2")
     implementation("androidx.viewpager2:viewpager2:1.1.0")
+    implementation("androidx.work:work-runtime-ktx:2.9.1")
 
     // Media3
     implementation("androidx.media3:media3-exoplayer:1.4.1")
