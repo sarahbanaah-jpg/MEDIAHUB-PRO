@@ -1,4 +1,5 @@
 name: MEDIAHUB-PRO Android verification (unreleased)
+# Signed candidate remains gated to feature/complete-mediahub-fix; no public release is created.
 
 on:
   push:
