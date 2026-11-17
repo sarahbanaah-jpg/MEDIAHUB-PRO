@@ -9,16 +9,19 @@ import androidx.work.WorkManager
 import java.util.concurrent.TimeUnit
 
 object UpdateWorkScheduler {
+    private const val WORK_NAME = "mediahub_periodic_update_check"
+
     fun schedule(context: Context) {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
-        val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(24, TimeUnit.HOURS)
+        // ~12 hour cadence as requested
+        val request = PeriodicWorkRequestBuilder<UpdateCheckWorker>(12, TimeUnit.HOURS)
             .setConstraints(constraints)
             .build()
         WorkManager.getInstance(context).enqueueUniquePeriodicWork(
-            "mediahub_periodic_update_check",
-            ExistingPeriodicWorkPolicy.KEEP,
+            WORK_NAME,
+            ExistingPeriodicWorkPolicy.UPDATE,
             request
         )
     }

@@ -1,26 +1,25 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- Core surfaces -->
-    <color name="mh_background">#08060C</color>
-    <color name="mh_surface">#14101A</color>
-    <color name="mh_surface_elevated">#1C1624</color>
-    <color name="mh_card">#1A1422</color>
+    <!-- AMOLED void -->
+    <color name="mh_background">#FF05040A</color>
+    <color name="mh_surface">#FF121018</color>
+    <color name="mh_surface_elevated">#FF1A1524</color>
+    <color name="mh_glass">#CC16121F</color>
+    <color name="mh_glass_border">#33FFFFFF</color>
 
-    <!-- Text -->
-    <color name="mh_text">#FFF7FB</color>
-    <color name="mh_text_secondary">#C9B8C8</color>
-    <color name="mh_muted">#8E7F93</color>
+    <!-- Coral / pink accents -->
+    <color name="mh_accent">#FFFF5C8A</color>
+    <color name="mh_accent_soft">#FFFF8FB0</color>
+    <color name="mh_accent_deep">#FFB83D68</color>
 
-    <!-- Brand accent — vivid rose -->
-    <color name="mh_accent">#FF5C8A</color>
-    <color name="mh_accent_soft">#FF8FB0</color>
-    <color name="mh_accent_dim">#B83D63</color>
+    <!-- Typography -->
+    <color name="mh_text_primary">#FFFFF8FC</color>
+    <color name="mh_text_secondary">#FFC9B8C8</color>
+    <color name="mh_muted">#FF8E7F93</color>
 
-    <!-- Secondary accent — soft violet -->
-    <color name="mh_violet">#A78BFA</color>
-    <color name="mh_cyan">#5EEAD4</color>
-
-    <!-- Glass / strokes -->
-    <color name="mh_glass_stroke">#40FFFFFF</color>
-    <color name="mh_divider">#22FFFFFF</color>
+    <!-- Status -->
+    <color name="mh_success">#FF5EEAD4</color>
+    <color name="mh_warning">#FFFBBF24</color>
+    <color name="mh_error">#FFFB7185</color>
+    <color name="mh_violet">#FFA78BFA</color>
 </resources>

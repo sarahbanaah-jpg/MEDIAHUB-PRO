@@ -2,13 +2,23 @@
 <resources>
     <style name="Theme.MediaHubPro" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/mh_accent</item>
-        <item name="colorOnPrimary">#FFFFFF</item>
+        <item name="colorPrimaryContainer">@color/mh_accent_deep</item>
         <item name="colorSecondary">@color/mh_violet</item>
+        <item name="android:colorBackground">@color/mh_background</item>
         <item name="colorSurface">@color/mh_surface</item>
+        <item name="colorOnPrimary">@color/mh_text_primary</item>
+        <item name="colorOnSurface">@color/mh_text_primary</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">@color/mh_background</item>
-        <item name="android:colorBackground">@color/mh_background</item>
         <item name="android:windowLightStatusBar">false</item>
+        <item name="android:windowBackground">@color/mh_background</item>
+        <item name="android:windowAnimationStyle">@style/MhWindowAnimation</item>
+    </style>
+
+    <style name="MhWindowAnimation">
+        <item name="android:activityOpenEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityOpenExitAnimation">@android:anim/fade_out</item>
+        <item name="android:activityCloseEnterAnimation">@android:anim/fade_in</item>
+        <item name="android:activityCloseExitAnimation">@android:anim/fade_out</item>
     </style>
 </resources>
