@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: Release tag (must match app versionName, e.g. v2.15.0)
+        description: New release tag (must match versionName, e.g. v2.15.1). Must not already exist when repo has immutable releases.
         required: true
-        default: v2.15.0
+        default: v2.15.1
         type: string
 
 permissions:
@@ -50,12 +50,16 @@ jobs:
           TAG_NAME: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
-          test -n "$STORE_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEYSTORE_PASSWORD repository secret"; exit 1; }
-          test -n "$ENCRYPTION_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD repository secret"; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEYSTORE_PASSWORD"; exit 1; }
+          test -n "$ENCRYPTION_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD"; exit 1; }
           test -s signing/mediahub-release.jks.enc
           VERSION_NAME="$(sed -n 's/^[[:space:]]*versionName = "\([^"]*\)".*/\1/p' app/build.gradle.kts | head -n1)"
           test -n "$VERSION_NAME"
-          test "$TAG_NAME" = "v$VERSION_NAME" || { echo "::error::Tag $TAG_NAME does not match app version v$VERSION_NAME"; exit 1; }
+          test "$TAG_NAME" = "v$VERSION_NAME" || { echo "::error::Tag $TAG_NAME must be v$VERSION_NAME"; exit 1; }
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "::error::Release $TAG_NAME already exists. With immutable releases you must bump version and use a new tag."
+            exit 1
+          fi
           echo "APP_VERSION=$VERSION_NAME" >> "$GITHUB_ENV"
 
       - name: Decrypt release signing key
@@ -74,7 +78,7 @@ jobs:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
 
-      - name: Verify APK package, version, and signature
+      - name: Verify APK and prepare named asset
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
@@ -87,41 +91,30 @@ jobs:
           ls -lh "$APK"
           cp "$APK" "MEDIAHUB-PRO-v${APP_VERSION}.apk"
 
-      - name: Create GitHub Release and attach APK
+      - name: Create release with APK attached (single step for immutable releases)
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
-          NOTES=$(cat <<EOF
-          MEDIAHUB-PRO ${TAG_NAME}
+          NOTES="MEDIAHUB-PRO ${TAG_NAME}
 
-          Premium Liquid Glass UI update.
+Premium Liquid Glass UI update.
 
-          - Deep dark theme with rose accent
-          - Redesigned home dashboard (hero + library stats)
-          - Liquid glass bottom navigation with active pills
-          - Improved media grid cards
-          - Package: com.mediahub.rebuilt
-          - Signed with the official MEDIAHUB-PRO release key
+- Deep dark theme with rose accent
+- Redesigned home dashboard (hero + library stats)
+- Liquid glass bottom navigation with active pills
+- Improved media grid cards
+- Package: com.mediahub.rebuilt
+- Signed with the official MEDIAHUB-PRO release key
 
-          Install over the previous version — Android will ask to update.
-          EOF
-          )
+Install over the previous version — Android will ask to update."
 
-          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            echo "Release $TAG_NAME already exists — uploading asset (may fail if release is immutable)"
-            gh release upload "$TAG_NAME" "MEDIAHUB-PRO-v${APP_VERSION}.apk" --clobber || {
-              echo "::error::Cannot upload to existing release $TAG_NAME (likely immutable). Use a new version tag."
-              exit 1
-            }
-            gh release edit "$TAG_NAME" --title "MEDIAHUB-PRO $TAG_NAME" --notes "$NOTES" || true
-          else
-            gh release create "$TAG_NAME" \
-              "MEDIAHUB-PRO-v${APP_VERSION}.apk" \
-              --title "MEDIAHUB-PRO $TAG_NAME — Liquid Glass UI" \
-              --notes "$NOTES" \
-              --target main
-          fi
+          # Attach APK at create time — required when the repo has immutable releases
+          gh release create "$TAG_NAME" \
+            "MEDIAHUB-PRO-v${APP_VERSION}.apk" \
+            --title "MEDIAHUB-PRO $TAG_NAME — Liquid Glass UI" \
+            --notes "$NOTES" \
+            --target main
 
           echo "Published: https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME"
