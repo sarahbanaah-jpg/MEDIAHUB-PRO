@@ -145,5 +145,5 @@ object MediaRepository {
         return result
     }
 
-    private enum class Kind { VIDEO, AUDIO, IMAGE }
+    private typealias Kind = MediaItem.Kind
 }
