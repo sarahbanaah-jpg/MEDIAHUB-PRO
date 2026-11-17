@@ -3,66 +3,130 @@ package com.mediahub.rebuilt.ui.settings
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
+import android.provider.Settings
+import android.graphics.Typeface
+import android.graphics.drawable.GradientDrawable
 import android.widget.LinearLayout
+import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.diagnostics.Diagnostics
-import kotlinx.coroutines.CoroutineScope
+import com.mediahub.rebuilt.updates.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 class SettingsFragment : Fragment() {
     override fun onCreateView(inflater: android.view.LayoutInflater, container: android.view.ViewGroup?, savedInstanceState: Bundle?): android.view.View {
+        val scroll = ScrollView(requireContext()).apply { setBackgroundColor(0xFF09070D.toInt()) }
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF08080D.toInt())
-            setPadding(dp(20), dp(32), dp(20), dp(100))
+            setPadding(dp(20), dp(34), dp(20), dp(112))
         }
+        scroll.addView(root)
         root.addView(TextView(requireContext()).apply {
-            text = "Settings"; setTextColor(0xFFFFFFFF.toInt()); textSize = 28f
-            setTypeface(null, android.graphics.Typeface.BOLD)
+            text = "Settings"; setTextColor(0xFFFFFFFF.toInt()); textSize = 29f
+            setTypeface(null, Typeface.BOLD)
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Version ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n\nPlayback and media permissions are managed by Android. Updates are installed only after you approve the downloaded package."
-            setTextColor(0xFFBDB4C2.toInt()); textSize = 14f; setPadding(0, dp(12), 0, dp(24))
+            text = "MEDIAHUB PRO  ·  ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})\n\nManage your library access, updates and app health."
+            setTextColor(0xFFBDB4C2.toInt()); textSize = 14f; setPadding(0, dp(10), 0, dp(20))
         })
-        root.addView(action("Run diagnostics") {
-            val report = Diagnostics.createReport(requireContext())
-            android.widget.Toast.makeText(requireContext(), "Diagnostics complete: ${report.name}", android.widget.Toast.LENGTH_LONG).show()
+        section(root, "APP")
+        root.addView(action("Manage media permissions") {
+            startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
+                data = Uri.fromParts("package", requireContext().packageName, null)
+            })
         })
-        root.addView(action("Create & share error report ZIP") {
-            CoroutineScope(Dispatchers.IO).launch {
-                val report = Diagnostics.createReport(requireContext())
-                requireActivity().runOnUiThread {
-                    val uri: Uri = FileProvider.getUriForFile(requireContext(), "${BuildConfig.APPLICATION_ID}.files", report)
-                    val send = Intent(Intent.ACTION_SEND).apply {
+        root.addView(action("Manage notification permissions") {
+            startActivity(Intent(Settings.ACTION_APP_NOTIFICATION_SETTINGS).apply {
+                putExtra(Settings.EXTRA_APP_PACKAGE, requireContext().packageName)
+            })
+        })
+        root.addView(action(updateNotificationLabel()) {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val enabled = !prefs.getBoolean("update_notifications", true)
+            prefs.edit().putBoolean("update_notifications", enabled).apply()
+            it.text = updateNotificationLabel()
+            Toast.makeText(requireContext(), if (enabled) "Update notifications enabled" else "Update notifications disabled", Toast.LENGTH_SHORT).show()
+        })
+        root.addView(action("Check for updates") {
+            it.text = "Checking for updates…"
+            UpdateChecker.check(requireContext(), notify = false) { version ->
+                if (!isAdded) return@check
+                it.text = "Check for updates"
+                Toast.makeText(requireContext(), if (version == null) "No newer published release found, or update check could not connect." else "MediaHub Pro $version is available.", Toast.LENGTH_LONG).show()
+            }
+        })
+        section(root, "DIAGNOSTICS")
+        root.addView(action("Run app health check") {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val report = withContext(Dispatchers.IO) { Diagnostics.createReport(requireContext()) }
+                if (isAdded) Toast.makeText(requireContext(), "Health report created: ${report.name}", Toast.LENGTH_LONG).show()
+            }
+        })
+        root.addView(action("Create ZIP and share with Lexington on WhatsApp") {
+            viewLifecycleOwner.lifecycleScope.launch {
+                val report = withContext(Dispatchers.IO) { Diagnostics.createReport(requireContext()) }
+                if (!isAdded) return@launch
+                val uri = FileProvider.getUriForFile(requireContext(), "${BuildConfig.APPLICATION_ID}.files", report)
+                val send = Intent(Intent.ACTION_SEND).apply {
+                    type = "application/zip"
+                    putExtra(Intent.EXTRA_STREAM, uri)
+                    putExtra(Intent.EXTRA_TEXT, "MediaHub Pro diagnostic report for Lexington Grimy (254702678294). Please review the attached ZIP.")
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    setPackage("com.whatsapp")
+                }
+                try {
+                    startActivity(send)
+                } catch (_: Exception) {
+                    val fallback = Intent(Intent.ACTION_SEND).apply {
                         type = "application/zip"
                         putExtra(Intent.EXTRA_STREAM, uri)
-                        putExtra(Intent.EXTRA_TEXT, "MediaHub Pro diagnostic report. Please review the attached ZIP.")
+                        putExtra(Intent.EXTRA_TEXT, "Please send this MediaHub Pro diagnostic ZIP to Lexington Grimy (254702678294).")
                         addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
                     }
-                    startActivity(Intent.createChooser(send, "Share diagnostic report (WhatsApp or another app)"))
+                    startActivity(Intent.createChooser(fallback, "Share diagnostic ZIP"))
                 }
             }
         })
+        root.addView(action("Clear saved crash report") {
+            Diagnostics.clearLastCrash(requireContext())
+            Toast.makeText(requireContext(), "Saved crash report cleared", Toast.LENGTH_SHORT).show()
+        })
         root.addView(TextView(requireContext()).apply {
-            text = "Reports contain app/device diagnostics and crash traces only. Review the ZIP before sharing. Nothing is sent automatically."
+            text = "Diagnostic ZIPs include app version, device/Android details, permission status and the last recorded app crash. Personal photos, videos and music are not included. Nothing is sent until you choose a WhatsApp chat and tap Send."
             setTextColor(0xFF8E8492.toInt()); textSize = 12f; setPadding(0, dp(14), 0, 0)
         })
-        return root
+        return scroll
     }
-    private fun action(title: String, click: () -> Unit) = TextView(requireContext()).apply {
-        text = title; setTextColor(0xFFFFFFFF.toInt()); textSize = 15f
-        setPadding(dp(16), dp(18), dp(16), dp(18))
-        background = android.graphics.drawable.GradientDrawable().apply {
-            setColor(0xFF211824.toInt()); cornerRadius = dp(16).toFloat()
-            setStroke(dp(1), 0x66F06A9B)
+
+    private fun section(root: LinearLayout, title: String) {
+        root.addView(TextView(requireContext()).apply {
+            text = title; setTextColor(0xFFFF7898.toInt()); textSize = 11f
+            setTypeface(null, Typeface.BOLD); setPadding(0, dp(14), 0, dp(9))
+        })
+    }
+
+    private fun updateNotificationLabel(): String {
+        val enabled = requireContext().getSharedPreferences("mediahub_settings", 0).getBoolean("update_notifications", true)
+        return "Update notifications: ${if (enabled) "On" else "Off"}"
+    }
+
+    private fun action(title: String, click: (TextView) -> Unit) = TextView(requireContext()).apply {
+        text = title; setTextColor(0xFFFFFFFF.toInt()); textSize = 14f
+        setPadding(dp(16), dp(17), dp(16), dp(17))
+        background = GradientDrawable().apply {
+            setColor(0xFF1B1520.toInt()); cornerRadius = dp(16).toFloat()
+            setStroke(dp(1), 0x55F06A9B)
         }
-        isClickable = true; isFocusable = true; setOnClickListener { click() }
-        val lp = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
-        layoutParams = lp
+        isClickable = true; isFocusable = true; setOnClickListener { click(this) }
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(9) }
     }
-    private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
+
+    private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }

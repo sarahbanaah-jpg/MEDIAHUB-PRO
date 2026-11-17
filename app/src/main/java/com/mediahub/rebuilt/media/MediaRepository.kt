@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
+import com.mediahub.rebuilt.diagnostics.Diagnostics
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
 
@@ -139,8 +140,9 @@ object MediaRepository {
                 }
             }
         } catch (se: SecurityException) {
-            // Permission missing – return empty instead of crashing
-        } catch (_: Exception) {
+            Diagnostics.recordIssue(context, "MediaRepository.$kind permission", se)
+        } catch (error: Exception) {
+            Diagnostics.recordIssue(context, "MediaRepository.$kind query", error)
         }
         return result
     }

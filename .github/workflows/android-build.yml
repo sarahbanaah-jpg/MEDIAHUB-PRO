@@ -1,4 +1,4 @@
-name: MEDIAHUB-PRO Android build and release
+name: MEDIAHUB-PRO Android verification (unreleased)
 
 on:
   push:
@@ -8,7 +8,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write
+  contents: read
 
 concurrency:
   group: mediahub-pro-android-${{ github.ref }}
@@ -40,61 +40,54 @@ jobs:
         with:
           gradle-version: '8.7'
 
-      - name: Select the Kotlin Android project
+      - name: Validate Android project
         run: |
           set -euo pipefail
           test -f settings.gradle
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
           test -d app/src/main/java/com/mediahub/rebuilt
-          # The legacy Groovy module file was retired; only the Kotlin DSL is supported.
           test ! -f app/build.gradle
           grep -q 'applicationId = "com.mediahub.rebuilt"' app/build.gradle.kts
-          grep -q 'versionCode = 22' app/build.gradle.kts
-          grep -q 'versionName = "2.13.1"' app/build.gradle.kts
+          grep -q 'versionCode = 23' app/build.gradle.kts
+          grep -q 'versionName = "2.14.0"' app/build.gradle.kts
+          ! grep -R -n 'mediahub-demo.mp4\|Play included offline demo clip\|PLAY INCLUDED OFFLINE DEMO CLIP' app/src/main
 
-      - name: Generate bundled offline demo media
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y ffmpeg
-          bash scripts/create-demo-asset.sh
-
-      - name: Build debug APK from Kotlin source
+      - name: Build debug APK for testing
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Verify debug APK package and checksum
+      - name: Verify debug test APK
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           SIZE="$(stat -c %s "$APK")"
-          MINIMUM=$((20 * 1024 * 1024))
-          test "$SIZE" -ge "$MINIMUM" || { echo "Debug APK is below 20 MiB: $SIZE bytes"; exit 1; }
-          echo "Verified debug APK size: $SIZE bytes"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt'"
+          test "$SIZE" -ge $((4 * 1024 * 1024))
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='23' versionName='2.14.0'"
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Upload test APK
+      - name: Upload debug test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.13.1-debug-test
+          name: MEDIAHUB-PRO-v2.14.0-debug-test
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
 
-      - name: Validate release signing secrets
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      # Build a signed candidate for in-place upgrade testing, but do not create a GitHub Release.
+      - name: Validate existing signing secrets
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
         env:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
-          test -n "$STORE_PASSWORD" || { echo "Missing MEDIAHUB_KEYSTORE_PASSWORD repository secret."; exit 1; }
-          test -n "$ENCRYPTION_PASSWORD" || { echo "Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD repository secret."; exit 1; }
+          test -n "$STORE_PASSWORD" || { echo "Missing MEDIAHUB_KEYSTORE_PASSWORD secret"; exit 1; }
+          test -n "$ENCRYPTION_PASSWORD" || { echo "Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD secret"; exit 1; }
           test -s signing/mediahub-release.jks.enc
 
-      - name: Decrypt the existing MEDIAHUB-PRO release key
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Decrypt existing release signing key
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
@@ -105,55 +98,29 @@ jobs:
             -pass env:ENCRYPTION_PASSWORD
           chmod 600 /tmp/mediahub-release.jks
 
-      - name: Build signed release APK
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Build signed unreleased candidate
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
         run: gradle --no-daemon :app:assembleRelease
 
-      - name: Verify signed APK identity and signature
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Verify signed candidate identity and signature
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/release/app-release.apk"
           test -s "$APK"
-          SIZE="$(stat -c %s "$APK")"
-          MINIMUM=$((20 * 1024 * 1024))
-          test "$SIZE" -ge "$MINIMUM" || { echo "Release APK is below 20 MiB: $SIZE bytes"; exit 1; }
-          echo "Verified signed release APK size: $SIZE bytes"
+          test "$(stat -c %s "$APK")" -ge $((4 * 1024 * 1024))
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='22' versionName='2.13.1'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='23' versionName='2.14.0'"
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Upload signed release APK artifact
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+      - name: Upload signed unreleased candidate (not published)
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.13.1-release
+          name: MEDIAHUB-PRO-v2.14.0-signed-unreleased-candidate
           path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
-
-      - name: Publish MEDIAHUB-PRO v2.13.1
-        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
-        uses: softprops/action-gh-release@v2
-        with:
-          tag_name: v2.13.1
-          name: MEDIAHUB-PRO v2.13.1 — Kotlin rebuild
-          body: |
-            MEDIAHUB-PRO v2.13.1
-
-            This release is built from the Kotlin Android project in the repository, not the retired legacy maintenance source.
-
-            - Application ID: com.mediahub.rebuilt
-            - Version code: 22
-            - Uses the existing MEDIAHUB-PRO release signing key.
-            - Includes the current Kotlin UI and Media3 playback implementation.
-            - Please report any startup or playback issue before wider distribution.
-
-            This build has passed CI compilation and APK signature/package checks. Device-level playback testing is still required.
-          files: app/build/outputs/apk/release/app-release.apk
-          draft: false
-          prerelease: false
-          make_latest: true
