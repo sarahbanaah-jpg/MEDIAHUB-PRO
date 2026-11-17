@@ -37,9 +37,9 @@ if "androidx.work:work-runtime" not in g:
 gradle.write_text(g, encoding="utf-8")
 properties = project / "gradle.properties"
 props = properties.read_text(encoding="utf-8") if properties.is_file() else ""
-if re.search(r"(?m)^android\\.useAndroidX\\s*=\\s*false\\s*$", props):
-    props = re.sub(r"(?m)^android\\.useAndroidX\\s*=\\s*false\\s*$", "android.useAndroidX=true", props)
-elif not re.search(r"(?m)^android\\.useAndroidX\\s*=", props):
+if re.search(r"(?m)^android\.useAndroidX\s*=\s*false\s*$", props):
+    props = re.sub(r"(?m)^android\.useAndroidX\s*=\s*false\s*$", "android.useAndroidX=true", props)
+elif not re.search(r"(?m)^android\.useAndroidX\s*=", props):
     props += "\nandroid.useAndroidX=true\n"
 properties.write_text(props, encoding="utf-8")
 
