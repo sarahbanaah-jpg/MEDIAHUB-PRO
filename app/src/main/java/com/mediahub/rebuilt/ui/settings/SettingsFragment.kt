@@ -150,8 +150,7 @@ class SettingsFragment : Fragment() {
             setTextColor(0xFFFF5C8A.toInt())
             textSize = 11f
             setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(16), 0, dp(9)
-            )
+            setPadding(0, dp(16), 0, dp(9))
         })
     }
 

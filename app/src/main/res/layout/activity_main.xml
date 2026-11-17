@@ -10,7 +10,6 @@
         android:layout_height="match_parent"
         android:layout_marginBottom="96dp" />
 
-    <!-- Premium Liquid Glass bottom navigation -->
     <LinearLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
@@ -39,48 +38,8 @@
             android:paddingTop="8dp"
             android:paddingBottom="8dp"
             android:background="@drawable/bg_nav_pill_active">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⌂"
-                android:textColor="@color/mh_accent"
-                android:textSize="20sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Home"
-                android:textColor="@color/mh_accent"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-        </LinearLayout>
-
-        <LinearLayout
-            android:id="@+id/navVideos"
-            android:layout_width="0dp"
-            android:layout_height="wrap_content"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:paddingTop="8dp"
-            android:paddingBottom="8dp">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▶"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Videos"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
+            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⌂" android:textColor="@color/mh_accent" android:textSize="20sp" />
+            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Home" android:textColor="@color/mh_accent" android:textSize="10sp" android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
@@ -92,21 +51,21 @@
             android:orientation="vertical"
             android:paddingTop="8dp"
             android:paddingBottom="8dp">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="♫"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Music"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
+            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="♫" android:textColor="@color/mh_muted" android:textSize="18sp" />
+            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Music" android:textColor="@color/mh_muted" android:textSize="10sp" />
+        </LinearLayout>
+
+        <LinearLayout
+            android:id="@+id/navVideos"
+            android:layout_width="0dp"
+            android:layout_height="wrap_content"
+            android:layout_weight="1"
+            android:gravity="center"
+            android:orientation="vertical"
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
+            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▶" android:textColor="@color/mh_muted" android:textSize="18sp" />
+            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Videos" android:textColor="@color/mh_muted" android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -118,21 +77,8 @@
             android:orientation="vertical"
             android:paddingTop="8dp"
             android:paddingBottom="8dp">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▣"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Photos"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
+            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▣" android:textColor="@color/mh_muted" android:textSize="18sp" />
+            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Photos" android:textColor="@color/mh_muted" android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -144,22 +90,8 @@
             android:orientation="vertical"
             android:paddingTop="8dp"
             android:paddingBottom="8dp">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⚙"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="2dp"
-                android:text="Settings"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
+            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⚙" android:textColor="@color/mh_muted" android:textSize="18sp" />
+            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="2dp" android:text="Settings" android:textColor="@color/mh_muted" android:textSize="10sp" />
         </LinearLayout>
-
     </LinearLayout>
 </FrameLayout>
