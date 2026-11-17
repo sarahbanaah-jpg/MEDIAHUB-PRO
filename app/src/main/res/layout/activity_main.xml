@@ -2,29 +2,31 @@
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="#0A060C">
+    android:background="@color/mh_background">
 
     <FrameLayout
         android:id="@+id/contentContainer"
         android:layout_width="match_parent"
         android:layout_height="match_parent"
-        android:layout_marginBottom="88dp" />
+        android:layout_marginBottom="96dp" />
 
-    <!-- Liquid Glass bottom navigation -->
+    <!-- Premium Liquid Glass bottom navigation -->
     <LinearLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:layout_gravity="bottom"
-        android:layout_marginStart="16dp"
-        android:layout_marginEnd="16dp"
-        android:layout_marginBottom="16dp"
+        android:layout_marginStart="14dp"
+        android:layout_marginEnd="14dp"
+        android:layout_marginBottom="14dp"
         android:background="@drawable/bg_liquid_glass"
-        android:elevation="12dp"
+        android:elevation="16dp"
         android:gravity="center"
         android:orientation="horizontal"
-        android:paddingTop="10dp"
-        android:paddingBottom="10dp"
+        android:paddingTop="8dp"
+        android:paddingBottom="8dp"
+        android:paddingStart="6dp"
+        android:paddingEnd="6dp"
         android:visibility="gone">
 
         <LinearLayout
@@ -34,21 +36,25 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp"
+            android:background="@drawable/bg_nav_pill_active">
             <TextView
                 android:tag="icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⌂"
-                android:textColor="#FF6B8A"
-                android:textSize="22sp" />
+                android:textColor="@color/mh_accent"
+                android:textSize="20sp" />
             <TextView
                 android:tag="label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="Home"
-                android:textColor="#FF6B8A"
-                android:textSize="11sp" />
+                android:textColor="@color/mh_accent"
+                android:textSize="10sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
@@ -58,21 +64,23 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
             <TextView
                 android:tag="icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="▶"
-                android:textColor="#B0A0B0"
-                android:textSize="20sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="18sp" />
             <TextView
                 android:tag="label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="Videos"
-                android:textColor="#B0A0B0"
-                android:textSize="11sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -82,21 +90,23 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
             <TextView
                 android:tag="icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="♫"
-                android:textColor="#B0A0B0"
-                android:textSize="20sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="18sp" />
             <TextView
                 android:tag="label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="Music"
-                android:textColor="#B0A0B0"
-                android:textSize="11sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -106,21 +116,23 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
             <TextView
                 android:tag="icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="▣"
-                android:textColor="#B0A0B0"
-                android:textSize="20sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="18sp" />
             <TextView
                 android:tag="label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="Photos"
-                android:textColor="#B0A0B0"
-                android:textSize="11sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="10sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -130,21 +142,23 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:padding="6dp">
+            android:paddingTop="8dp"
+            android:paddingBottom="8dp">
             <TextView
                 android:tag="icon"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="⚙"
-                android:textColor="#B0A0B0"
-                android:textSize="20sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="18sp" />
             <TextView
                 android:tag="label"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
                 android:text="Settings"
-                android:textColor="#B0A0B0"
-                android:textSize="11sp" />
+                android:textColor="@color/mh_muted"
+                android:textSize="10sp" />
         </LinearLayout>
 
     </LinearLayout>

@@ -1,8 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <color name="mh_background">#101114</color>
-    <color name="mh_surface">#1B1D22</color>
-    <color name="mh_text">#FFFFFF</color>
-    <color name="mh_muted">#A7A9B0</color>
-    <color name="mh_accent">#FA5268</color>
+    <!-- Core surfaces -->
+    <color name="mh_background">#08060C</color>
+    <color name="mh_surface">#14101A</color>
+    <color name="mh_surface_elevated">#1C1624</color>
+    <color name="mh_card">#1A1422</color>
+
+    <!-- Text -->
+    <color name="mh_text">#FFF7FB</color>
+    <color name="mh_text_secondary">#C9B8C8</color>
+    <color name="mh_muted">#8E7F93</color>
+
+    <!-- Brand accent — vivid rose -->
+    <color name="mh_accent">#FF5C8A</color>
+    <color name="mh_accent_soft">#FF8FB0</color>
+    <color name="mh_accent_dim">#B83D63</color>
+
+    <!-- Secondary accent — soft violet -->
+    <color name="mh_violet">#A78BFA</color>
+    <color name="mh_cyan">#5EEAD4</color>
+
+    <!-- Glass / strokes -->
+    <color name="mh_glass_stroke">#40FFFFFF</color>
+    <color name="mh_divider">#22FFFFFF</color>
 </resources>

@@ -1,12 +1,14 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <style name="Theme.MediaHubPro" parent="Theme.Material3.Dark.NoActionBar">
-        <item name="colorPrimary">#FF6B8A</item>
+        <item name="colorPrimary">@color/mh_accent</item>
         <item name="colorOnPrimary">#FFFFFF</item>
-        <item name="colorSecondary">#FF8FA3</item>
+        <item name="colorSecondary">@color/mh_violet</item>
+        <item name="colorSurface">@color/mh_surface</item>
         <item name="android:statusBarColor">@android:color/transparent</item>
         <item name="android:navigationBarColor">@android:color/transparent</item>
-        <item name="android:windowBackground">#0A060C</item>
-        <item name="android:colorBackground">#0A060C</item>
+        <item name="android:windowBackground">@color/mh_background</item>
+        <item name="android:colorBackground">@color/mh_background</item>
+        <item name="android:windowLightStatusBar">false</item>
     </style>
 </resources>
