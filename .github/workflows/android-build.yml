@@ -1091,7 +1091,6 @@ jobs:
           print("Firebase connected: project=mediahub-pro-11393, package=com.mediahub.rebuilt; Google Services plugin and Firebase Analytics configured.")
           PY
 
-          python3 "$GITHUB_WORKSPACE/release_patches/apply-v3.1-feature-updates.py" "$PROJECT_DIR"
           echo "PROJECT_DIR=$PROJECT_DIR" >> "$GITHUB_ENV"
 
       - name: Capture source files for v2.13 review
@@ -1147,6 +1146,11 @@ jobs:
         run: |
           set -euo pipefail
           python3 "$GITHUB_WORKSPACE/design_overrides/build_reference_home.py" "$PROJECT_DIR"
+
+      - name: Apply v3.1 Firebase, update alerts, lock-screen playback and liquid glass
+        run: |
+          set -euo pipefail
+          python3 "$GITHUB_WORKSPACE/release_patches/apply-v3.1-feature-updates.py" "$PROJECT_DIR"
 
       - name: Build debug APK
         run: gradle --no-daemon --project-dir "$PROJECT_DIR" :app:assembleDebug
