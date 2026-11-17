@@ -24,9 +24,11 @@ jobs:
 
       - name: Setup Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          packages: platform-tools
 
       - name: Install build packages
-        run: sdkmanager "platforms;android-35" "build-tools;35.0.0"
+        run: yes | sdkmanager "platforms;android-35" "build-tools;35.0.0" "platform-tools"
 
       - name: Setup Gradle
         uses: gradle/actions/setup-gradle@v4
@@ -62,6 +64,8 @@ jobs:
         env:
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
         run: |
+          test -n "$ENCRYPTION_PASSWORD"
+          test -s signing/mediahub-release.jks.enc
           openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
             -in signing/mediahub-release.jks.enc \
             -out /tmp/mediahub-release.jks \
@@ -72,17 +76,19 @@ jobs:
         if: steps.skip.outputs.skip == 'false'
         env:
           MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
-        run: gradle --no-daemon :app:assembleRelease
+        run: |
+          test -n "$MEDIAHUB_KEYSTORE_PASSWORD"
+          gradle --no-daemon :app:assembleRelease
 
       - name: Verify APK
         if: steps.skip.outputs.skip == 'false'
         run: |
           APK=app/build/outputs/apk/release/app-release.apk
           test -f "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/apksigner verify --verbose "$APK"
-          $ANDROID_HOME/build-tools/35.0.0/aapt dump badging "$APK" | grep com.mediahub.rebuilt
-          cp "$APK" MEDIAHUB-PRO-v${{ steps.ver.outputs.version_name }}.apk
-          ls -lh MEDIAHUB-PRO-v${{ steps.ver.outputs.version_name }}.apk
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep com.mediahub.rebuilt
+          cp "$APK" "MEDIAHUB-PRO-v${{ steps.ver.outputs.version_name }}.apk"
+          ls -lh "MEDIAHUB-PRO-v${{ steps.ver.outputs.version_name }}.apk"
 
       - name: Publish GitHub Release
         if: steps.skip.outputs.skip == 'false'
