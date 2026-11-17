@@ -4,12 +4,15 @@ import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
 import android.net.Uri
-import android.os.Handler
-import android.os.Looper
 import androidx.core.app.NotificationCompat
 import androidx.core.app.NotificationManagerCompat
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.MediaHubApp
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.json.JSONObject
 import java.net.HttpURLConnection
 import java.net.URL
@@ -17,39 +20,45 @@ import java.net.URL
 object UpdateChecker {
     fun check(context: Context, notify: Boolean = true, callback: ((String?) -> Unit)? = null) {
         val app = context.applicationContext
-        Thread {
-            var updateTag: String? = null
-            var releaseUrl: String? = null
-            try {
-                val connection = (URL("https://api.github.com/repos/sarahbanaah-jpg/MEDIAHUB-PRO/releases/latest").openConnection() as HttpURLConnection).apply {
-                    connectTimeout = 8000
-                    readTimeout = 8000
-                    requestMethod = "GET"
-                    setRequestProperty("Accept", "application/vnd.github+json")
-                    setRequestProperty("User-Agent", "MediaHub-Pro-Android")
-                }
-                try {
-                    if (connection.responseCode in 200..299) {
-                        val body = connection.inputStream.bufferedReader().use { it.readText() }
-                        val json = JSONObject(body)
-                        val tag = json.optString("tag_name").removePrefix("v")
-                        val html = json.optString("html_url")
-                        if (tag.isNotBlank() && html.startsWith("https://github.com/") && isNewer(tag, BuildConfig.VERSION_NAME)) {
-                            updateTag = tag
-                            releaseUrl = html
-                        }
-                    }
-                } finally {
-                    connection.disconnect()
-                }
-            } catch (_: Exception) { }
+        CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
+            val version = withContext(Dispatchers.IO) { fetchAndNotify(app, notify) }
+            callback?.invoke(version)
+        }
+    }
 
-            if (updateTag != null && releaseUrl != null && notify &&
-                app.getSharedPreferences("mediahub_settings", Context.MODE_PRIVATE).getBoolean("update_notifications", true)
-            ) postNotification(app, updateTag!!, releaseUrl!!)
-            val message = updateTag
-            Handler(Looper.getMainLooper()).post { callback?.invoke(message) }
-        }.start()
+    suspend fun checkInBackground(context: Context): String? =
+        withContext(Dispatchers.IO) { fetchAndNotify(context.applicationContext, true) }
+
+    private fun fetchAndNotify(context: Context, notify: Boolean): String? {
+        var newerVersion: String? = null
+        var releaseUrl: String? = null
+        try {
+            val connection = (URL("https://api.github.com/repos/sarahbanaah-jpg/MEDIAHUB-PRO/releases/latest").openConnection() as HttpURLConnection).apply {
+                connectTimeout = 8000
+                readTimeout = 8000
+                requestMethod = "GET"
+                setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("User-Agent", "MediaHub-Pro-Android")
+            }
+            try {
+                if (connection.responseCode in 200..299) {
+                    val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
+                    val tag = json.optString("tag_name").removePrefix("v")
+                    val html = json.optString("html_url")
+                    if (tag.isNotBlank() && html.startsWith("https://github.com/") && isNewer(tag, BuildConfig.VERSION_NAME)) {
+                        newerVersion = tag
+                        releaseUrl = html
+                    }
+                }
+            } finally {
+                connection.disconnect()
+            }
+        } catch (_: Exception) { }
+
+        if (newerVersion != null && releaseUrl != null && notify &&
+            context.getSharedPreferences("mediahub_settings", Context.MODE_PRIVATE).getBoolean("update_notifications", true)
+        ) postNotification(context, newerVersion!!, releaseUrl!!)
+        return newerVersion
     }
 
     private fun postNotification(context: Context, version: String, url: String) {
