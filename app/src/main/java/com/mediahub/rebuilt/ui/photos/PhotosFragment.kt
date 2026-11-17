@@ -31,7 +31,7 @@ class PhotosFragment : Fragment() {
             setPadding(0, dp(16), 0, 0)
         }
         root.addView(list)
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             val photos = MediaRepository.loadPhotos(requireContext())
             list.text = if (photos.isEmpty()) "No photos found" else "${photos.size} photos found\n\n" + photos.take(20).joinToString("\n") { "• ${it.title}" }
         }
