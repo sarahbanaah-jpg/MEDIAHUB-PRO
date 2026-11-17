@@ -18,6 +18,10 @@ import com.mediahub.rebuilt.ui.media.MediaGridAdapter
 import kotlinx.coroutines.launch
 
 class PhotosFragment : Fragment() {
+    private lateinit var count: TextView
+    private lateinit var empty: TextView
+    private lateinit var grid: RecyclerView
+
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
@@ -32,12 +36,12 @@ class PhotosFragment : Fragment() {
             text = "Your moments, all in one place"; setTextColor(0xFFB9ADBD.toInt()); textSize = 14f
             setPadding(0, dp(5), 0, dp(16))
         })
-        val count = TextView(requireContext()).apply {
+        count = TextView(requireContext()).apply {
             text = "Loading photos…"; setTextColor(0xFFFF7898.toInt()); textSize = 12f
             setPadding(0, 0, 0, dp(10))
         }
         root.addView(count)
-        val empty = TextView(requireContext()).apply {
+        empty = TextView(requireContext()).apply {
             text = "No photos found. Add images to your device or allow photo access in Android settings."
             setTextColor(0xFFB9ADBD.toInt()); textSize = 14f
             setPadding(dp(16), dp(22), dp(16), dp(22))
@@ -45,13 +49,17 @@ class PhotosFragment : Fragment() {
             visibility = View.GONE
         }
         root.addView(empty)
-        val grid = RecyclerView(requireContext()).apply {
+        grid = RecyclerView(requireContext()).apply {
             layoutManager = GridLayoutManager(requireContext(), 3)
             setHasFixedSize(false)
             overScrollMode = View.OVER_SCROLL_NEVER
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
         }
         root.addView(grid)
+        return root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         viewLifecycleOwner.lifecycleScope.launch {
             val photos = MediaRepository.loadPhotos(requireContext())
             count.text = "${photos.size} PHOTOS"
@@ -64,7 +72,7 @@ class PhotosFragment : Fragment() {
                 })
             }
         }
-        return root
     }
+
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }
