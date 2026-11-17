@@ -11,24 +11,22 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
+import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.media.MediaThumbnails
 import com.mediahub.rebuilt.performance.DevicePerformance
+import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/**
- * Polished liquid-glass home inspired by premium file managers:
- * search bar, recents strip, category grid, storage cards.
- */
 class HomeFragment : Fragment() {
-    private lateinit var summary: TextView
     private lateinit var recent: LinearLayout
     private lateinit var categoryGrid: LinearLayout
     private lateinit var updateStatus: TextView
@@ -45,7 +43,6 @@ class HomeFragment : Fragment() {
         }
         scroll.addView(root)
 
-        // Search-style glass bar
         root.addView(LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -69,7 +66,6 @@ class HomeFragment : Fragment() {
             })
         })
 
-        // Brand line
         root.addView(TextView(requireContext()).apply {
             text = "MEDIAHUB PRO"
             setTextColor(0xFFFF2D95.toInt())
@@ -86,7 +82,6 @@ class HomeFragment : Fragment() {
             setPadding(0, 0, 0, dp(16))
         })
 
-        // Recents header
         val recentsHeader = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -102,6 +97,9 @@ class HomeFragment : Fragment() {
             text = "See all"
             setTextColor(0xFFFF6BB5.toInt())
             textSize = 13f
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openTab(R.id.navMusic) }
         })
         root.addView(recentsHeader)
 
@@ -111,7 +109,6 @@ class HomeFragment : Fragment() {
         }
         root.addView(recent)
 
-        // Categories
         root.addView(TextView(requireContext()).apply {
             text = "Categories"
             setTextColor(0xFFFFFFFF.toInt())
@@ -125,12 +122,13 @@ class HomeFragment : Fragment() {
         }
         root.addView(categoryGrid)
 
-        // Update glass card
         val updateCard = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
             background = glassCard()
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) }
+            isClickable = true
+            isFocusable = true
         }
         updateCard.addView(TextView(requireContext()).apply {
             text = "APP UPDATE"
@@ -167,7 +165,6 @@ class HomeFragment : Fragment() {
             val photos = MediaRepository.loadPhotos(ctx)
             val snap = withContext(Dispatchers.IO) { DevicePerformance.snapshot(ctx) }
 
-            // Recents strip
             recent.removeAllViews()
             val latest = (music + videos + photos).sortedByDescending { it.dateAdded }.take(4)
             if (latest.isEmpty()) {
@@ -178,10 +175,11 @@ class HomeFragment : Fragment() {
                     setPadding(dp(4), dp(8), dp(4), dp(8))
                 })
             } else {
-                latest.forEach { recent.addView(recentRow(it)) }
+                latest.forEach { item ->
+                    recent.addView(recentRow(item))
+                }
             }
 
-            // Category grid 2x3 style
             categoryGrid.removeAllViews()
             fun rowOf(a: View, b: View): LinearLayout {
                 return LinearLayout(ctx).apply {
@@ -192,16 +190,31 @@ class HomeFragment : Fragment() {
                 }
             }
             categoryGrid.addView(rowOf(
-                catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()),
-                catCard("▶", "Videos", "${videos.size} files", 0xFF9B6DFF.toInt())
+                catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()) {
+                    openTab(R.id.navMusic)
+                },
+                catCard("▶", "Videos", "${videos.size} files", 0xFF9B6DFF.toInt()) {
+                    openTab(R.id.navVideos)
+                }
             ))
             categoryGrid.addView(rowOf(
-                catCard("▣", "Images", "${photos.size} photos", 0xFF5CE1FF.toInt()),
-                catCard("↓", "Downloads", "Library", 0xFFFF6BB5.toInt())
+                catCard("▣", "Images", "${photos.size} photos", 0xFF5CE1FF.toInt()) {
+                    openTab(R.id.navPhotos)
+                },
+                catCard("↓", "Downloads", "Library", 0xFFFF6BB5.toInt()) {
+                    openTab(R.id.navMusic)
+                    Toast.makeText(ctx, "Your media library", Toast.LENGTH_SHORT).show()
+                }
             ))
             categoryGrid.addView(rowOf(
-                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFA78BFA.toInt()),
-                catCard("⚡", "Performance", "${snap.availableRamMb} MB RAM", 0xFF5EEAD4.toInt())
+                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFA78BFA.toInt()) {
+                    openTab(R.id.navSettings)
+                    Toast.makeText(ctx, "Storage: ${snap.freeStorageMb} MB free", Toast.LENGTH_SHORT).show()
+                },
+                catCard("⚡", "Performance", "${snap.availableRamMb} MB RAM", 0xFF5EEAD4.toInt()) {
+                    openTab(R.id.navSettings)
+                    Toast.makeText(ctx, "RAM free: ${snap.availableRamMb} MB", Toast.LENGTH_SHORT).show()
+                }
             ))
         }
 
@@ -211,9 +224,17 @@ class HomeFragment : Fragment() {
                 updateStatus.text = "You're up to date  ·  v${BuildConfig.VERSION_NAME}"
             } else {
                 updateStatus.text = "v${info.version} available  ·  tap to update"
-                updateStatus.setOnClickListener { UpdateChecker.openUpdateScreen(requireContext(), info) }
+                updateStatus.setOnClickListener {
+                    UpdateChecker.openUpdateScreen(requireContext(), info)
+                }
             }
         }
+    }
+
+    /** Open a bottom-nav tab from Home by simulating a click on the nav item. */
+    private fun openTab(navId: Int) {
+        val activity = activity as? MainActivity ?: return
+        activity.findViewById<View>(navId)?.performClick()
     }
 
     private fun recentRow(item: MediaItem): View {
@@ -223,6 +244,15 @@ class HomeFragment : Fragment() {
             setPadding(dp(12), dp(10), dp(12), dp(10))
             background = glassCard()
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                when (item.kind) {
+                    MediaItem.Kind.AUDIO -> openTab(R.id.navMusic)
+                    MediaItem.Kind.VIDEO -> openTab(R.id.navVideos)
+                    MediaItem.Kind.IMAGE -> openTab(R.id.navPhotos)
+                }
+            }
         }
         val thumb = ImageView(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
@@ -264,7 +294,13 @@ class HomeFragment : Fragment() {
         return row
     }
 
-    private fun catCard(icon: String, title: String, subtitle: String, accent: Int): View {
+    private fun catCard(
+        icon: String,
+        title: String,
+        subtitle: String,
+        accent: Int,
+        onClick: () -> Unit
+    ): View {
         val card = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
@@ -273,6 +309,9 @@ class HomeFragment : Fragment() {
                 marginEnd = dp(5)
                 marginStart = dp(5)
             }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
         }
         card.addView(TextView(requireContext()).apply {
             text = icon
