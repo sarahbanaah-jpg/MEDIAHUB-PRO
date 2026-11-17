@@ -10,6 +10,8 @@ import androidx.core.content.ContextCompat
 import com.mediahub.rebuilt.BuildConfig
 import java.io.File
 import java.io.FileOutputStream
+import java.io.PrintWriter
+import java.io.StringWriter
 import java.util.Date
 import java.util.zip.ZipEntry
 import java.util.zip.ZipOutputStream
@@ -52,6 +54,12 @@ object Diagnostics {
                 crash.inputStream().use { it.copyTo(zip) }
                 zip.closeEntry()
             }
+            val issues = File(context.filesDir, "app-errors.txt")
+            if (issues.isFile) {
+                zip.putNextEntry(ZipEntry("app-errors.txt"))
+                issues.inputStream().use { it.copyTo(zip) }
+                zip.closeEntry()
+            }
             zip.putNextEntry(ZipEntry("report-notes.txt"))
             zip.write("This report contains app/device diagnostics and the app's last recorded uncaught crash only. It does not include personal media files. Review before sharing.".toByteArray())
             zip.closeEntry()
@@ -59,7 +67,20 @@ object Diagnostics {
         return report
     }
 
+    fun recordIssue(context: Context, component: String, error: Throwable) {
+        try {
+            val log = File(context.filesDir, "app-errors.txt")
+            val writer = StringWriter()
+            error.printStackTrace(PrintWriter(writer))
+            log.appendText("\n[$component] ${Date()}\n$writer\n")
+            if (log.length() > 256 * 1024) {
+                log.writeText(log.readText().takeLast(192 * 1024))
+            }
+        } catch (_: Exception) { }
+    }
+
     fun clearLastCrash(context: Context) {
         File(context.filesDir, "last-crash.txt").delete()
+        File(context.filesDir, "app-errors.txt").delete()
     }
 }
