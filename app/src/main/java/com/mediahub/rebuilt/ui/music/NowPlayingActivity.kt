@@ -9,6 +9,7 @@ import android.media.audiofx.Equalizer
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.Gravity
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.SeekBar
 import android.widget.TextView
@@ -17,13 +18,19 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.core.view.WindowCompat
+import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.mediahub.rebuilt.media.DefaultAlbumArt
+import com.mediahub.rebuilt.media.MediaItem
+import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.service.PlaybackService
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
-/** Neon dream full-screen player matching the design mockup. */
 class NowPlayingActivity : AppCompatActivity() {
 
     private var controller: MediaController? = null
@@ -32,6 +39,7 @@ class NowPlayingActivity : AppCompatActivity() {
     private var bassBoost: BassBoost? = null
     private var sleepTimer: CountDownTimer? = null
 
+    private lateinit var artView: ImageView
     private lateinit var titleView: TextView
     private lateinit var artistView: TextView
     private lateinit var positionView: TextView
@@ -66,7 +74,6 @@ class NowPlayingActivity : AppCompatActivity() {
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        // Top bar
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -95,20 +102,25 @@ class NowPlayingActivity : AppCompatActivity() {
         })
         root.addView(top)
 
-        // Circular artwork
-        root.addView(TextView(this).apply {
-            text = "♪"
-            gravity = Gravity.CENTER
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 72f
-            layoutParams = LinearLayout.LayoutParams(dp(260), dp(260)).apply { topMargin = dp(36) }
+        artView = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(280), dp(280)).apply { topMargin = dp(28) }
+            scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                colors = intArrayOf(0xFF7B2FF7.toInt(), 0xFFFF2D95.toInt(), 0xFF5CE1FF.toInt())
-                orientation = GradientDrawable.Orientation.TL_BR
+                setColor(0xFF22153A.toInt())
             }
+            clipToOutline = true
             elevation = 18f
-        })
+        }
+        // Circular clip
+        artView.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+                outline.setOval(0, 0, view.width, view.height)
+            }
+        }
+        root.addView(artView)
+        // Show mountain immediately while loading track art
+        artView.setImageBitmap(DefaultAlbumArt.mountainBitmap(600))
 
         titleView = TextView(this).apply {
             text = "—"
@@ -128,13 +140,11 @@ class NowPlayingActivity : AppCompatActivity() {
         }
         root.addView(artistView)
 
-        // Waveform visual
         waveView = TextView(this).apply {
             text = "▁▂▃▅▇▅▃▂▁▂▃▅▇█▇▅▃▂▁▂▃▅▃▁"
             setTextColor(0xFFFF2D95.toInt())
             textSize = 16f
             gravity = Gravity.CENTER
-            letterSpacing = 0.05f
             setPadding(0, dp(18), 0, dp(6))
         }
         root.addView(waveView)
@@ -230,11 +240,27 @@ class NowPlayingActivity : AppCompatActivity() {
                 controller = future.get()
                 refreshMetadata()
                 updateProgress()
+                loadCoverForCurrent()
                 window.decorView.post(tickRunnable)
             } catch (_: Exception) {
                 Toast.makeText(this, "Player unavailable", Toast.LENGTH_SHORT).show()
             }
         }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun loadCoverForCurrent() {
+        val meta = controller?.currentMediaItem?.mediaMetadata
+        val title = meta?.title?.toString().orEmpty()
+        lifecycleScope.launch {
+            val songs = withContext(Dispatchers.IO) { MediaRepository.loadMusic(this@NowPlayingActivity) }
+            val match = songs.firstOrNull { it.title == title }
+                ?: songs.firstOrNull()
+            val bmp = withContext(Dispatchers.IO) {
+                if (match != null) DefaultAlbumArt.forTrack(this@NowPlayingActivity, match, 700)
+                else DefaultAlbumArt.mountainBitmap(700)
+            }
+            artView.setImageBitmap(bmp)
+        }
     }
 
     private fun refreshMetadata() {
@@ -247,6 +273,7 @@ class NowPlayingActivity : AppCompatActivity() {
             Player.REPEAT_MODE_ONE, Player.REPEAT_MODE_ALL -> 1f
             else -> 0.45f
         }
+        loadCoverForCurrent()
     }
 
     private fun updateProgress() {
@@ -258,11 +285,10 @@ class NowPlayingActivity : AppCompatActivity() {
         durationView.text = formatMs(dur)
         playButton.text = if (p.isPlaying) "⏸" else "▶"
         val meta = p.currentMediaItem?.mediaMetadata
-        if (meta?.title != null) titleView.text = meta.title
-        if (meta?.artist != null) artistView.text = meta.artist
-        // Simple animated wave feel
-        if (p.isPlaying) {
-            waveView.alpha = 0.7f + ((pos / 400L) % 3) * 0.1f
+        if (meta?.title != null && titleView.text != meta.title) {
+            titleView.text = meta.title
+            artistView.text = meta.artist ?: ""
+            loadCoverForCurrent()
         }
     }
 
@@ -276,7 +302,6 @@ class NowPlayingActivity : AppCompatActivity() {
         val p = controller ?: return
         p.shuffleModeEnabled = !p.shuffleModeEnabled
         refreshMetadata()
-        Toast.makeText(this, if (p.shuffleModeEnabled) "Shuffle on" else "Shuffle off", Toast.LENGTH_SHORT).show()
     }
 
     private fun cycleRepeat() {
