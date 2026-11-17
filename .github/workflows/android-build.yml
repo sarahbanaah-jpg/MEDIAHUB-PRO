@@ -1293,6 +1293,7 @@ jobs:
             - MediaSession-backed lock-screen playback metadata and previous, play/pause and next controls.
             - Liquid-glass translucent cards, highlights and layered gradients across the app.
             - Mandatory in-app update prompt and Firebase Cloud Messaging topic receiver for required-update alerts (trusted sender must publish to mediahub_updates).
+            - Automatic 12-hour background release checks that post persistent update alerts even when the app is not open.
             - Fixed video tap routing so the selected content URI reaches the player.
             - Playback now starts only after the media decoder is prepared, with clear errors for unsupported codecs.
             - Animated, one-time COMETOS LAUNCHER 7 announcement with a Kenya-time countdown to 17 November 2026 at 1:00 AM EAT.
