@@ -43,9 +43,8 @@ jobs:
           test -f app/build.gradle.kts
           test -f app/src/main/AndroidManifest.xml
           test -d app/src/main/java/com/mediahub/rebuilt
-          # The legacy Groovy file takes precedence over Kotlin DSL when both exist.
-          # Remove it only in the CI checkout so Gradle builds Grok's Kotlin project.
-          rm app/build.gradle
+          # The legacy Groovy module file was retired; only the Kotlin DSL is supported.
+          test ! -f app/build.gradle
           grep -q 'applicationId = "com.mediahub.rebuilt"' app/build.gradle.kts
           grep -q 'versionCode = 21' app/build.gradle.kts
           grep -q 'versionName = "2.13.0"' app/build.gradle.kts
