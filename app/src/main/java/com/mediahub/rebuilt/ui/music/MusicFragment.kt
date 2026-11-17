@@ -31,7 +31,7 @@ class MusicFragment : Fragment() {
             setPadding(0, dp(16), 0, 0)
         }
         root.addView(list)
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             val songs = MediaRepository.loadMusic(requireContext())
             list.text = if (songs.isEmpty()) "No music found" else songs.take(30).joinToString("\n") {
                 "• ${it.title}" + if (it.artist.isNotBlank()) " — ${it.artist}" else ""
