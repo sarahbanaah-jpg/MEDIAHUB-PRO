@@ -47,7 +47,7 @@ class HomeFragment : Fragment() {
         }
         root.addView(status)
 
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             val videos = MediaRepository.loadVideos(requireContext())
             val music = MediaRepository.loadMusic(requireContext())
             val photos = MediaRepository.loadPhotos(requireContext())
