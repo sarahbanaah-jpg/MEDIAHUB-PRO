@@ -144,6 +144,4 @@ object MediaRepository {
         }
         return result
     }
-
-    private typealias MediaItem.Kind = MediaItem.MediaItem.Kind
 }
