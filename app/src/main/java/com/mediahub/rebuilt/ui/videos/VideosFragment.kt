@@ -44,7 +44,7 @@ class VideosFragment : Fragment() {
             }
         }
         root.addView(demoButton)
-        viewLifecycleOwner.lifecycleScope.launch {
+        lifecycleScope.launch {
             val videos = MediaRepository.loadVideos(requireContext())
             list.text = if (videos.isEmpty()) "No videos found" else videos.take(30).joinToString("\n") { "• ${it.title}" }
         }
