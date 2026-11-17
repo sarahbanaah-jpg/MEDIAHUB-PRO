@@ -29,7 +29,17 @@ if "com.google.firebase:firebase-messaging" not in g:
     if needle not in g:
         raise SystemExit("Firebase Analytics dependency missing; cannot safely add Messaging.")
     g = g.replace(needle, needle + "\n    implementation 'com.google.firebase:firebase-messaging'", 1)
-    gradle.write_text(g, encoding="utf-8")
+if "androidx.work:work-runtime" not in g:
+    needle = "implementation 'com.google.firebase:firebase-messaging'"
+    if needle not in g:
+        raise SystemExit("Firebase Messaging dependency missing; cannot safely add update polling.")
+    g = g.replace(needle, needle + "\n    implementation 'androidx.work:work-runtime:2.10.5'", 1)
+gradle.write_text(g, encoding="utf-8")
+properties = project / "gradle.properties"
+props = properties.read_text(encoding="utf-8") if properties.is_file() else ""
+if "android.useAndroidX=" not in props:
+    props += "\nandroid.useAndroidX=true\n"
+    properties.write_text(props, encoding="utf-8")
 
 # Subscribe every installation to the official update topic.
 main = java / "MainActivity.java"
@@ -39,9 +49,123 @@ replacement = """try {
             com.google.firebase.messaging.FirebaseMessaging.getInstance()
                     .subscribeToTopic("mediahub_updates");
         } catch (Exception ignored) { /* FCM can retry after network/service recovery. */ }
+        androidx.work.Constraints updateConstraints = new androidx.work.Constraints.Builder()
+                .setRequiredNetworkType(androidx.work.NetworkType.CONNECTED).build();
+        androidx.work.PeriodicWorkRequest updateWork = new androidx.work.PeriodicWorkRequest.Builder(
+                ReleaseUpdateWorker.class, 12, java.util.concurrent.TimeUnit.HOURS)
+                .setConstraints(updateConstraints).build();
+        androidx.work.WorkManager.getInstance(this).enqueueUniquePeriodicWork(
+                "mediahub_release_update_poll", androidx.work.ExistingPeriodicWorkPolicy.KEEP, updateWork);
         requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);"""
 s = replace_once(s, anchor, replacement, "MainActivity update-topic subscription")
 main.write_text(s, encoding="utf-8")
+
+# Background fallback: poll GitHub Releases every 12 hours and post a persistent local update alert.
+(java / "ReleaseUpdateWorker.java").write_text(r'''package com.mediahub.rebuilt;
+
+import android.app.Notification;
+import android.app.NotificationChannel;
+import android.app.NotificationManager;
+import android.app.PendingIntent;
+import android.content.Context;
+import android.content.Intent;
+import android.content.pm.PackageInfo;
+import android.content.pm.PackageManager;
+import android.os.Build;
+import androidx.work.Worker;
+import androidx.work.WorkerParameters;
+import org.json.JSONObject;
+import java.net.HttpURLConnection;
+import java.net.URL;
+
+public final class ReleaseUpdateWorker extends Worker {
+    private static final String API =
+            "https://api.github.com/repos/sarahbanaah-jpg/MEDIAHUB-PRO/releases/latest";
+    private static final String CHANNEL = "mediahub_forced_updates";
+    private static final int NOTIFICATION_ID = 3102;
+
+    public ReleaseUpdateWorker(Context context, WorkerParameters params) {
+        super(context, params);
+    }
+
+    @Override public Result doWork() {
+        Context context = getApplicationContext();
+        if (Build.VERSION.SDK_INT >= 33
+                && context.checkSelfPermission("android.permission.POST_NOTIFICATIONS")
+                    != PackageManager.PERMISSION_GRANTED) return Result.success();
+        HttpURLConnection connection = null;
+        try {
+            connection = (HttpURLConnection) new URL(API).openConnection();
+            connection.setRequestMethod("GET");
+            connection.setConnectTimeout(12000);
+            connection.setReadTimeout(12000);
+            connection.setRequestProperty("Accept", "application/vnd.github+json");
+            connection.setRequestProperty("User-Agent", "MEDIAHUB-PRO-Android");
+            if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return Result.retry();
+            byte[] bytes = connection.getInputStream().readAllBytes();
+            JSONObject release = new JSONObject(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            String latest = release.optString("tag_name", "");
+            PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
+            String current = installed.versionName == null ? "0" : installed.versionName;
+            if (compare(latest, current) <= 0) return Result.success();
+
+            String name = release.optString("name", latest);
+            String body = "A required MEDIAHUB-PRO update is available: " + name
+                    + ". Tap to download and install the latest version.";
+            if (Build.VERSION.SDK_INT >= 26) {
+                NotificationChannel channel = new NotificationChannel(CHANNEL,
+                        "Required MEDIAHUB-PRO updates", NotificationManager.IMPORTANCE_HIGH);
+                channel.setDescription("Important update alerts from MEDIAHUB-PRO");
+                channel.setLockscreenVisibility(Notification.VISIBILITY_PUBLIC);
+                NotificationManager manager = (NotificationManager)
+                        context.getSystemService(Context.NOTIFICATION_SERVICE);
+                if (manager != null) manager.createNotificationChannel(channel);
+            }
+            Intent open = new Intent(context, UpdateActivity.class)
+                    .putExtra("force_update", true)
+                    .addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP | Intent.FLAG_ACTIVITY_SINGLE_TOP);
+            PendingIntent content = PendingIntent.getActivity(context, NOTIFICATION_ID, open,
+                    PendingIntent.FLAG_UPDATE_CURRENT | PendingIntent.FLAG_IMMUTABLE);
+            Notification.Builder builder = Build.VERSION.SDK_INT >= 26
+                    ? new Notification.Builder(context, CHANNEL) : new Notification.Builder(context);
+            builder.setSmallIcon(android.R.drawable.ic_dialog_info)
+                    .setContentTitle("Mandatory MEDIAHUB-PRO update")
+                    .setContentText(body)
+                    .setStyle(new Notification.BigTextStyle().bigText(body))
+                    .setContentIntent(content)
+                    .setCategory(Notification.CATEGORY_SYSTEM)
+                    .setPriority(Notification.PRIORITY_MAX)
+                    .setVisibility(Notification.VISIBILITY_PUBLIC)
+                    .setOngoing(true)
+                    .setAutoCancel(false)
+                    .setDefaults(Notification.DEFAULT_ALL);
+            NotificationManager manager = (NotificationManager)
+                    context.getSystemService(Context.NOTIFICATION_SERVICE);
+            if (manager != null) manager.notify(NOTIFICATION_ID, builder.build());
+            return Result.success();
+        } catch (Exception error) {
+            return Result.retry();
+        } finally {
+            if (connection != null) connection.disconnect();
+        }
+    }
+
+    private static int compare(String a, String b) {
+        try {
+            String[] left = a.replaceFirst("^[vV]", "").split("[.-]");
+            String[] right = b.replaceFirst("^[vV]", "").split("[.-]");
+            for (int i = 0; i < Math.max(left.length, right.length); i++) {
+                int x = i < left.length ? Integer.parseInt(left[i].replaceAll("[^0-9].*$", "")) : 0;
+                int y = i < right.length ? Integer.parseInt(right[i].replaceAll("[^0-9].*$", "")) : 0;
+                if (x != y) return Integer.compare(x, y);
+            }
+            return 0;
+        } catch (Exception ignored) {
+            return a.compareToIgnoreCase(b);
+        }
+    }
+}
+''', encoding="utf-8")
 
 # Receive data-only FCM update messages and present a persistent, high-priority alert.
 (java / "MediaHubMessagingService.java").write_text(r'''package com.mediahub.rebuilt;
