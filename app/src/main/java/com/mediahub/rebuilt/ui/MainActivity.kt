@@ -31,6 +31,7 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var contentContainer: FrameLayout
     private lateinit var bottomNav: LinearLayout
+    private var mandatoryUpdate = false
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -55,10 +56,14 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        // Automatic update check on launch — opens premium UpdateActivity when needed
         UpdateChecker.check(this, notify = true) { info ->
             if (info != null && !isFinishing) {
-                UpdateChecker.openUpdateScreen(this, info)
+                if (info.mandatory) {
+                    mandatoryUpdate = true
+                    UpdateChecker.openUpdateScreen(this, info)
+                } else {
+                    UpdateChecker.openUpdateScreen(this, info)
+                }
             }
         }
 
@@ -66,6 +71,19 @@ class MainActivity : AppCompatActivity() {
             showMainUi()
         } else {
             requestMediaPermissions()
+        }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (mandatoryUpdate) {
+            UpdateChecker.check(this, notify = false) { info ->
+                if (info != null && info.mandatory && !isFinishing) {
+                    UpdateChecker.openUpdateScreen(this, info)
+                } else {
+                    mandatoryUpdate = false
+                }
+            }
         }
     }
 
@@ -89,9 +107,7 @@ class MainActivity : AppCompatActivity() {
             needed += Manifest.permission.READ_MEDIA_AUDIO
             needed += Manifest.permission.READ_MEDIA_VIDEO
             needed += Manifest.permission.READ_MEDIA_IMAGES
-            if (Build.VERSION.SDK_INT >= 34) {
-                needed += Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
-            }
+            if (Build.VERSION.SDK_INT >= 34) needed += Manifest.permission.READ_MEDIA_VISUAL_USER_SELECTED
             needed += Manifest.permission.POST_NOTIFICATIONS
         } else {
             needed += Manifest.permission.READ_EXTERNAL_STORAGE
@@ -102,7 +118,7 @@ class MainActivity : AppCompatActivity() {
     private fun showPermissionDenied() {
         AlertDialog.Builder(this)
             .setTitle("Permissions required")
-            .setMessage("MediaHub Pro needs access to your music, videos and photos to work.\n\nYou can grant them in Settings.")
+            .setMessage("MediaHub Pro needs access to your music, videos and photos to work.")
             .setPositiveButton("Open Settings") { _, _ ->
                 startActivity(Intent(Settings.ACTION_APPLICATION_DETAILS_SETTINGS).apply {
                     data = Uri.fromParts("package", packageName, null)
@@ -128,9 +144,7 @@ class MainActivity : AppCompatActivity() {
             R.id.navSettings to { SettingsFragment() }
         )
         tabs.forEach { (id, createFragment) ->
-            findViewById<View>(id).setOnClickListener {
-                switchTo(createFragment(), id)
-            }
+            findViewById<View>(id).setOnClickListener { switchTo(createFragment(), id) }
         }
     }
 
@@ -142,7 +156,6 @@ class MainActivity : AppCompatActivity() {
 
         val activeColor = 0xFFFF5C8A.toInt()
         val inactiveColor = 0xFF8E7F93.toInt()
-
         listOf(R.id.navHome, R.id.navVideos, R.id.navMusic, R.id.navPhotos, R.id.navSettings).forEach { id ->
             val view = findViewById<View>(id)
             val label = view.findViewWithTag<TextView>("label")
@@ -155,6 +168,5 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun dp(value: Int): Int =
-        (value * resources.displayMetrics.density).toInt()
+    private fun dp(value: Int): Int = (value * resources.displayMetrics.density).toInt()
 }

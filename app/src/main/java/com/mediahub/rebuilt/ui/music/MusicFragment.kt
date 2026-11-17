@@ -1,6 +1,7 @@
 package com.mediahub.rebuilt.ui.music
 
 import android.content.ComponentName
+import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -35,30 +36,70 @@ class MusicFragment : Fragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF09070D.toInt())
+            setBackgroundColor(0xFF05040A.toInt())
             setPadding(dp(18), dp(34), dp(18), dp(100))
         }
         root.addView(TextView(requireContext()).apply {
-            text = "Music"; setTextColor(0xFFFFFFFF.toInt()); textSize = 29f
+            text = "Music"
+            setTextColor(0xFFFFF8FC.toInt())
+            textSize = 29f
             setTypeface(null, Typeface.BOLD)
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Your soundtrack"; setTextColor(0xFFB9ADBD.toInt()); textSize = 14f
+            text = "Your soundtrack"
+            setTextColor(0xFFC9B8C8.toInt())
+            textSize = 14f
             setPadding(0, dp(5), 0, dp(16))
         })
-        val playAll = TextView(requireContext()).apply {
-            text = "▶   PLAY ALL"; setTextColor(0xFFFFFFFF.toInt()); textSize = 13f
-            setTypeface(null, Typeface.BOLD); setPadding(dp(16), dp(14), dp(16), dp(14))
-            background = GradientDrawable().apply { setColor(0xFFB83D68.toInt()); cornerRadius = dp(15).toFloat() }
-            isClickable = true; isFocusable = true
-            setOnClickListener { if (songs.isNotEmpty()) playAt(0) }
+
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
         }
-        root.addView(playAll)
+        val playAll = TextView(requireContext()).apply {
+            text = "▶  PLAY ALL"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = GradientDrawable().apply {
+                setColor(0xFFFF5C8A.toInt())
+                cornerRadius = dp(15).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { if (songs.isNotEmpty()) playAt(0) }
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) }
+        }
+        val nowPlaying = TextView(requireContext()).apply {
+            text = "NOW PLAYING"
+            setTextColor(0xFFFFF8FC.toInt())
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            background = GradientDrawable().apply {
+                setColor(0xFF16121F.toInt())
+                cornerRadius = dp(15).toFloat()
+                setStroke(dp(1), 0x33FF5C8A)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(requireContext(), NowPlayingActivity::class.java))
+            }
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        }
+        row.addView(playAll)
+        row.addView(nowPlaying)
+        root.addView(row)
+
         status = TextView(requireContext()).apply {
-            text = "Loading your music…"; setTextColor(0xFFFF7898.toInt()); textSize = 12f
+            text = "Loading your music…"
+            setTextColor(0xFFFF5C8A.toInt())
+            textSize = 12f
             setPadding(0, dp(14), 0, dp(10))
         }
         root.addView(status)
+
         songList = RecyclerView(requireContext()).apply {
             layoutManager = LinearLayoutManager(requireContext())
             overScrollMode = View.OVER_SCROLL_NEVER
@@ -86,7 +127,10 @@ class MusicFragment : Fragment() {
         future.addListener({
             try {
                 controller = future.get()
-                pendingIndex?.let { index -> pendingIndex = null; playAt(index) }
+                pendingIndex?.let { index ->
+                    pendingIndex = null
+                    playAt(index)
+                }
             } catch (_: Exception) {
                 if (isAdded) status.text = "Player unavailable. Try restarting the app."
             }
@@ -103,17 +147,20 @@ class MusicFragment : Fragment() {
         val queue = songs.map { song ->
             Media3Item.Builder()
                 .setUri(song.uri)
-                .setMediaMetadata(MediaMetadata.Builder()
-                    .setTitle(song.title)
-                    .setArtist(song.artist)
-                    .setAlbumTitle(song.album)
-                    .build())
+                .setMediaMetadata(
+                    MediaMetadata.Builder()
+                        .setTitle(song.title)
+                        .setArtist(song.artist)
+                        .setAlbumTitle(song.album)
+                        .build()
+                )
                 .build()
         }
         player.setMediaItems(queue, index, 0L)
         player.prepare()
         player.play()
         status.text = "NOW PLAYING  ·  ${songs[index].title}"
+        startActivity(Intent(requireContext(), NowPlayingActivity::class.java))
     }
 
     override fun onStop() {
@@ -135,20 +182,32 @@ class MusicFragment : Fragment() {
         private val onSongClick: (Int) -> Unit
     ) : RecyclerView.Adapter<SongAdapter.SongHolder>() {
         inner class SongHolder(val row: LinearLayout, val title: TextView, val detail: TextView) : RecyclerView.ViewHolder(row)
+
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongHolder {
             val row = LinearLayout(requireContext()).apply {
                 orientation = LinearLayout.VERTICAL
                 setPadding(dp(15), dp(13), dp(15), dp(13))
                 background = GradientDrawable().apply {
-                    setColor(0xFF17121C.toInt()); cornerRadius = dp(14).toFloat()
+                    setColor(0xFF16121F.toInt())
+                    cornerRadius = dp(14).toFloat()
                     setStroke(dp(1), 0x22FFFFFF)
                 }
             }
-            val title = TextView(requireContext()).apply { setTextColor(0xFFF5EDF7.toInt()); textSize = 15f; setTypeface(null, Typeface.BOLD) }
-            val detail = TextView(requireContext()).apply { setTextColor(0xFFB9ADBD.toInt()); textSize = 12f; setPadding(0, dp(4), 0, 0) }
-            row.addView(title); row.addView(detail)
+            val title = TextView(requireContext()).apply {
+                setTextColor(0xFFFFF8FC.toInt())
+                textSize = 15f
+                setTypeface(null, Typeface.BOLD)
+            }
+            val detail = TextView(requireContext()).apply {
+                setTextColor(0xFFC9B8C8.toInt())
+                textSize = 12f
+                setPadding(0, dp(4), 0, 0)
+            }
+            row.addView(title)
+            row.addView(detail)
             return SongHolder(row, title, detail)
         }
+
         override fun onBindViewHolder(holder: SongHolder, position: Int) {
             val song = items[position]
             holder.title.text = song.title
@@ -156,6 +215,7 @@ class MusicFragment : Fragment() {
             holder.row.setOnClickListener { onSongClick(holder.bindingAdapterPosition) }
             holder.row.layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = dp(9) }
         }
+
         override fun getItemCount() = items.size
     }
 
