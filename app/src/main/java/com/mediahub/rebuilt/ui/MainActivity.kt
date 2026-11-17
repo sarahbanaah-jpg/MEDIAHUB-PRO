@@ -117,17 +117,17 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun setupBottomNav() {
-        val tabs = listOf(
-            R.id.navHome to HomeFragment(),
-            R.id.navVideos to VideosFragment(),
-            R.id.navMusic to MusicFragment(),
-            R.id.navPhotos to PhotosFragment(),
-            R.id.navSettings to SettingsFragment()
+        val tabs: List<Pair<Int, () -> Fragment>> = listOf(
+            R.id.navHome to { HomeFragment() },
+            R.id.navVideos to { VideosFragment() },
+            R.id.navMusic to { MusicFragment() },
+            R.id.navPhotos to { PhotosFragment() },
+            R.id.navSettings to { SettingsFragment() }
         )
 
-        tabs.forEach { (id, fragment) ->
+        tabs.forEach { (id, createFragment) ->
             findViewById<View>(id).setOnClickListener {
-                switchTo(fragment, id)
+                switchTo(createFragment(), id)
             }
         }
     }
