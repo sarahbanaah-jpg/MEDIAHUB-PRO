@@ -1140,7 +1140,7 @@ jobs:
           if "NearbyTransferActivity" not in manifest:
               raise SystemExit("NearbyTransferActivity missing from AndroidManifest.xml")
           gradle_path.write_text(gradle)
-          print("OK: applicationId preserved; versionName=3.0.0; versionCode=30; NearbyTransferActivity registered")
+          print("OK: applicationId preserved; versionName=3.1.0; versionCode=31; NearbyTransferActivity registered")
           PY
 
       - name: Apply screenshot-matched home feed and bottom navigation
