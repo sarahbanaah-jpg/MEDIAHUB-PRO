@@ -4,9 +4,9 @@ on:
   workflow_dispatch:
     inputs:
       tag_name:
-        description: Existing or new release tag (must match app versionName, e.g. v2.14.0)
+        description: Release tag (must match app versionName, e.g. v2.15.0)
         required: true
-        default: v2.14.0
+        default: v2.15.0
         type: string
 
 permissions:
@@ -85,15 +85,43 @@ jobs:
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "versionName='$APP_VERSION'"
           sha256sum "$APK"
           ls -lh "$APK"
+          cp "$APK" "MEDIAHUB-PRO-v${APP_VERSION}.apk"
 
-      - name: Create release if needed and attach APK
+      - name: Create GitHub Release and attach APK
         env:
           GH_TOKEN: ${{ github.token }}
           TAG_NAME: ${{ inputs.tag_name }}
         run: |
           set -euo pipefail
-          if ! gh release view "$TAG_NAME" >/dev/null 2>&1; then
-            gh release create "$TAG_NAME" --title "MEDIAHUB-PRO $TAG_NAME" --notes "Signed Android APK release."
+          NOTES=$(cat <<EOF
+          MEDIAHUB-PRO ${TAG_NAME}
+
+          Premium Liquid Glass UI update.
+
+          - Deep dark theme with rose accent
+          - Redesigned home dashboard (hero + library stats)
+          - Liquid glass bottom navigation with active pills
+          - Improved media grid cards
+          - Package: com.mediahub.rebuilt
+          - Signed with the official MEDIAHUB-PRO release key
+
+          Install over the previous version — Android will ask to update.
+          EOF
+          )
+
+          if gh release view "$TAG_NAME" >/dev/null 2>&1; then
+            echo "Release $TAG_NAME already exists — uploading asset (may fail if release is immutable)"
+            gh release upload "$TAG_NAME" "MEDIAHUB-PRO-v${APP_VERSION}.apk" --clobber || {
+              echo "::error::Cannot upload to existing release $TAG_NAME (likely immutable). Use a new version tag."
+              exit 1
+            }
+            gh release edit "$TAG_NAME" --title "MEDIAHUB-PRO $TAG_NAME" --notes "$NOTES" || true
+          else
+            gh release create "$TAG_NAME" \
+              "MEDIAHUB-PRO-v${APP_VERSION}.apk" \
+              --title "MEDIAHUB-PRO $TAG_NAME — Liquid Glass UI" \
+              --notes "$NOTES" \
+              --target main
           fi
-          gh release upload "$TAG_NAME" app/build/outputs/apk/release/app-release.apk --clobber
-          gh release edit "$TAG_NAME" --title "MEDIAHUB-PRO $TAG_NAME" --notes "Signed Android APK. Built and signature-verified by GitHub Actions."
+
+          echo "Published: https://github.com/${{ github.repository }}/releases/tag/$TAG_NAME"
