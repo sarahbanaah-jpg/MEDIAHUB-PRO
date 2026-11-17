@@ -4,6 +4,10 @@ import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.content.Intent
+import android.net.Uri
+import android.widget.Button
+import com.mediahub.rebuilt.ui.player.VideoPlayerActivity
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.fragment.app.Fragment
@@ -31,6 +35,15 @@ class VideosFragment : Fragment() {
             setPadding(0, dp(16), 0, 0)
         }
         root.addView(list)
+        val demoButton = Button(requireContext()).apply {
+            text = "Play included offline demo clip"
+            setOnClickListener {
+                startActivity(Intent(requireContext(), VideoPlayerActivity::class.java).apply {
+                    data = Uri.parse("asset:///mediahub-demo.mp4")
+                })
+            }
+        }
+        root.addView(demoButton)
         viewLifecycleOwner.lifecycleScope.launch {
             val videos = MediaRepository.loadVideos(requireContext())
             list.text = if (videos.isEmpty()) "No videos found" else videos.take(30).joinToString("\n") { "• ${it.title}" }
