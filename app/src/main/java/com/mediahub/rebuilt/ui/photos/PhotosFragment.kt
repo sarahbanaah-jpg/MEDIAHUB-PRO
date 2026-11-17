@@ -67,7 +67,6 @@ class PhotosFragment : Fragment() {
             grid.visibility = if (photos.isEmpty()) View.GONE else View.VISIBLE
             grid.adapter = MediaGridAdapter(requireContext(), photos, false) { index ->
                 startActivity(Intent(requireContext(), PhotoGalleryActivity::class.java).apply {
-                    putStringArrayListExtra(PhotoGalleryActivity.EXTRA_URIS, ArrayList(photos.map { it.uri.toString() }))
                     putExtra(PhotoGalleryActivity.EXTRA_INDEX, index)
                 })
             }
