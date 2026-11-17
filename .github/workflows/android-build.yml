@@ -50,8 +50,8 @@ jobs:
           # The legacy Groovy module file was retired; only the Kotlin DSL is supported.
           test ! -f app/build.gradle
           grep -q 'applicationId = "com.mediahub.rebuilt"' app/build.gradle.kts
-          grep -q 'versionCode = 21' app/build.gradle.kts
-          grep -q 'versionName = "2.13.0"' app/build.gradle.kts
+          grep -q 'versionCode = 22' app/build.gradle.kts
+          grep -q 'versionName = "2.13.1"' app/build.gradle.kts
 
       - name: Generate bundled offline demo media
         run: |
@@ -78,7 +78,7 @@ jobs:
       - name: Upload test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.13-debug-test
+          name: MEDIAHUB-PRO-v2.13.1-debug-test
           path: app/build/outputs/apk/debug/app-debug.apk
           if-no-files-found: error
           retention-days: 14
@@ -122,23 +122,32 @@ jobs:
           test "$SIZE" -ge "$MINIMUM" || { echo "Release APK is below 20 MiB: $SIZE bytes"; exit 1; }
           echo "Verified signed release APK size: $SIZE bytes"
           "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
-          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='21' versionName='2.13.0'"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='22' versionName='2.13.1'"
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Publish MEDIAHUB-PRO v2.13
+      - name: Upload signed release APK artifact
+        if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.13.1-release
+          path: app/build/outputs/apk/release/app-release.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      - name: Publish MEDIAHUB-PRO v2.13.1
         if: github.event_name == 'push' && github.ref == 'refs/heads/main'
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: v2.13
-          name: MEDIAHUB-PRO v2.13 — Kotlin rebuild
+          tag_name: v2.13.1
+          name: MEDIAHUB-PRO v2.13.1 — Kotlin rebuild
           body: |
-            MEDIAHUB-PRO v2.13.0
+            MEDIAHUB-PRO v2.13.1
 
             This release is built from the Kotlin Android project in the repository, not the retired legacy maintenance source.
 
             - Application ID: com.mediahub.rebuilt
-            - Version code: 21
+            - Version code: 22
             - Uses the existing MEDIAHUB-PRO release signing key.
             - Includes the current Kotlin UI and Media3 playback implementation.
             - Please report any startup or playback issue before wider distribution.
