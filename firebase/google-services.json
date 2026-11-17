@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "531525621086",
+    "project_id": "mediahub-pro-11393",
+    "storage_bucket": "mediahub-pro-11393.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:531525621086:android:5e6adf7c232982c8cbabcf",
+        "android_client_info": {
+          "package_name": "com.mediahub.rebuilt"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCikoc9Berb5z9_m_ZTQHP4uPhJVxsNnF0"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
