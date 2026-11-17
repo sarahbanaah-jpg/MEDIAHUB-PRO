@@ -1,6 +1,7 @@
 package com.mediahub.rebuilt.ui.music
 
 import android.content.ComponentName
+import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.media.audiofx.BassBoost
@@ -22,10 +23,6 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediahub.rebuilt.service.PlaybackService
 
-/**
- * Boomplay-inspired full-screen now playing screen with
- * shuffle / repeat, sleep timer and simple equalizer controls.
- */
 class NowPlayingActivity : AppCompatActivity() {
 
     private var controller: MediaController? = null
@@ -72,7 +69,6 @@ class NowPlayingActivity : AppCompatActivity() {
             setTypeface(null, Typeface.BOLD)
         })
 
-        // Artwork placeholder card
         root.addView(LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
@@ -143,7 +139,6 @@ class NowPlayingActivity : AppCompatActivity() {
         timeRow.addView(durationView)
         root.addView(timeRow)
 
-        // Transport controls
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -159,7 +154,6 @@ class NowPlayingActivity : AppCompatActivity() {
         controls.addView(repeatButton)
         root.addView(controls)
 
-        // Secondary actions
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -282,17 +276,24 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun showEqualizer() {
+        // Prefer system equalizer UI when available
         try {
-            val sessionId = controller?.audioSessionId ?: 0
-            if (sessionId == 0) {
-                Toast.makeText(this, "Start playback first", Toast.LENGTH_SHORT).show()
+            val intent = Intent("android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL")
+            intent.putExtra("android.media.extra.CONTENT_TYPE", 0)
+            startActivity(intent)
+            return
+        } catch (_: Exception) {
+        }
+        // Fallback: session 0 global equalizer presets
+        try {
+            equalizer?.release()
+            equalizer = Equalizer(0, 0).apply { enabled = true }
+            val eq = equalizer ?: return
+            val presets = (0 until eq.numberOfPresets).map { eq.getPresetName(it.toShort()) }
+            if (presets.isEmpty()) {
+                Toast.makeText(this, "No equalizer presets on this device", Toast.LENGTH_SHORT).show()
                 return
             }
-            equalizer?.release()
-            equalizer = Equalizer(0, sessionId).apply { enabled = true }
-            val eq = equalizer ?: return
-            val bands = eq.numberOfBands.toInt()
-            val presets = (0 until eq.numberOfPresets).map { eq.getPresetName(it.toShort()) }
             AlertDialog.Builder(this)
                 .setTitle("Equalizer preset")
                 .setItems(presets.toTypedArray()) { _, which ->
@@ -303,31 +304,24 @@ class NowPlayingActivity : AppCompatActivity() {
                         Toast.makeText(this, "Preset not available", Toast.LENGTH_SHORT).show()
                     }
                 }
-                .setNeutralButton(if (eq.enabled) "Disable" else "Enable") { _, _ ->
-                    eq.enabled = !eq.enabled
-                }
                 .show()
-        } catch (e: Exception) {
+        } catch (_: Exception) {
             Toast.makeText(this, "Equalizer unavailable on this device", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun toggleBass() {
         try {
-            val sessionId = controller?.audioSessionId ?: 0
-            if (sessionId == 0) {
-                Toast.makeText(this, "Start playback first", Toast.LENGTH_SHORT).show()
-                return
-            }
             if (bassBoost == null) {
-                bassBoost = BassBoost(0, sessionId).apply {
+                bassBoost = BassBoost(0, 0).apply {
                     enabled = true
                     setStrength(700.toShort())
                 }
                 Toast.makeText(this, "Bass boost on", Toast.LENGTH_SHORT).show()
             } else {
-                bassBoost?.enabled = !(bassBoost?.enabled ?: false)
-                Toast.makeText(this, if (bassBoost?.enabled == true) "Bass boost on" else "Bass boost off", Toast.LENGTH_SHORT).show()
+                val enabled = !(bassBoost?.enabled ?: false)
+                bassBoost?.enabled = enabled
+                Toast.makeText(this, if (enabled) "Bass boost on" else "Bass boost off", Toast.LENGTH_SHORT).show()
             }
         } catch (_: Exception) {
             Toast.makeText(this, "Bass boost unavailable", Toast.LENGTH_SHORT).show()
@@ -379,9 +373,7 @@ class NowPlayingActivity : AppCompatActivity() {
     private fun formatMs(ms: Long): String {
         if (ms <= 0) return "0:00"
         val totalSec = ms / 1000
-        val m = totalSec / 60
-        val s = totalSec % 60
-        return "%d:%02d".format(m, s)
+        return "%d:%02d".format(totalSec / 60, totalSec % 60)
     }
 
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()

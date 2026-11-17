@@ -4,10 +4,8 @@ import android.content.pm.ActivityInfo
 import android.media.AudioManager
 import android.net.Uri
 import android.os.Bundle
-import android.provider.Settings
 import android.view.GestureDetector
 import android.view.MotionEvent
-import android.view.ViewGroup
 import android.view.WindowManager
 import android.widget.FrameLayout
 import android.widget.TextView
@@ -104,8 +102,6 @@ class VideoPlayerActivity : AppCompatActivity() {
 
         requestedOrientation = ActivityInfo.SCREEN_ORIENTATION_SENSOR
         setupGestures(playerView)
-
-        // Long-press controller area alternative: speed menu via double-tap center is gesture; also menu on long click
         playerView.setOnLongClickListener {
             showSpeedMenu()
             true
@@ -117,21 +113,25 @@ class VideoPlayerActivity : AppCompatActivity() {
         var startY = 0f
         var startBrightness = 0.5f
         var startVolume = 0
-        var mode = 0 // 0 none, 1 brightness, 2 volume, 3 seek
+        var mode = 0
 
         val detector = GestureDetector(this, object : GestureDetector.SimpleOnGestureListener() {
             override fun onDoubleTap(e: MotionEvent): Boolean {
                 val p = player ?: return false
                 val w = playerView.width.coerceAtLeast(1)
-                if (e.x < w / 3f) {
-                    p.seekTo((p.currentPosition - 10_000).coerceAtLeast(0))
-                    flashHint("-10s")
-                } else if (e.x > w * 2f / 3f) {
-                    p.seekTo(p.currentPosition + 10_000)
-                    flashHint("+10s")
-                } else {
-                    if (p.isPlaying) p.pause() else p.play()
-                    flashHint(if (p.isPlaying) "Play" else "Pause")
+                when {
+                    e.x < w / 3f -> {
+                        p.seekTo((p.currentPosition - 10_000).coerceAtLeast(0))
+                        flashHint("-10s")
+                    }
+                    e.x > w * 2f / 3f -> {
+                        p.seekTo(p.currentPosition + 10_000)
+                        flashHint("+10s")
+                    }
+                    else -> {
+                        if (p.isPlaying) p.pause() else p.play()
+                        flashHint(if (p.isPlaying) "Play" else "Pause")
+                    }
                 }
                 return true
             }
@@ -143,9 +143,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                 MotionEvent.ACTION_DOWN -> {
                     startX = event.x
                     startY = event.y
-                    startBrightness = window.attributes.screenBrightness.let {
-                        if (it < 0f) 0.5f else it
-                    }
+                    val current = window.attributes.screenBrightness
+                    startBrightness = if (current < 0f) 0.5f else current
                     startVolume = audioManager.getStreamVolume(AudioManager.STREAM_MUSIC)
                     mode = 0
                 }
@@ -154,14 +153,14 @@ class VideoPlayerActivity : AppCompatActivity() {
                     val dy = event.y - startY
                     if (mode == 0 && abs(dx) + abs(dy) > 24) {
                         mode = when {
-                            abs(dy) > abs(dx) && startX < playerView.width / 2f -> 1 // brightness left
-                            abs(dy) > abs(dx) -> 2 // volume right
-                            else -> 3 // seek horizontal
+                            abs(dy) > abs(dx) && startX < playerView.width / 2f -> 1
+                            abs(dy) > abs(dx) -> 2
+                            else -> 3
                         }
                     }
                     when (mode) {
                         1 -> {
-                            val delta = -dy / playerView.height
+                            val delta = -dy / playerView.height.toFloat()
                             val value = (startBrightness + delta).coerceIn(0.05f, 1f)
                             val lp = window.attributes
                             lp.screenBrightness = value
@@ -169,16 +168,16 @@ class VideoPlayerActivity : AppCompatActivity() {
                             flashHint("Brightness ${(value * 100).toInt()}%")
                         }
                         2 -> {
-                            val delta = -dy / playerView.height
+                            val delta = -dy / playerView.height.toFloat()
                             val value = (startVolume + delta * maxVolume).toInt().coerceIn(0, maxVolume)
                             audioManager.setStreamVolume(AudioManager.STREAM_MUSIC, value, 0)
                             flashHint("Volume ${(value * 100) / maxVolume}%")
                         }
                         3 -> {
                             val p = player ?: return@setOnTouchListener true
-                            val seekDelta = (dx / playerView.width) * 60_000L
-                            val target = (p.currentPosition + seekDelta).coerceAtLeast(0)
-                            flashHint(formatMs(target.toLong()))
+                            val seekDelta = ((dx / playerView.width.toFloat()) * 60_000f).toLong()
+                            val target = (p.currentPosition + seekDelta).coerceAtLeast(0L)
+                            flashHint(formatMs(target))
                         }
                     }
                 }
@@ -186,8 +185,8 @@ class VideoPlayerActivity : AppCompatActivity() {
                     if (mode == 3) {
                         val p = player
                         if (p != null) {
-                            val seekDelta = ((event.x - startX) / playerView.width) * 60_000L
-                            p.seekTo((p.currentPosition + seekDelta).toLong().coerceAtLeast(0))
+                            val seekDelta = (((event.x - startX) / playerView.width.toFloat()) * 60_000f).toLong()
+                            p.seekTo((p.currentPosition + seekDelta).coerceAtLeast(0L))
                         }
                     }
                     mode = 0
