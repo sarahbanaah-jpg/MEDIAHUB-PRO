@@ -53,25 +53,74 @@ jobs:
           grep -q 'versionName = "2.14.0"' app/build.gradle.kts
           ! grep -R -n 'mediahub-demo.mp4\|Play included offline demo clip\|PLAY INCLUDED OFFLINE DEMO CLIP' app/src/main
 
-      - name: Build debug APK for testing only
+      - name: Build debug APK for testing
         run: gradle --no-daemon :app:assembleDebug
 
-      - name: Verify test APK
+      - name: Verify debug test APK
         run: |
           set -euo pipefail
           APK="app/build/outputs/apk/debug/app-debug.apk"
           test -s "$APK"
           SIZE="$(stat -c %s "$APK")"
-          MINIMUM=$((4 * 1024 * 1024))
-          test "$SIZE" -ge "$MINIMUM" || { echo "Test APK unexpectedly small: $SIZE bytes"; exit 1; }
+          test "$SIZE" -ge $((4 * 1024 * 1024))
           "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='23' versionName='2.14.0'"
           sha256sum "$APK"
           ls -lh "$APK"
 
-      - name: Upload unreleased test APK
+      - name: Upload debug test APK
         uses: actions/upload-artifact@v4
         with:
-          name: MEDIAHUB-PRO-v2.14.0-unreleased-test
+          name: MEDIAHUB-PRO-v2.14.0-debug-test
           path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+          retention-days: 14
+
+      # Build a signed candidate for in-place upgrade testing, but do not create a GitHub Release.
+      - name: Validate existing signing secrets
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
+        env:
+          STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          test -n "$STORE_PASSWORD" || { echo "Missing MEDIAHUB_KEYSTORE_PASSWORD secret"; exit 1; }
+          test -n "$ENCRYPTION_PASSWORD" || { echo "Missing MEDIAHUB_KEY_ENCRYPTION_PASSWORD secret"; exit 1; }
+          test -s signing/mediahub-release.jks.enc
+
+      - name: Decrypt existing release signing key
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
+        env:
+          ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
+        run: |
+          set -euo pipefail
+          openssl enc -d -aes-256-cbc -pbkdf2 -iter 600000 \
+            -in signing/mediahub-release.jks.enc \
+            -out /tmp/mediahub-release.jks \
+            -pass env:ENCRYPTION_PASSWORD
+          chmod 600 /tmp/mediahub-release.jks
+
+      - name: Build signed unreleased candidate
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
+        env:
+          MEDIAHUB_KEYSTORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
+        run: gradle --no-daemon :app:assembleRelease
+
+      - name: Verify signed candidate identity and signature
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
+        run: |
+          set -euo pipefail
+          APK="app/build/outputs/apk/release/app-release.apk"
+          test -s "$APK"
+          test "$(stat -c %s "$APK")" -ge $((4 * 1024 * 1024))
+          "$ANDROID_HOME/build-tools/35.0.0/apksigner" verify --verbose --print-certs "$APK"
+          "$ANDROID_HOME/build-tools/35.0.0/aapt" dump badging "$APK" | grep -F "package: name='com.mediahub.rebuilt' versionCode='23' versionName='2.14.0'"
+          sha256sum "$APK"
+          ls -lh "$APK"
+
+      - name: Upload signed unreleased candidate (not published)
+        if: github.ref == 'refs/heads/feature/complete-mediahub-fix'
+        uses: actions/upload-artifact@v4
+        with:
+          name: MEDIAHUB-PRO-v2.14.0-signed-unreleased-candidate
+          path: app/build/outputs/apk/release/app-release.apk
           if-no-files-found: error
           retention-days: 14
