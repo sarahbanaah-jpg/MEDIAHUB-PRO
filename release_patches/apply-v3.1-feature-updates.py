@@ -46,7 +46,7 @@ properties.write_text(props, encoding="utf-8")
 # Subscribe every installation to the official update topic.
 main = java / "MainActivity.java"
 s = need(main)
-anchor = "requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying(); UpdateManager.checkIfDue(this);"
+anchor = "requestMediaPermissions(); updateStorageLabel(); refreshNowPlaying();\n        try { UpdateManager.checkIfDue(this); }"
 replacement = """try {
             com.google.firebase.messaging.FirebaseMessaging.getInstance()
                     .subscribeToTopic("mediahub_updates");
