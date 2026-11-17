@@ -1279,7 +1279,7 @@ jobs:
           retention-days: 14
 
       - name: Publish MEDIAHUB-PRO v3.1.0 and trigger in-app update prompt
-        if: github.event_name == 'push' && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails' || github.ref == 'refs/heads/rebuild/v3-clean-android')
+        if: (github.event_name == 'push' || github.event_name == 'workflow_dispatch') && (github.ref == 'refs/heads/main' || github.ref == 'refs/heads/release/v2.9-sharing-video-thumbnails' || github.ref == 'refs/heads/rebuild/v3-clean-android')
         uses: softprops/action-gh-release@v2
         with:
           tag_name: v3.1.0
