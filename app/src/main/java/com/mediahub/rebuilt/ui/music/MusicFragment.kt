@@ -30,6 +30,7 @@ class MusicFragment : Fragment() {
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var pendingIndex: Int? = null
     private lateinit var status: TextView
+    private lateinit var songList: RecyclerView
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val root = LinearLayout(requireContext()).apply {
@@ -58,18 +59,21 @@ class MusicFragment : Fragment() {
             setPadding(0, dp(14), 0, dp(10))
         }
         root.addView(status)
-        val list = RecyclerView(requireContext()).apply {
+        songList = RecyclerView(requireContext()).apply {
             layoutManager = LinearLayoutManager(requireContext())
             overScrollMode = View.OVER_SCROLL_NEVER
             layoutParams = LinearLayout.LayoutParams(-1, 0, 1f)
         }
-        root.addView(list)
+        root.addView(songList)
+        return root
+    }
+
+    override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         viewLifecycleOwner.lifecycleScope.launch {
             songs = MediaRepository.loadMusic(requireContext())
             status.text = if (songs.isEmpty()) "NO AUDIO FILES FOUND" else "${songs.size} TRACKS"
-            list.adapter = SongAdapter(songs) { playAt(it) }
+            songList.adapter = SongAdapter(songs) { playAt(it) }
         }
-        return root
     }
 
     override fun onStart() {
@@ -83,7 +87,7 @@ class MusicFragment : Fragment() {
             try {
                 controller = future.get()
                 pendingIndex?.let { index -> pendingIndex = null; playAt(index) }
-            } catch (error: Exception) {
+            } catch (_: Exception) {
                 if (isAdded) status.text = "Player unavailable. Try restarting the app."
             }
         }, ContextCompat.getMainExecutor(context))
