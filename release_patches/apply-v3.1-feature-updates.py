@@ -37,9 +37,11 @@ if "androidx.work:work-runtime" not in g:
 gradle.write_text(g, encoding="utf-8")
 properties = project / "gradle.properties"
 props = properties.read_text(encoding="utf-8") if properties.is_file() else ""
-if "android.useAndroidX=" not in props:
+if re.search(r"(?m)^android\\.useAndroidX\\s*=\\s*false\\s*$", props):
+    props = re.sub(r"(?m)^android\\.useAndroidX\\s*=\\s*false\\s*$", "android.useAndroidX=true", props)
+elif not re.search(r"(?m)^android\\.useAndroidX\\s*=", props):
     props += "\nandroid.useAndroidX=true\n"
-    properties.write_text(props, encoding="utf-8")
+properties.write_text(props, encoding="utf-8")
 
 # Subscribe every installation to the official update topic.
 main = java / "MainActivity.java"
@@ -102,8 +104,14 @@ public final class ReleaseUpdateWorker extends Worker {
             connection.setRequestProperty("Accept", "application/vnd.github+json");
             connection.setRequestProperty("User-Agent", "MEDIAHUB-PRO-Android");
             if (connection.getResponseCode() != HttpURLConnection.HTTP_OK) return Result.retry();
-            byte[] bytes = connection.getInputStream().readAllBytes();
-            JSONObject release = new JSONObject(new String(bytes, java.nio.charset.StandardCharsets.UTF_8));
+            java.io.ByteArrayOutputStream buffer = new java.io.ByteArrayOutputStream();
+            try (java.io.InputStream input = connection.getInputStream()) {
+                byte[] chunk = new byte[4096];
+                int count;
+                while ((count = input.read(chunk)) != -1) buffer.write(chunk, 0, count);
+            }
+            JSONObject release = new JSONObject(new String(buffer.toByteArray(),
+                    java.nio.charset.StandardCharsets.UTF_8));
             String latest = release.optString("tag_name", "");
             PackageInfo installed = context.getPackageManager().getPackageInfo(context.getPackageName(), 0);
             String current = installed.versionName == null ? "0" : installed.versionName;
