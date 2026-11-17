@@ -25,6 +25,7 @@ import com.mediahub.rebuilt.ui.music.MusicFragment
 import com.mediahub.rebuilt.ui.photos.PhotosFragment
 import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
+import com.mediahub.rebuilt.updates.UpdateChecker
 
 /**
  * Single-activity host with Liquid Glass bottom navigation.
@@ -38,9 +39,8 @@ class MainActivity : AppCompatActivity() {
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) { results ->
-        // Keep the library usable even when a user grants only some media permissions.
-        // MediaRepository handles denied collections safely and shows empty states.
-        showMainUi()
+        // Partial access is supported; if everything was denied, explain how to grant access.
+        if (hasMediaPermissions()) showMainUi() else showPermissionDenied()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -59,6 +59,8 @@ class MainActivity : AppCompatActivity() {
             v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bars.bottom + dp(8))
             insets
         }
+
+        UpdateChecker.check(this)
 
         if (hasMediaPermissions()) {
             showMainUi()
