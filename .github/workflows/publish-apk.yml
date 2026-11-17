@@ -48,6 +48,7 @@ jobs:
           STORE_PASSWORD: ${{ secrets.MEDIAHUB_KEYSTORE_PASSWORD }}
           ENCRYPTION_PASSWORD: ${{ secrets.MEDIAHUB_KEY_ENCRYPTION_PASSWORD }}
           TAG_NAME: ${{ inputs.tag_name }}
+          GH_TOKEN: ${{ github.token }}
         run: |
           set -euo pipefail
           test -n "$STORE_PASSWORD" || { echo "::error::Missing MEDIAHUB_KEYSTORE_PASSWORD"; exit 1; }
@@ -110,7 +111,6 @@ Premium Liquid Glass UI update.
 
 Install over the previous version — Android will ask to update."
 
-          # Attach APK at create time — required when the repo has immutable releases
           gh release create "$TAG_NAME" \
             "MEDIAHUB-PRO-v${APP_VERSION}.apk" \
             --title "MEDIAHUB-PRO $TAG_NAME — Liquid Glass UI" \
