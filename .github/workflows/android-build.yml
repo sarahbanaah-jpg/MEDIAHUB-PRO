@@ -1079,7 +1079,14 @@ jobs:
                   app_text = app_text[:match.end()] + "\n    " + "\n    ".join(missing) + app_text[match.end():]
               else:
                   app_text += "\n\ndependencies {\n    " + "\n    ".join(missing) + "\n}\n"
-          app_gradle.write_text(app_text, encoding="utf-8")
+          min_sdk_pattern = re.compile(r"(?m)^(\\s*minSdk(?:Version)?\\s+)(\\d+)\\b")
+          min_sdk_match = min_sdk_pattern.search(app_text)
+          if not min_sdk_match:
+              raise SystemExit("Could not find minSdk in the MEDIAHUB-PRO app Gradle file.")
+          if int(min_sdk_match.group(2)) < 24:
+              app_text = min_sdk_pattern.sub(r"\\g<1>24", app_text, count=1)
+              print("Raised minSdk to 24 (Android 7.0), required by current Firebase Analytics.")
+                    app_gradle.write_text(app_text, encoding="utf-8")
 
           print("Firebase connected: project=mediahub-pro-11393, package=com.mediahub.rebuilt; Google Services plugin and Firebase Analytics configured.")
           PY
