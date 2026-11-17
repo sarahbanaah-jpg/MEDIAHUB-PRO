@@ -14,36 +14,36 @@ import kotlinx.coroutines.withContext
 object MediaRepository {
 
     suspend fun loadVideos(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
-        query(context, Kind.VIDEO)
+        query(context, MediaItem.Kind.VIDEO)
     }
 
     suspend fun loadMusic(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
-        query(context, Kind.AUDIO)
+        query(context, MediaItem.Kind.AUDIO)
     }
 
     suspend fun loadPhotos(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
-        query(context, Kind.IMAGE)
+        query(context, MediaItem.Kind.IMAGE)
     }
 
-    private fun query(context: Context, kind: Kind): List<MediaItem> {
+    private fun query(context: Context, kind: MediaItem.Kind): List<MediaItem> {
         val result = mutableListOf<MediaItem>()
         try {
             val collection = when (kind) {
-                Kind.VIDEO -> if (Build.VERSION.SDK_INT >= 29)
+                MediaItem.Kind.VIDEO -> if (Build.VERSION.SDK_INT >= 29)
                     MediaStore.Video.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 else MediaStore.Video.Media.EXTERNAL_CONTENT_URI
 
-                Kind.AUDIO -> if (Build.VERSION.SDK_INT >= 29)
+                MediaItem.Kind.AUDIO -> if (Build.VERSION.SDK_INT >= 29)
                     MediaStore.Audio.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 else MediaStore.Audio.Media.EXTERNAL_CONTENT_URI
 
-                Kind.IMAGE -> if (Build.VERSION.SDK_INT >= 29)
+                MediaItem.Kind.IMAGE -> if (Build.VERSION.SDK_INT >= 29)
                     MediaStore.Images.Media.getContentUri(MediaStore.VOLUME_EXTERNAL)
                 else MediaStore.Images.Media.EXTERNAL_CONTENT_URI
             }
 
             val projection = when (kind) {
-                Kind.VIDEO -> arrayOf(
+                MediaItem.Kind.VIDEO -> arrayOf(
                     MediaStore.Video.Media._ID,
                     MediaStore.Video.Media.DISPLAY_NAME,
                     MediaStore.Video.Media.DURATION,
@@ -51,7 +51,7 @@ object MediaRepository {
                     MediaStore.Video.Media.MIME_TYPE,
                     MediaStore.Video.Media.DATE_ADDED
                 )
-                Kind.AUDIO -> arrayOf(
+                MediaItem.Kind.AUDIO -> arrayOf(
                     MediaStore.Audio.Media._ID,
                     MediaStore.Audio.Media.TITLE,
                     MediaStore.Audio.Media.ARTIST,
@@ -61,7 +61,7 @@ object MediaRepository {
                     MediaStore.Audio.Media.MIME_TYPE,
                     MediaStore.Audio.Media.DATE_ADDED
                 )
-                Kind.IMAGE -> arrayOf(
+                MediaItem.Kind.IMAGE -> arrayOf(
                     MediaStore.Images.Media._ID,
                     MediaStore.Images.Media.DISPLAY_NAME,
                     MediaStore.Images.Media.SIZE,
@@ -82,7 +82,7 @@ object MediaRepository {
                     val uri = ContentUris.withAppendedId(collection, id)
 
                     when (kind) {
-                        Kind.VIDEO -> {
+                        MediaItem.Kind.VIDEO -> {
                             val title = cursor.getString(1) ?: "Untitled"
                             val duration = cursor.getLong(2)
                             val size = cursor.getLong(3)
@@ -96,10 +96,10 @@ object MediaRepository {
                                 sizeBytes = size,
                                 mimeType = mime,
                                 dateAdded = date,
-                                kind = Kind.VIDEO
+                                kind = MediaItem.Kind.VIDEO
                             )
                         }
-                        Kind.AUDIO -> {
+                        MediaItem.Kind.AUDIO -> {
                             val title = cursor.getString(1) ?: "Untitled"
                             val artist = cursor.getString(2) ?: ""
                             val album = cursor.getString(3) ?: ""
@@ -117,10 +117,10 @@ object MediaRepository {
                                 sizeBytes = size,
                                 mimeType = mime,
                                 dateAdded = date,
-                                kind = Kind.AUDIO
+                                kind = MediaItem.Kind.AUDIO
                             )
                         }
-                        Kind.IMAGE -> {
+                        MediaItem.Kind.IMAGE -> {
                             val title = cursor.getString(1) ?: "Untitled"
                             val size = cursor.getLong(2)
                             val mime = cursor.getString(3)
@@ -132,7 +132,7 @@ object MediaRepository {
                                 sizeBytes = size,
                                 mimeType = mime,
                                 dateAdded = date,
-                                kind = Kind.IMAGE
+                                kind = MediaItem.Kind.IMAGE
                             )
                         }
                     }
@@ -145,5 +145,5 @@ object MediaRepository {
         return result
     }
 
-    private typealias Kind = MediaItem.Kind
+    private typealias MediaItem.Kind = MediaItem.MediaItem.Kind
 }
