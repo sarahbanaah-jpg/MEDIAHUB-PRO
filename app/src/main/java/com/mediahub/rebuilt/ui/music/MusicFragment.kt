@@ -28,6 +28,7 @@ class MusicFragment : Fragment() {
     private var songs: List<MediaItem> = emptyList()
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var pendingIndex: Int? = null
     private lateinit var status: TextView
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
@@ -73,12 +74,16 @@ class MusicFragment : Fragment() {
 
     override fun onStart() {
         super.onStart()
+        if (controllerFuture != null) return
         val context = context ?: return
         val token = SessionToken(context, ComponentName(context, PlaybackService::class.java))
         val future = MediaController.Builder(context, token).buildAsync()
         controllerFuture = future
         future.addListener({
-            try { controller = future.get() } catch (_: Exception) {
+            try {
+                controller = future.get()
+                pendingIndex?.let { index -> pendingIndex = null; playAt(index) }
+            } catch (error: Exception) {
                 if (isAdded) status.text = "Player unavailable. Try restarting the app."
             }
         }, ContextCompat.getMainExecutor(context))
@@ -87,6 +92,7 @@ class MusicFragment : Fragment() {
     private fun playAt(index: Int) {
         val player = controller
         if (player == null) {
+            pendingIndex = index
             status.text = "Starting player…"
             return
         }
@@ -104,6 +110,13 @@ class MusicFragment : Fragment() {
         player.prepare()
         player.play()
         status.text = "NOW PLAYING  ·  ${songs[index].title}"
+    }
+
+    override fun onStop() {
+        controller = null
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
+        super.onStop()
     }
 
     override fun onDestroyView() {
