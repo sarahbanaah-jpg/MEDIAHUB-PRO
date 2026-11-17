@@ -7,12 +7,14 @@ import android.os.Build
 import java.io.File
 import java.io.PrintWriter
 import java.io.StringWriter
+import com.mediahub.rebuilt.updates.UpdateWorkScheduler
 
 class MediaHubApp : Application() {
     override fun onCreate() {
         super.onCreate()
         installCrashRecorder()
         createNotificationChannels()
+        UpdateWorkScheduler.schedule(this)
     }
 
     private fun installCrashRecorder() {
