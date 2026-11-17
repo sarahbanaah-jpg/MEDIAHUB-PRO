@@ -6,8 +6,10 @@ import android.os.Bundle
 import android.view.ViewGroup
 import android.widget.ImageView
 import androidx.appcompat.app.AppCompatActivity
-import androidx.viewpager2.widget.ViewPager2
+import androidx.lifecycle.lifecycleScope
 import androidx.recyclerview.widget.RecyclerView
+import androidx.viewpager2.widget.ViewPager2
+import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.media.MediaThumbnails
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -17,18 +19,24 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 class PhotoGalleryActivity : AppCompatActivity() {
+    private lateinit var pager: ViewPager2
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         window.statusBarColor = Color.BLACK
         window.navigationBarColor = Color.BLACK
-        val uris = intent.getStringArrayListExtra(EXTRA_URIS).orEmpty()
-        val start = intent.getIntExtra(EXTRA_INDEX, 0).coerceIn(0, (uris.size - 1).coerceAtLeast(0))
-        if (uris.isEmpty()) { finish(); return }
-        setContentView(ViewPager2(this).apply {
-            setBackgroundColor(Color.BLACK)
-            adapter = PhotoAdapter(uris)
-            setCurrentItem(start, false)
-        })
+        pager = ViewPager2(this).apply { setBackgroundColor(Color.BLACK) }
+        setContentView(pager)
+        val startIndex = intent.getIntExtra(EXTRA_INDEX, 0)
+        lifecycleScope.launch {
+            val uris = MediaRepository.loadPhotos(this@PhotoGalleryActivity).map { it.uri.toString() }
+            if (uris.isEmpty()) {
+                finish()
+                return@launch
+            }
+            pager.adapter = PhotoAdapter(uris)
+            pager.setCurrentItem(startIndex.coerceIn(0, uris.lastIndex), false)
+        }
     }
 
     private inner class PhotoAdapter(private val uris: List<String>) : RecyclerView.Adapter<PhotoAdapter.Page>() {
@@ -62,7 +70,6 @@ class PhotoGalleryActivity : AppCompatActivity() {
     }
 
     companion object {
-        const val EXTRA_URIS = "com.mediahub.rebuilt.photos.URIS"
         const val EXTRA_INDEX = "com.mediahub.rebuilt.photos.INDEX"
     }
 }
