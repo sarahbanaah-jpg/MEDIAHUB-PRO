@@ -23,6 +23,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediahub.rebuilt.service.PlaybackService
 
+/** Neon dream full-screen player matching the design mockup. */
 class NowPlayingActivity : AppCompatActivity() {
 
     private var controller: MediaController? = null
@@ -40,6 +41,7 @@ class NowPlayingActivity : AppCompatActivity() {
     private lateinit var shuffleButton: TextView
     private lateinit var repeatButton: TextView
     private lateinit var sleepLabel: TextView
+    private lateinit var waveView: TextView
 
     private val tickRunnable = object : Runnable {
         override fun run() {
@@ -56,39 +58,62 @@ class NowPlayingActivity : AppCompatActivity() {
 
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF05040A.toInt())
-            setPadding(dp(24), dp(56), dp(24), dp(40))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF2A1050.toInt(), 0xFF0B0618.toInt(), 0xFF05030E.toInt())
+            )
+            setPadding(dp(24), dp(52), dp(24), dp(36))
             gravity = Gravity.CENTER_HORIZONTAL
         }
 
-        root.addView(TextView(this).apply {
-            text = "NOW PLAYING"
-            setTextColor(0xFFFF5C8A.toInt())
-            textSize = 11f
-            letterSpacing = 0.2f
-            setTypeface(null, Typeface.BOLD)
+        // Top bar
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            layoutParams = LinearLayout.LayoutParams(-1, -2)
+        }
+        top.addView(TextView(this).apply {
+            text = "‹"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 28f
+            setPadding(dp(4), 0, dp(16), 0)
+            setOnClickListener { finish() }
         })
-
-        root.addView(LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
+        top.addView(TextView(this).apply {
+            text = "Playing"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 16f
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(dp(260), dp(260)).apply { topMargin = dp(28) }
-            background = GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0xFF5A2A45.toInt(), 0xFF2A1830.toInt(), 0xFF12101C.toInt())
-            ).apply { cornerRadius = dp(28).toFloat() }
-            addView(TextView(this@NowPlayingActivity).apply {
-                text = "♫"
-                setTextColor(0xFFFF8FB0.toInt())
-                textSize = 64f
-                gravity = Gravity.CENTER
-            })
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        })
+        top.addView(TextView(this).apply {
+            text = "···"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 20f
+            setPadding(dp(12), 0, 0, 0)
+            setOnClickListener { showMore() }
+        })
+        root.addView(top)
+
+        // Circular artwork
+        root.addView(TextView(this).apply {
+            text = "♪"
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 72f
+            layoutParams = LinearLayout.LayoutParams(dp(260), dp(260)).apply { topMargin = dp(36) }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                colors = intArrayOf(0xFF7B2FF7.toInt(), 0xFFFF2D95.toInt(), 0xFF5CE1FF.toInt())
+                orientation = GradientDrawable.Orientation.TL_BR
+            }
+            elevation = 18f
         })
 
         titleView = TextView(this).apply {
             text = "—"
-            setTextColor(0xFFFFF8FC.toInt())
-            textSize = 22f
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 24f
             setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             setPadding(0, dp(28), 0, dp(4))
@@ -97,15 +122,26 @@ class NowPlayingActivity : AppCompatActivity() {
 
         artistView = TextView(this).apply {
             text = "—"
-            setTextColor(0xFFC9B8C8.toInt())
+            setTextColor(0xFFD4C4E8.toInt())
             textSize = 14f
             gravity = Gravity.CENTER
         }
         root.addView(artistView)
 
+        // Waveform visual
+        waveView = TextView(this).apply {
+            text = "▁▂▃▅▇▅▃▂▁▂▃▅▇█▇▅▃▂▁▂▃▅▃▁"
+            setTextColor(0xFFFF2D95.toInt())
+            textSize = 16f
+            gravity = Gravity.CENTER
+            letterSpacing = 0.05f
+            setPadding(0, dp(18), 0, dp(6))
+        }
+        root.addView(waveView)
+
         seekBar = SeekBar(this).apply {
             max = 1000
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(28) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2)
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {}
                 override fun onStartTrackingTouch(sb: SeekBar?) {}
@@ -124,13 +160,13 @@ class NowPlayingActivity : AppCompatActivity() {
         }
         positionView = TextView(this).apply {
             text = "0:00"
-            setTextColor(0xFF8E7F93.toInt())
+            setTextColor(0xFF9A8BB0.toInt())
             textSize = 12f
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         durationView = TextView(this).apply {
             text = "0:00"
-            setTextColor(0xFF8E7F93.toInt())
+            setTextColor(0xFF9A8BB0.toInt())
             textSize = 12f
             gravity = Gravity.END
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
@@ -142,7 +178,7 @@ class NowPlayingActivity : AppCompatActivity() {
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(28) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(20) }
         }
         shuffleButton = controlBtn("⇄") { toggleShuffle() }
         controls.addView(shuffleButton)
@@ -157,21 +193,29 @@ class NowPlayingActivity : AppCompatActivity() {
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(24) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(22) }
         }
-        actions.addView(chip("Sleep timer") { showSleepTimer() })
-        actions.addView(chip("Equalizer") { showEqualizer() })
-        actions.addView(chip("Bass boost") { toggleBass() })
+        actions.addView(chip("Sleep") { showSleepTimer() })
+        actions.addView(chip("EQ") { showEqualizer() })
+        actions.addView(chip("Bass") { toggleBass() })
         root.addView(actions)
 
         sleepLabel = TextView(this).apply {
             text = ""
-            setTextColor(0xFFFF8FB0.toInt())
+            setTextColor(0xFFFF6BB5.toInt())
             textSize = 12f
             gravity = Gravity.CENTER
-            setPadding(0, dp(16), 0, 0)
+            setPadding(0, dp(14), 0, 0)
         }
         root.addView(sleepLabel)
+
+        root.addView(TextView(this).apply {
+            text = "© Grimy. All rights reserved."
+            setTextColor(0xFF6B5A80.toInt())
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(20), 0, 0)
+        })
 
         setContentView(root)
         connectController()
@@ -216,6 +260,10 @@ class NowPlayingActivity : AppCompatActivity() {
         val meta = p.currentMediaItem?.mediaMetadata
         if (meta?.title != null) titleView.text = meta.title
         if (meta?.artist != null) artistView.text = meta.artist
+        // Simple animated wave feel
+        if (p.isPlaying) {
+            waveView.alpha = 0.7f + ((pos / 400L) % 3) * 0.1f
+        }
     }
 
     private fun togglePlay() {
@@ -239,12 +287,19 @@ class NowPlayingActivity : AppCompatActivity() {
             else -> Player.REPEAT_MODE_OFF
         }
         refreshMetadata()
-        val label = when (p.repeatMode) {
-            Player.REPEAT_MODE_ALL -> "Repeat all"
-            Player.REPEAT_MODE_ONE -> "Repeat one"
-            else -> "Repeat off"
-        }
-        Toast.makeText(this, label, Toast.LENGTH_SHORT).show()
+    }
+
+    private fun showMore() {
+        AlertDialog.Builder(this)
+            .setTitle("Playback")
+            .setItems(arrayOf("Sleep timer", "Equalizer", "Bass boost")) { _, which ->
+                when (which) {
+                    0 -> showSleepTimer()
+                    1 -> showEqualizer()
+                    2 -> toggleBass()
+                }
+            }
+            .show()
     }
 
     private fun showSleepTimer() {
@@ -256,7 +311,6 @@ class NowPlayingActivity : AppCompatActivity() {
                 sleepTimer = null
                 if (which == 0) {
                     sleepLabel.text = ""
-                    Toast.makeText(this, "Sleep timer off", Toast.LENGTH_SHORT).show()
                     return@setItems
                 }
                 val minutes = listOf(0, 15, 30, 45, 60)[which]
@@ -268,7 +322,6 @@ class NowPlayingActivity : AppCompatActivity() {
                     override fun onFinish() {
                         controller?.pause()
                         sleepLabel.text = "Sleep timer ended"
-                        Toast.makeText(this@NowPlayingActivity, "Playback paused by sleep timer", Toast.LENGTH_LONG).show()
                     }
                 }.start()
             }
@@ -276,52 +329,36 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun showEqualizer() {
-        // Prefer system equalizer UI when available
         try {
-            val intent = Intent("android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL")
-            intent.putExtra("android.media.extra.CONTENT_TYPE", 0)
-            startActivity(intent)
+            startActivity(Intent("android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL"))
             return
         } catch (_: Exception) {
         }
-        // Fallback: session 0 global equalizer presets
         try {
             equalizer?.release()
             equalizer = Equalizer(0, 0).apply { enabled = true }
             val eq = equalizer ?: return
             val presets = (0 until eq.numberOfPresets).map { eq.getPresetName(it.toShort()) }
-            if (presets.isEmpty()) {
-                Toast.makeText(this, "No equalizer presets on this device", Toast.LENGTH_SHORT).show()
-                return
-            }
             AlertDialog.Builder(this)
-                .setTitle("Equalizer preset")
+                .setTitle("Equalizer")
                 .setItems(presets.toTypedArray()) { _, which ->
-                    try {
-                        eq.usePreset(which.toShort())
-                        Toast.makeText(this, presets[which], Toast.LENGTH_SHORT).show()
-                    } catch (_: Exception) {
-                        Toast.makeText(this, "Preset not available", Toast.LENGTH_SHORT).show()
-                    }
+                    try { eq.usePreset(which.toShort()) } catch (_: Exception) {}
                 }
                 .show()
         } catch (_: Exception) {
-            Toast.makeText(this, "Equalizer unavailable on this device", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Equalizer unavailable", Toast.LENGTH_SHORT).show()
         }
     }
 
     private fun toggleBass() {
         try {
             if (bassBoost == null) {
-                bassBoost = BassBoost(0, 0).apply {
-                    enabled = true
-                    setStrength(700.toShort())
-                }
+                bassBoost = BassBoost(0, 0).apply { enabled = true; setStrength(700.toShort()) }
                 Toast.makeText(this, "Bass boost on", Toast.LENGTH_SHORT).show()
             } else {
-                val enabled = !(bassBoost?.enabled ?: false)
-                bassBoost?.enabled = enabled
-                Toast.makeText(this, if (enabled) "Bass boost on" else "Bass boost off", Toast.LENGTH_SHORT).show()
+                val on = !(bassBoost?.enabled ?: false)
+                bassBoost?.enabled = on
+                Toast.makeText(this, if (on) "Bass boost on" else "Bass boost off", Toast.LENGTH_SHORT).show()
             }
         } catch (_: Exception) {
             Toast.makeText(this, "Bass boost unavailable", Toast.LENGTH_SHORT).show()
@@ -332,14 +369,15 @@ class NowPlayingActivity : AppCompatActivity() {
         return TextView(this).apply {
             text = label
             setTextColor(0xFFFFFFFF.toInt())
-            textSize = if (primary) 22f else 18f
+            textSize = if (primary) 24f else 18f
             gravity = Gravity.CENTER
-            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setPadding(dp(14), dp(14), dp(14), dp(14))
             background = if (primary) GradientDrawable().apply {
-                setColor(0xFFFF5C8A.toInt())
-                cornerRadius = dp(28).toFloat()
+                shape = GradientDrawable.OVAL
+                colors = intArrayOf(0xFFFF2D95.toInt(), 0xFF9B6DFF.toInt())
+                orientation = GradientDrawable.Orientation.TL_BR
             } else null
-            layoutParams = LinearLayout.LayoutParams(if (primary) dp(64) else dp(52), if (primary) dp(64) else dp(52)).apply {
+            layoutParams = LinearLayout.LayoutParams(if (primary) dp(68) else dp(52), if (primary) dp(68) else dp(52)).apply {
                 marginStart = dp(4)
                 marginEnd = dp(4)
             }
@@ -352,17 +390,16 @@ class NowPlayingActivity : AppCompatActivity() {
     private fun chip(label: String, onClick: () -> Unit): TextView {
         return TextView(this).apply {
             text = label
-            setTextColor(0xFFFFF8FC.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
             textSize = 12f
-            setPadding(dp(14), dp(10), dp(14), dp(10))
+            setPadding(dp(16), dp(10), dp(16), dp(10))
             background = GradientDrawable().apply {
-                setColor(0xFF16121F.toInt())
-                cornerRadius = dp(14).toFloat()
-                setStroke(dp(1), 0x28FFFFFF)
+                setColor(0x33FFFFFF)
+                cornerRadius = dp(16).toFloat()
             }
             layoutParams = LinearLayout.LayoutParams(-2, -2).apply {
-                marginStart = dp(4)
-                marginEnd = dp(4)
+                marginStart = dp(6)
+                marginEnd = dp(6)
             }
             isClickable = true
             isFocusable = true
