@@ -12,7 +12,8 @@ data class MediaItem(
     val sizeBytes: Long = 0L,
     val mimeType: String? = null,
     val dateAdded: Long = 0L,
-    val kind: Kind
+    val kind: Kind,
+    val albumId: Long = 0L
 ) {
-    enum class Kind { VIDEO, AUDIO, IMAGE }
+    enum class Kind { AUDIO, VIDEO, IMAGE }
 }
