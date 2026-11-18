@@ -57,15 +57,18 @@ class MusicFragment : Fragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        val scroll = android.widget.ScrollView(requireContext()).apply {
-            setBackgroundColor(0xFF0B0618.toInt())
-            isFillViewport = true
-        }
+        // Keep the library RecyclerView as the screen's primary scrolling surface.
+        // A RecyclerView nested inside a ScrollView can be measured to a partial height
+        // on some Android/OEM builds, making later songs appear to be missing.
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(40), dp(18), dp(110))
+            setBackgroundColor(0xFF0B0618.toInt())
+            setPadding(dp(18), dp(24), dp(18), dp(12))
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.MATCH_PARENT
+            )
         }
-        scroll.addView(root)
 
         val header = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
@@ -172,21 +175,18 @@ class MusicFragment : Fragment() {
 
         songList = RecyclerView(requireContext()).apply {
             layoutManager = LinearLayoutManager(requireContext())
-            isNestedScrollingEnabled = false
-            overScrollMode = View.OVER_SCROLL_NEVER
-            setPadding(0, dp(12), 0, 0)
+            isNestedScrollingEnabled = true
+            overScrollMode = View.OVER_SCROLL_IF_CONTENT_SCROLLS
+            setPadding(0, dp(12), 0, dp(8))
+            layoutParams = LinearLayout.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                0,
+                1f
+            )
         }
         root.addView(songList)
 
-        root.addView(TextView(requireContext()).apply {
-            text = "© Grimy. All rights reserved."
-            setTextColor(0xFF6B5A80.toInt())
-            textSize = 11f
-            gravity = Gravity.CENTER
-            setPadding(0, dp(24), 0, dp(8))
-        })
-
-        return scroll
+        return root
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
