@@ -23,6 +23,7 @@ import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.diagnostics.Diagnostics
 import com.mediahub.rebuilt.media.MediaLibraryTools
 import com.mediahub.rebuilt.performance.DevicePerformance
+import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -127,6 +128,7 @@ class SettingsFragment : Fragment() {
                 .setTitle("Dynamic Island mode")
                 .setSingleChoiceItems(modes, selected) { dialog, which ->
                     prefs.edit().putString("island_mode", keys[which]).apply()
+                    (activity as? MainActivity)?.refreshDynamicIsland()
                     dialog.dismiss()
                     Toast.makeText(requireContext(), "Dynamic Island mode: ${modes[which]}", Toast.LENGTH_SHORT).show()
                 }
@@ -137,6 +139,7 @@ class SettingsFragment : Fragment() {
             val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
             val enabled = !prefs.getBoolean("island_enabled", true)
             prefs.edit().putBoolean("island_enabled", enabled).apply()
+            (activity as? MainActivity)?.refreshDynamicIsland()
             it.text = "Dynamic Island: ${if (enabled) "enabled" else "disabled"}"
             Toast.makeText(requireContext(), "Reopen Home to refresh the island.", Toast.LENGTH_SHORT).show()
         })
@@ -144,6 +147,7 @@ class SettingsFragment : Fragment() {
             val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
             val enabled = !prefs.getBoolean("island_glass", true)
             prefs.edit().putBoolean("island_glass", enabled).apply()
+            (activity as? MainActivity)?.refreshDynamicIsland()
             Toast.makeText(requireContext(), "Liquid Glass ${if (enabled) "enabled" else "disabled"} for Dynamic Island.", Toast.LENGTH_SHORT).show()
         })
         root.addView(action("Resize Dynamic Island") {
@@ -173,6 +177,7 @@ class SettingsFragment : Fragment() {
                 .setNegativeButton("Cancel", null)
                 .setPositiveButton("Save") { _, _ ->
                     prefs.edit().putInt("island_width_dp", seek.progress + 140).apply()
+                    (activity as? MainActivity)?.refreshDynamicIsland()
                     Toast.makeText(requireContext(), "Dynamic Island size saved.", Toast.LENGTH_SHORT).show()
                 }.show()
         })
