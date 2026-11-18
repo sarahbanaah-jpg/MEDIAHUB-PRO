@@ -1,29 +1,41 @@
 package com.mediahub.rebuilt.ambient
 
 import android.content.BroadcastReceiver
+import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
+import android.graphics.BitmapFactory
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.view.Gravity
 import android.view.WindowManager
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
+import androidx.media3.common.MediaMetadata
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
+import com.mediahub.rebuilt.service.PlaybackService
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
-/** Low-distraction in-app charging clock. Does not claim to replace OEM always-on display. */
+/** Low-distraction in-app charging clock with current-session artwork and metadata. */
 class AmbientDisplayActivity : AppCompatActivity() {
     private lateinit var clock: TextView
     private lateinit var date: TextView
     private lateinit var battery: TextView
-    private lateinit var bars: TextView
+    private lateinit var trackInfo: TextView
+    private lateinit var artwork: ImageView
+    private var controller: MediaController? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
     private val handler = Handler(Looper.getMainLooper())
     private val tick = object : Runnable {
         override fun run() {
@@ -42,6 +54,12 @@ class AmbientDisplayActivity : AppCompatActivity() {
             battery.text = (if (charging) "⚡ Charging" else "Battery") + if (level >= 0 && scale > 0) " · ${level * 100 / scale}%" else ""
         }
     }
+    private val playerListener = object : Player.Listener {
+        override fun onMediaMetadataChanged(mediaMetadata: MediaMetadata) = renderMetadata(mediaMetadata)
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            controller?.currentMediaItem?.mediaMetadata?.let { renderMetadata(it) }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -54,6 +72,12 @@ class AmbientDisplayActivity : AppCompatActivity() {
             gravity = Gravity.CENTER
             setPadding(dp(24), dp(24), dp(24), dp(24))
             setBackgroundColor(0xFF030208.toInt())
+        }
+        artwork = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(150), dp(150)).apply { bottomMargin = dp(20) }
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            setBackgroundColor(0xFF191229.toInt())
+            clipToOutline = true
         }
         clock = TextView(this).apply {
             text = "00:00"
@@ -72,19 +96,20 @@ class AmbientDisplayActivity : AppCompatActivity() {
             textSize = 14f
             gravity = Gravity.CENTER
             setTextColor(0xFFFF79B8.toInt())
+            setPadding(0, dp(18), 0, 0)
         }
-        bars = TextView(this).apply {
-            text = "▂ ▄ ▆ ▄ ▂ ▄ ▆ ▄ ▂"
-            textSize = 24f
-            letterSpacing = 0.18f
+        trackInfo = TextView(this).apply {
+            text = "No media playing"
+            textSize = 13f
             gravity = Gravity.CENTER
-            setTextColor(0xFFB66BFF.toInt())
-            setPadding(0, dp(32), 0, 0)
+            setTextColor(0xFFD9CDE6.toInt())
+            setPadding(0, dp(18), 0, 0)
         }
+        root.addView(artwork)
         root.addView(clock)
         root.addView(date)
-        root.addView(battery.apply { setPadding(0, dp(18), 0, 0) })
-        root.addView(bars)
+        root.addView(battery)
+        root.addView(trackInfo)
         root.addView(TextView(this).apply {
             text = "MEDIAHUB PRO  ·  Tap anywhere to exit"
             textSize = 11f
@@ -94,17 +119,44 @@ class AmbientDisplayActivity : AppCompatActivity() {
         })
         root.setOnClickListener { finish() }
         setContentView(root)
-        root.setOnClickListener { finish() }
         tick.run()
     }
 
     override fun onStart() {
         super.onStart()
         ContextCompat.registerReceiver(this, powerReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        val future = MediaController.Builder(this, token).buildAsync()
+        controllerFuture = future
+        future.addListener({
+            try {
+                controller = future.get()
+                controller?.addListener(playerListener)
+                controller?.currentMediaItem?.mediaMetadata?.let { renderMetadata(it) }
+            } catch (_: Exception) {
+                trackInfo.text = "No active media session"
+            }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun renderMetadata(metadata: MediaMetadata) {
+        val title = metadata.title?.toString().orEmpty()
+        val artist = metadata.artist?.toString().orEmpty()
+        trackInfo.text = if (title.isBlank()) "No media playing" else listOf(title, artist).filter { it.isNotBlank() }.joinToString(" · ")
+        val data = metadata.artworkData
+        if (data != null && data.isNotEmpty()) {
+            BitmapFactory.decodeByteArray(data, 0, data.size)?.let { artwork.setImageBitmap(it) }
+        } else {
+            artwork.setImageDrawable(null)
+        }
     }
 
     override fun onStop() {
         try { unregisterReceiver(powerReceiver) } catch (_: Exception) { }
+        controller?.removeListener(playerListener)
+        controller = null
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
         super.onStop()
     }
 
