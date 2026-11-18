@@ -2,6 +2,7 @@ package com.mediahub.rebuilt.media
 
 import android.content.ContentUris
 import android.content.Context
+import android.provider.DocumentsContract
 import android.net.Uri
 import android.os.Build
 import android.provider.MediaStore
@@ -19,7 +20,63 @@ object MediaRepository {
     }
 
     suspend fun loadMusic(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
-        queryAllVolumes(context, MediaItem.Kind.AUDIO)
+        val indexed = queryAllVolumes(context, MediaItem.Kind.AUDIO)
+        val selectedFolders = querySavedMusicFolders(context)
+        (indexed + selectedFolders).distinctBy { it.uri.toString() }.sortedByDescending { it.dateAdded }
+    }
+
+    /** Persist a user-selected folder so audio missed by MediaStore can still be listed. */
+    fun rememberMusicFolder(context: Context, treeUri: Uri) {
+        val prefs = context.getSharedPreferences("mediahub_music_folders", Context.MODE_PRIVATE)
+        val existing = prefs.getStringSet("tree_uris", emptySet()).orEmpty().toMutableSet()
+        existing.add(treeUri.toString())
+        prefs.edit().putStringSet("tree_uris", existing).apply()
+    }
+
+    private fun querySavedMusicFolders(context: Context): List<MediaItem> {
+        val result = mutableListOf<MediaItem>()
+        val folders = context.getSharedPreferences("mediahub_music_folders", Context.MODE_PRIVATE).getStringSet("tree_uris", emptySet()).orEmpty()
+        folders.forEach { value ->
+            try {
+                val tree = Uri.parse(value)
+                scanDocumentFolder(context, tree, DocumentsContract.getTreeDocumentId(tree), result, 0)
+            } catch (error: Exception) {
+                Diagnostics.recordIssue(context, "Music folder scan " + value, error)
+            }
+        }
+        return result
+    }
+
+    private fun scanDocumentFolder(context: Context, tree: Uri, documentId: String, output: MutableList<MediaItem>, depth: Int) {
+        if (depth > 20 || output.size >= 10000) return
+        val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
+        val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+        context.contentResolver.query(children, columns, null, null, null)?.use { cursor ->
+            val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
+            val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
+            val mimeCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_MIME_TYPE)
+            val sizeCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_SIZE)
+            val dateCol = cursor.getColumnIndex(DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+            while (cursor.moveToNext() && output.size < 10000) {
+                val id = cursor.getString(idCol) ?: continue
+                val name = cursor.getString(nameCol) ?: "Audio file"
+                val mime = if (mimeCol >= 0) cursor.getString(mimeCol).orEmpty() else ""
+                val documentUri = DocumentsContract.buildDocumentUriUsingTree(tree, id)
+                if (mime == DocumentsContract.Document.MIME_TYPE_DIR) {
+                    scanDocumentFolder(context, tree, id, output, depth + 1)
+                } else if (isAudioDocument(name, mime)) {
+                    val title = name.substringBeforeLast(".", name).ifBlank { name }
+                    output += MediaItem(id = documentUri.toString().hashCode().toLong(), title = title, uri = documentUri, durationMs = 0L,
+                        sizeBytes = if (sizeCol >= 0) cursor.getLong(sizeCol).coerceAtLeast(0L) else 0L,
+                        mimeType = mime.ifBlank { null }, dateAdded = if (dateCol >= 0) cursor.getLong(dateCol) else 0L, kind = MediaItem.Kind.AUDIO)
+                }
+            }
+        }
+    }
+
+    private fun isAudioDocument(name: String, mime: String): Boolean {
+        if (mime.startsWith("audio/", ignoreCase = true)) return true
+        return name.substringAfterLast(".", "").lowercase() in setOf("mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "wma", "amr", "aiff", "mid", "midi", "3gp")
     }
 
     suspend fun loadPhotos(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
@@ -43,7 +100,7 @@ object MediaRepository {
         val seen = LinkedHashMap<String, MediaItem>()
         for (volume in volumeNames(context)) {
             for (item in queryVolume(context, kind, volume)) {
-                val key = "${item.title}|${item.sizeBytes}|${item.durationMs}|${item.artist}"
+                val key = item.uri.toString()
                 if (!seen.containsKey(key)) seen[key] = item
             }
         }
@@ -149,10 +206,9 @@ object MediaRepository {
                         }
                         MediaItem.Kind.AUDIO -> {
                             val mime = cursor.getString(6) ?: ""
-                            // Skip pure ringtone/notification sized stubs under 20KB with no duration
+                            // Keep short clips and formats whose duration is not indexed.
                             val duration = cursor.getLong(4)
                             val size = cursor.getLong(5)
-                            if (duration <= 0L && size < 20_000L) continue
                             result += MediaItem(
                                 id = id,
                                 title = cursor.getString(1) ?: "Untitled",
