@@ -186,6 +186,41 @@ class SettingsFragment : Fragment() {
                 }.show()
         })
 
+        root.addView(action("Adjust Dynamic Island camera position") {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val horizontal = SeekBar(requireContext()).apply { max = 240; progress = prefs.getInt("island_offset_x_dp", 0).coerceIn(-120, 120) + 120 }
+            val vertical = SeekBar(requireContext()).apply { max = 140; progress = prefs.getInt("island_offset_y_dp", 0).coerceIn(-40, 100) + 40 }
+            val horizontalLabel = TextView(requireContext()).apply { setTextColor(0xFFFFFFFF.toInt()) }
+            val verticalLabel = TextView(requireContext()).apply { setTextColor(0xFFFFFFFF.toInt()) }
+            fun updateLabels() {
+                horizontalLabel.text = "Horizontal: ${horizontal.progress - 120} dp"
+                verticalLabel.text = "Vertical: ${vertical.progress - 40} dp"
+            }
+            val box = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(12), dp(20), 0)
+                addView(horizontalLabel); addView(horizontal); addView(verticalLabel); addView(vertical)
+            }
+            updateLabels()
+            val listener = object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) = updateLabels()
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            }
+            horizontal.setOnSeekBarChangeListener(listener)
+            vertical.setOnSeekBarChangeListener(listener)
+            AlertDialog.Builder(requireContext()).setTitle("Camera cutout alignment").setMessage("The island automatically centres over the camera cutout when Android exposes its position. Fine-tune the placement below.")
+                .setView(box).setNegativeButton("Cancel", null)
+                .setNeutralButton("Reset") { _, _ ->
+                    prefs.edit().putInt("island_offset_x_dp", 0).putInt("island_offset_y_dp", 0).apply()
+                    (activity as? MainActivity)?.refreshDynamicIsland()
+                }
+                .setPositiveButton("Save") { _, _ ->
+                    prefs.edit().putInt("island_offset_x_dp", horizontal.progress - 120).putInt("island_offset_y_dp", vertical.progress - 40).apply()
+                    (activity as? MainActivity)?.refreshDynamicIsland()
+                    Toast.makeText(requireContext(), "Dynamic Island position saved.", Toast.LENGTH_SHORT).show()
+                }.show()
+        })
         section(root, "OFFLINE MEDIA TRANSFER")
         root.addView(action("Send or receive files with Quick Share") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.transfer.MediaHubTransferActivity::class.java))
