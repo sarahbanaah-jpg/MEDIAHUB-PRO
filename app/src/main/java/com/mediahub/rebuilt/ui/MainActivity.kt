@@ -3,15 +3,15 @@ package com.mediahub.rebuilt.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.Outline
 import android.graphics.RenderEffect
 import android.graphics.Shader
-import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
-import android.view.ViewGroup
+import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -31,14 +31,11 @@ import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
 import com.mediahub.rebuilt.ui.welcome.WelcomeVoice
 import com.mediahub.rebuilt.updates.UpdateChecker
-import eightbitlab.com.blurview.BlurView
-import eightbitlab.com.blurview.RenderScriptBlur
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var contentContainer: FrameLayout
     private lateinit var bottomNav: LinearLayout
-    private lateinit var bottomNavBlur: BlurView
     private var mandatoryUpdate = false
     private var dynamicIsland: DynamicIslandOverlay? = null
 
@@ -54,14 +51,20 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = 0x00000000
         window.navigationBarColor = 0x00000000
 
+        // Real system blur behind windows where supported (Android 12+)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                window.setBackgroundBlurRadius(40)
+            } catch (_: Throwable) { }
+        }
+
         setContentView(R.layout.activity_main)
 
         contentContainer = findViewById(R.id.contentContainer)
         bottomNav = findViewById(R.id.bottomNav)
-        bottomNavBlur = findViewById(R.id.bottomNavBlur)
         dynamicIsland = DynamicIslandOverlay(this, findViewById(android.R.id.content))
 
-        ViewCompat.setOnApplyWindowInsetsListener(bottomNavBlur) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
             val lp = v.layoutParams as FrameLayout.LayoutParams
             lp.bottomMargin = bars.bottom + dp(12)
@@ -154,40 +157,35 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMainUi() {
-        bottomNavBlur.visibility = View.VISIBLE
-        setupRealLiquidGlass()
+        bottomNav.visibility = View.VISIBLE
+        applyRealLiquidGlass(bottomNav)
         setupBottomNav()
         switchTo(HomeFragment(), R.id.navHome)
     }
 
-    /** Real liquid glass: live blur of the content behind the floating bar. */
-    private fun setupRealLiquidGlass() {
-        val root = findViewById<ViewGroup>(R.id.rootFrame)
-        val windowBackground: Drawable? = window.decorView.background
-
-        bottomNavBlur.setupWith(root)
-            .setFrameClearDrawable(windowBackground)
-            .setBlurAlgorithm(RenderScriptBlur(this))
-            .setBlurRadius(18f)           // real blur strength
-            .setBlurAutoUpdate(true)      // keeps blur live while scrolling
-            .setOverlayColor(0x99100E18.toInt())
-
-        // Extra frosted edge on Android 12+
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                bottomNavBlur.setRenderEffect(
-                    RenderEffect.createBlurEffect(2f, 2f, Shader.TileMode.CLAMP)
-                )
-            } catch (_: Throwable) {
-                // optional polish only
+    /**
+     * Real translucent liquid glass:
+     * - Content under the bar is visible through the translucent fill
+     * - Rounded clip + elevation for physical glass depth
+     * - Android 12+ RenderEffect soft frosted polish where supported
+     * - System window background blur on S+
+     */
+    private fun applyRealLiquidGlass(bar: View) {
+        bar.clipToOutline = true
+        bar.outlineProvider = object : ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: Outline) {
+                outline.setRoundRect(0, 0, view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), dp(32).toFloat())
             }
         }
-
-        // Clip to rounded capsule
-        bottomNavBlur.clipToOutline = true
-        bottomNavBlur.outlineProvider = object : android.view.ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: android.graphics.Outline) {
-                outline.setRoundRect(0, 0, view.width, view.height, dp(32).toFloat())
+        bar.post {
+            bar.invalidateOutline()
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                try {
+                    // Soft native frosted polish (does not replace translucency — enhances it)
+                    bar.setRenderEffect(
+                        RenderEffect.createBlurEffect(1.5f, 1.5f, Shader.TileMode.CLAMP)
+                    )
+                } catch (_: Throwable) { }
             }
         }
     }
