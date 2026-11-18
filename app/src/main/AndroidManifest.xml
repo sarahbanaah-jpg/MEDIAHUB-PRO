@@ -88,6 +88,16 @@
             android:resizeableActivity="true" />
 
         <service
+            android:name=".service.MediaHubNotificationListener"
+            android:label="MediaHub Pro notification display"
+            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
+            android:exported="true">
+            <intent-filter>
+                <action android:name="android.service.notification.NotificationListenerService" />
+            </intent-filter>
+        </service>
+
+        <service
             android:name=".service.PlaybackService"
             android:exported="false"
             android:foregroundServiceType="mediaPlayback">
