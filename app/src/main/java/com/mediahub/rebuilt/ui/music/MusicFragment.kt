@@ -284,6 +284,10 @@ class MusicFragment : Fragment() {
             status.text = "Starting player…"
             return
         }
+        requireContext().getSharedPreferences("mediahub_settings", 0).edit()
+            .putString("island_mode", "music")
+            .putString("island_title", songs[index].title)
+            .apply()
         val queue = songs.map { song ->
             Media3Item.Builder()
                 .setUri(song.uri)

@@ -33,6 +33,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var contentContainer: FrameLayout
     private lateinit var bottomNav: LinearLayout
     private var mandatoryUpdate = false
+    private var dynamicIsland: DynamicIslandOverlay? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -50,6 +51,7 @@ class MainActivity : AppCompatActivity() {
 
         contentContainer = findViewById(R.id.contentContainer)
         bottomNav = findViewById(R.id.bottomNav)
+        dynamicIsland = DynamicIslandOverlay(this, findViewById<FrameLayout>(android.R.id.content))
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
@@ -80,6 +82,8 @@ class MainActivity : AppCompatActivity() {
 
     override fun onResume() {
         super.onResume()
+        dynamicIsland?.refresh()
+        dynamicIsland?.start()
         if (mandatoryUpdate) {
             UpdateChecker.check(this, notify = false) { info ->
                 if (info != null && info.mandatory && !isFinishing) {
@@ -90,6 +94,13 @@ class MainActivity : AppCompatActivity() {
             }
         }
     }
+
+    override fun onStop() {
+        dynamicIsland?.stop()
+        super.onStop()
+    }
+
+    fun refreshDynamicIsland() { dynamicIsland?.refresh() }
 
     private fun hasMediaPermissions(): Boolean {
         if (Build.VERSION.SDK_INT < 33) {

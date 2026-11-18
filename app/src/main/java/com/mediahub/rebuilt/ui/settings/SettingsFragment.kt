@@ -12,6 +12,7 @@ import android.text.InputType
 import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
@@ -22,6 +23,7 @@ import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.diagnostics.Diagnostics
 import com.mediahub.rebuilt.media.MediaLibraryTools
 import com.mediahub.rebuilt.performance.DevicePerformance
+import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -114,6 +116,99 @@ class SettingsFragment : Fragment() {
                     }, "Share diagnostic ZIP"))
                 }
             }
+        })
+
+        section(root, "DYNAMIC ISLAND")
+        root.addView(action("Configure Dynamic Island mode") {
+            val modes = arrayOf("Smart", "Music", "Video", "Charging", "Notifications")
+            val keys = arrayOf("smart", "music", "video", "charging", "notifications")
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val selected = keys.indexOf(prefs.getString("island_mode", "smart")).coerceAtLeast(0)
+            AlertDialog.Builder(requireContext())
+                .setTitle("Dynamic Island mode")
+                .setSingleChoiceItems(modes, selected) { dialog, which ->
+                    prefs.edit().putString("island_mode", keys[which]).apply()
+                    (activity as? MainActivity)?.refreshDynamicIsland()
+                    dialog.dismiss()
+                    Toast.makeText(requireContext(), "Dynamic Island mode: ${modes[which]}", Toast.LENGTH_SHORT).show()
+                }
+                .setNegativeButton("Cancel", null)
+                .show()
+        })
+        root.addView(action("Grant notification access for Dynamic Island") {
+            try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            catch (_: Exception) { Toast.makeText(requireContext(), "Open Android Special app access settings to enable notification access.", Toast.LENGTH_LONG).show() }
+        })
+        root.addView(action("Dynamic Island: enable / disable") {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val enabled = !prefs.getBoolean("island_enabled", true)
+            prefs.edit().putBoolean("island_enabled", enabled).apply()
+            (activity as? MainActivity)?.refreshDynamicIsland()
+            it.text = "Dynamic Island: ${if (enabled) "enabled" else "disabled"}"
+            Toast.makeText(requireContext(), "Reopen Home to refresh the island.", Toast.LENGTH_SHORT).show()
+        })
+        root.addView(action("Dynamic Island: Liquid Glass") {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val enabled = !prefs.getBoolean("island_glass", true)
+            prefs.edit().putBoolean("island_glass", enabled).apply()
+            (activity as? MainActivity)?.refreshDynamicIsland()
+            Toast.makeText(requireContext(), "Liquid Glass ${if (enabled) "enabled" else "disabled"} for Dynamic Island.", Toast.LENGTH_SHORT).show()
+        })
+        root.addView(action("Resize Dynamic Island") {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val seek = SeekBar(requireContext()).apply {
+                max = 160
+                progress = (prefs.getInt("island_width_dp", 190) - 140).coerceIn(0, 160)
+            }
+            val box = LinearLayout(requireContext()).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(12), dp(20), 0)
+                addView(TextView(requireContext()).apply {
+                    text = "Width: ${seek.progress + 140} dp"
+                    setTextColor(0xFFFFFFFF.toInt())
+                })
+                addView(seek)
+            }
+            val value = box.getChildAt(0) as TextView
+            seek.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    value.text = "Width: ${progress + 140} dp"
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
+            AlertDialog.Builder(requireContext()).setTitle("Dynamic Island size").setView(box)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Save") { _, _ ->
+                    prefs.edit().putInt("island_width_dp", seek.progress + 140).apply()
+                    (activity as? MainActivity)?.refreshDynamicIsland()
+                    Toast.makeText(requireContext(), "Dynamic Island size saved.", Toast.LENGTH_SHORT).show()
+                }.show()
+        })
+
+        section(root, "MEDIAHUB STUDIO")
+        root.addView(action("Open video trim and export studio") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.studio.MediaHubStudioActivity::class.java))
+        })
+
+        section(root, "MEDIAHUB REMOTE")
+        root.addView(action("Pair another device on this Wi-Fi") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.remote.MediaHubRemoteActivity::class.java))
+        })
+
+        section(root, "INTELLIGENCE")
+        root.addView(action("Analyse my media library") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity::class.java))
+        })
+
+        section(root, "AMBIENT DISPLAY")
+        root.addView(action("Launch charging clock") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.ambient.AmbientDisplayActivity::class.java))
+        })
+
+        section(root, "SECURITY")
+        root.addView(action("Open Private Vault") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.vault.PrivateVaultActivity::class.java))
         })
 
         section(root, "LOCAL MEDIA LIBRARY")

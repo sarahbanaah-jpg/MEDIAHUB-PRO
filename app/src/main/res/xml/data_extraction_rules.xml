@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<data-extraction-rules>
+    <cloud-backup>
+        <exclude domain="file" path="private-vault/" />
+        <exclude domain="cache" path="vault/" />
+    </cloud-backup>
+    <device-transfer>
+        <exclude domain="file" path="private-vault/" />
+        <exclude domain="cache" path="vault/" />
+    </device-transfer>
+</data-extraction-rules>

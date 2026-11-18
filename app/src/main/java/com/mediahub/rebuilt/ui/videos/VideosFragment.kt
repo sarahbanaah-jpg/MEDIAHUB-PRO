@@ -68,6 +68,10 @@ class VideosFragment : Fragment() {
             grid.visibility = if (videos.isEmpty()) View.GONE else View.VISIBLE
             grid.adapter = MediaGridAdapter(requireContext(), videos, true) { index ->
                 val selected = videos[index]
+                requireContext().getSharedPreferences("mediahub_settings", 0).edit()
+                    .putString("island_mode", "video")
+                    .putString("island_title", selected.title)
+                    .apply()
                 startActivity(Intent(requireContext(), VideoPlayerActivity::class.java).apply {
                     data = selected.uri
                     putExtra(VideoPlayerActivity.EXTRA_TITLE, selected.title)
