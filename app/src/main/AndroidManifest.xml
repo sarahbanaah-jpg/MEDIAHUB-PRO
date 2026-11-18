@@ -16,7 +16,9 @@
 
     <application
         android:name=".MediaHubApp"
-        android:allowBackup="true"\n        android:fullBackupContent="@xml/backup_rules"\n        android:dataExtractionRules="@xml/data_extraction_rules"
+        android:allowBackup="true"
+        android:fullBackupContent="@xml/backup_rules"
+        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/ic_mediahub"
         android:label="MediaHub Pro"
         android:roundIcon="@drawable/ic_mediahub"
@@ -36,6 +38,11 @@
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
+
+        <activity
+            android:name=".vault.PrivateVaultActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MediaHubPro" />
 
         <activity
             android:name=".updates.UpdateActivity"
