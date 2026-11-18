@@ -177,6 +177,11 @@ class SettingsFragment : Fragment() {
                 }.show()
         })
 
+        section(root, "AMBIENT DISPLAY")
+        root.addView(action("Launch charging clock") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.ambient.AmbientDisplayActivity::class.java))
+        })
+
         section(root, "SECURITY")
         root.addView(action("Open Private Vault") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.vault.PrivateVaultActivity::class.java))
