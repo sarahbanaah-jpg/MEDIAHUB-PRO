@@ -40,6 +40,11 @@
         </activity>
 
         <activity
+            android:name=".remote.MediaHubRemoteActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MediaHubPro" />
+
+        <activity
             android:name=".intelligence.MediaHubIntelligenceActivity"
             android:exported="false"
             android:theme="@style/Theme.MediaHubPro" />
