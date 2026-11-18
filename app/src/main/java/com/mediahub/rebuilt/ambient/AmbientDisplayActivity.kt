@@ -38,6 +38,7 @@ class AmbientDisplayActivity : AppCompatActivity() {
     private lateinit var battery: TextView
     private lateinit var trackInfo: TextView
     private lateinit var visualizerStatus: TextView
+    private lateinit var bars: TextView
     private var visualizer: Visualizer? = null
     private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) startVisualizer() else visualizerStatus.text = "Visualizer disabled: audio permission was not granted."
@@ -119,6 +120,14 @@ class AmbientDisplayActivity : AppCompatActivity() {
         root.addView(date)
         root.addView(battery)
         root.addView(trackInfo)
+        bars = TextView(this).apply {
+            text = "▁ ▂ ▄ ▆ ▄ ▂ ▁ ▂ ▄ ▆ ▄ ▂ ▁ ▂ ▄ ▆"
+            textSize = 23f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFB66BFF.toInt())
+            setPadding(0, dp(24), 0, 0)
+        }
+        root.addView(bars)
         visualizerStatus = TextView(this).apply {
             text = "Audio visualizer is off"
             textSize = 11f
