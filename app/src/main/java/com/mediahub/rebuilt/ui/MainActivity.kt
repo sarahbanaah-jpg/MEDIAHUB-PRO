@@ -100,6 +100,8 @@ class MainActivity : AppCompatActivity() {
         super.onStop()
     }
 
+    fun refreshDynamicIsland() { dynamicIsland?.refresh() }
+
     private fun hasMediaPermissions(): Boolean {
         if (Build.VERSION.SDK_INT < 33) {
             return ContextCompat.checkSelfPermission(
