@@ -1,11 +1,14 @@
 package com.mediahub.rebuilt.ambient
 
+import android.Manifest
 import android.content.BroadcastReceiver
 import android.content.ComponentName
 import android.content.Context
 import android.content.Intent
 import android.content.IntentFilter
 import android.graphics.BitmapFactory
+import android.media.audiofx.Visualizer
+import android.content.pm.PackageManager
 import android.os.BatteryManager
 import android.os.Bundle
 import android.os.Handler
@@ -15,6 +18,7 @@ import android.view.WindowManager
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.common.MediaMetadata
@@ -33,6 +37,11 @@ class AmbientDisplayActivity : AppCompatActivity() {
     private lateinit var date: TextView
     private lateinit var battery: TextView
     private lateinit var trackInfo: TextView
+    private lateinit var visualizerStatus: TextView
+    private var visualizer: Visualizer? = null
+    private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startVisualizer() else visualizerStatus.text = "Visualizer disabled: audio permission was not granted."
+    }
     private lateinit var artwork: ImageView
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -110,6 +119,27 @@ class AmbientDisplayActivity : AppCompatActivity() {
         root.addView(date)
         root.addView(battery)
         root.addView(trackInfo)
+        visualizerStatus = TextView(this).apply {
+            text = "Audio visualizer is off"
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setTextColor(0xFF9A8BB0.toInt())
+            setPadding(0, dp(20), 0, dp(8))
+        }
+        root.addView(visualizerStatus)
+        root.addView(TextView(this).apply {
+            text = "Enable audio visualizer"
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setTextColor(0xFFFF79B8.toInt())
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                if (checkSelfPermission(Manifest.permission.RECORD_AUDIO) == PackageManager.PERMISSION_GRANTED) startVisualizer()
+                else audioPermission.launch(Manifest.permission.RECORD_AUDIO)
+            }
+        })
         root.addView(TextView(this).apply {
             text = "MEDIAHUB PRO  ·  Tap anywhere to exit"
             textSize = 11f
@@ -151,8 +181,35 @@ class AmbientDisplayActivity : AppCompatActivity() {
         }
     }
 
+    private fun startVisualizer() {
+        if (visualizer != null) return
+        try {
+            val effect = Visualizer(0)
+            effect.captureSize = Visualizer.getCaptureSizeRange()[1]
+            effect.setDataCaptureListener(object : Visualizer.OnDataCaptureListener {
+                override fun onWaveFormDataCapture(effect: Visualizer?, waveform: ByteArray?, samplingRate: Int) {
+                    if (waveform == null || waveform.isEmpty()) return
+                    val glyphs = "▁▂▃▄▅▆▇█"
+                    val bars = (0 until 16).map { index ->
+                        val sample = waveform[index * waveform.size / 16].toInt() and 0xFF
+                        glyphs[(kotlin.math.abs(sample - 128) * (glyphs.length - 1) / 128).coerceIn(0, glyphs.length - 1)]
+                    }.joinToString(" ")
+                    runOnUiThread { if (!isFinishing) { this@AmbientDisplayActivity.bars.text = bars; visualizerStatus.text = "Live playback waveform · processed on this phone" } }
+                }
+                override fun onFftDataCapture(effect: Visualizer?, fft: ByteArray?, samplingRate: Int) {}
+            }, Visualizer.getMaxCaptureRate() / 2, true, false)
+            effect.enabled = true
+            visualizer = effect
+            visualizerStatus.text = "Visualizer active · local audio waveform only"
+        } catch (error: Exception) {
+            visualizerStatus.text = "Visualizer unavailable: ${error.localizedMessage ?: "audio session not supported"}"
+        }
+    }
+
     override fun onStop() {
         try { unregisterReceiver(powerReceiver) } catch (_: Exception) { }
+        visualizer?.run { enabled = false; release() }
+        visualizer = null
         controller?.removeListener(playerListener)
         controller = null
         controllerFuture?.let { MediaController.releaseFuture(it) }
