@@ -13,6 +13,8 @@ android {
         targetSdk = 34
         versionCode = 44
         versionName = "3.7.0"
+        renderscriptTargetApi = 31
+        renderscriptSupportModeEnabled = true
     }
 
     compileOptions {
@@ -64,8 +66,8 @@ dependencies {
     implementation("androidx.viewpager2:viewpager2:1.1.0")
     implementation("androidx.work:work-runtime-ktx:2.9.1")
 
-    // Real liquid glass — live backdrop blur of content behind the bar
-    implementation("com.github.Dimezis:BlurView:version-2.0.6")
+    // Real liquid glass — live backdrop blur
+    implementation("com.github.Dimezis:BlurView:2.0.3")
 
     implementation("androidx.media3:media3-transformer:1.4.1")
     implementation("androidx.media3:media3-exoplayer:1.4.1")
