@@ -116,6 +116,11 @@ class SettingsFragment : Fragment() {
             }
         })
 
+        section(root, "SECURITY")
+        root.addView(action("Open Private Vault") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.vault.PrivateVaultActivity::class.java))
+        })
+
         section(root, "LOCAL MEDIA LIBRARY")
         root.addView(action("View storage breakdown") {
             it.text = "Reading media library…"
