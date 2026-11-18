@@ -1,5 +1,6 @@
 package com.mediahub.rebuilt.ui.home
 
+import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -16,12 +17,18 @@ import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.R
+import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
+import com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity
 import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.media.MediaThumbnails
 import com.mediahub.rebuilt.performance.DevicePerformance
+import com.mediahub.rebuilt.remote.MediaHubRemoteActivity
+import com.mediahub.rebuilt.studio.MediaHubStudioActivity
+import com.mediahub.rebuilt.transfer.MediaHubTransferActivity
 import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
+import com.mediahub.rebuilt.vault.PrivateVaultActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -29,11 +36,15 @@ import kotlinx.coroutines.withContext
 class HomeFragment : Fragment() {
     private lateinit var recent: LinearLayout
     private lateinit var categoryGrid: LinearLayout
+    private lateinit var commandGrid: LinearLayout
     private lateinit var updateStatus: TextView
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
+        val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+        val bg = if (prefs.getString("theme", "midnight") == "amoled") 0xFF000000.toInt() else 0xFF0A0714.toInt()
+
         val scroll = ScrollView(requireContext()).apply {
-            setBackgroundColor(0xFF0A0714.toInt())
+            setBackgroundColor(bg)
             isFillViewport = true
             clipToPadding = false
         }
@@ -43,6 +54,7 @@ class HomeFragment : Fragment() {
         }
         scroll.addView(root)
 
+        // Search bar -> opens Settings search
         root.addView(LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
@@ -51,6 +63,12 @@ class HomeFragment : Fragment() {
                 setColor(0xCC14101F.toInt())
                 cornerRadius = dp(24).toFloat()
                 setStroke(dp(1), 0x40FFFFFF)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                openTab(R.id.navSettings)
+                Toast.makeText(requireContext(), "Use Search local media in Settings", Toast.LENGTH_SHORT).show()
             }
             addView(TextView(requireContext()).apply {
                 text = "⌕"
@@ -82,9 +100,22 @@ class HomeFragment : Fragment() {
             setPadding(0, 0, 0, dp(16))
         })
 
+        // Command Centre
+        root.addView(TextView(requireContext()).apply {
+            text = "Command Centre"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 17f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(4), 0, dp(12))
+        })
+        commandGrid = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(commandGrid)
+
+        // Recents
         val recentsHeader = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(12), 0, 0)
         }
         recentsHeader.addView(TextView(requireContext()).apply {
             text = "Recents"
@@ -117,9 +148,7 @@ class HomeFragment : Fragment() {
             setPadding(0, dp(16), 0, dp(12))
         })
 
-        categoryGrid = LinearLayout(requireContext()).apply {
-            orientation = LinearLayout.VERTICAL
-        }
+        categoryGrid = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
         root.addView(categoryGrid)
 
         val updateCard = LinearLayout(requireContext()).apply {
@@ -158,6 +187,38 @@ class HomeFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        // Command Centre tools
+        fun toolRow(a: View, b: View) = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            addView(a); addView(b)
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
+        }
+        commandGrid.removeAllViews()
+        commandGrid.addView(toolRow(
+            toolCard("🎬", "Studio", "Trim & export") {
+                startActivity(Intent(requireContext(), MediaHubStudioActivity::class.java))
+            },
+            toolCard("🔒", "Vault", "Encrypted files") {
+                startActivity(Intent(requireContext(), PrivateVaultActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("📡", "Remote", "Wi‑Fi control") {
+                startActivity(Intent(requireContext(), MediaHubRemoteActivity::class.java))
+            },
+            toolCard("🌙", "Ambient", "Charging clock") {
+                startActivity(Intent(requireContext(), AmbientDisplayActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("🧠", "Intelligence", "Library tips") {
+                startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java))
+            },
+            toolCard("⇄", "Transfer", "Share files") {
+                startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java))
+            }
+        ))
+
         viewLifecycleOwner.lifecycleScope.launch {
             val ctx = requireContext()
             val music = MediaRepository.loadMusic(ctx)
@@ -175,45 +236,32 @@ class HomeFragment : Fragment() {
                     setPadding(dp(4), dp(8), dp(4), dp(8))
                 })
             } else {
-                latest.forEach { item ->
-                    recent.addView(recentRow(item))
-                }
+                latest.forEach { item -> recent.addView(recentRow(item)) }
             }
 
             categoryGrid.removeAllViews()
-            fun rowOf(a: View, b: View): LinearLayout {
-                return LinearLayout(ctx).apply {
-                    orientation = LinearLayout.HORIZONTAL
-                    addView(a)
-                    addView(b)
-                    layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
-                }
+            fun rowOf(a: View, b: View) = LinearLayout(ctx).apply {
+                orientation = LinearLayout.HORIZONTAL
+                addView(a); addView(b)
+                layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
             }
             categoryGrid.addView(rowOf(
-                catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()) {
-                    openTab(R.id.navMusic)
-                },
-                catCard("▶", "Videos", "${videos.size} files", 0xFF9B6DFF.toInt()) {
-                    openTab(R.id.navVideos)
-                }
+                catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()) { openTab(R.id.navMusic) },
+                catCard("▶", "Videos", "${videos.size} files", 0xFF9B6DFF.toInt()) { openTab(R.id.navVideos) }
             ))
             categoryGrid.addView(rowOf(
-                catCard("▣", "Images", "${photos.size} photos", 0xFF5CE1FF.toInt()) {
-                    openTab(R.id.navPhotos)
-                },
-                catCard("↓", "Downloads", "Library", 0xFFFF6BB5.toInt()) {
+                catCard("▣", "Images", "${photos.size} photos", 0xFF5CE1FF.toInt()) { openTab(R.id.navPhotos) },
+                catCard("★", "Favourites", "Saved tracks", 0xFFFFC107.toInt()) {
                     openTab(R.id.navMusic)
-                    Toast.makeText(ctx, "Your media library", Toast.LENGTH_SHORT).show()
+                    Toast.makeText(ctx, "Open a song · long-press ★ in Music to favourite", Toast.LENGTH_LONG).show()
                 }
             ))
             categoryGrid.addView(rowOf(
                 catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFA78BFA.toInt()) {
                     openTab(R.id.navSettings)
-                    Toast.makeText(ctx, "Storage: ${snap.freeStorageMb} MB free", Toast.LENGTH_SHORT).show()
                 },
                 catCard("⚡", "Performance", "${snap.availableRamMb} MB RAM", 0xFF5EEAD4.toInt()) {
                     openTab(R.id.navSettings)
-                    Toast.makeText(ctx, "RAM free: ${snap.availableRamMb} MB", Toast.LENGTH_SHORT).show()
                 }
             ))
         }
@@ -231,10 +279,41 @@ class HomeFragment : Fragment() {
         }
     }
 
-    /** Open a bottom-nav tab from Home by simulating a click on the nav item. */
     private fun openTab(navId: Int) {
         val activity = activity as? MainActivity ?: return
         activity.findViewById<View>(navId)?.performClick()
+    }
+
+    private fun toolCard(icon: String, title: String, subtitle: String, onClick: () -> Unit): View {
+        val card = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            background = glassCard()
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginEnd = dp(5); marginStart = dp(5)
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { onClick() }
+        }
+        card.addView(TextView(requireContext()).apply {
+            text = icon
+            textSize = 20f
+        })
+        card.addView(TextView(requireContext()).apply {
+            text = title
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(8), 0, 0)
+        })
+        card.addView(TextView(requireContext()).apply {
+            text = subtitle
+            setTextColor(0xFF9A8BB0.toInt())
+            textSize = 11f
+            setPadding(0, dp(2), 0, 0)
+        })
+        return card
     }
 
     private fun recentRow(item: MediaItem): View {
@@ -294,20 +373,13 @@ class HomeFragment : Fragment() {
         return row
     }
 
-    private fun catCard(
-        icon: String,
-        title: String,
-        subtitle: String,
-        accent: Int,
-        onClick: () -> Unit
-    ): View {
+    private fun catCard(icon: String, title: String, subtitle: String, accent: Int, onClick: () -> Unit): View {
         val card = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
             background = glassCard()
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply {
-                marginEnd = dp(5)
-                marginStart = dp(5)
+                marginEnd = dp(5); marginStart = dp(5)
             }
             isClickable = true
             isFocusable = true

@@ -1,13 +1,14 @@
 package com.mediahub.rebuilt.vault
 
-import android.app.Activity
 import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
+import android.text.InputType
 import android.view.Gravity
 import android.widget.Button
+import android.widget.EditText
 import android.widget.LinearLayout
 import android.widget.TextView
 import android.widget.Toast
@@ -16,13 +17,12 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
 import com.mediahub.rebuilt.BuildConfig
-import java.io.BufferedInputStream
-import java.io.BufferedOutputStream
 import java.io.ByteArrayOutputStream
 import java.io.File
 import java.io.FileInputStream
 import java.io.FileOutputStream
 import java.security.KeyStore
+import java.security.MessageDigest
 import java.util.UUID
 import javax.crypto.Cipher
 import javax.crypto.CipherInputStream
@@ -32,13 +32,15 @@ import javax.crypto.SecretKey
 import javax.crypto.spec.GCMParameterSpec
 
 /**
- * Offline, app-private encrypted vault. Each item is protected with AES-256-GCM
- * using a non-exportable Android Keystore key. No media is uploaded.
+ * Offline AES-256-GCM vault with optional PIN lock.
+ * Key is non-exportable in Android Keystore. No media is uploaded.
  */
 class PrivateVaultActivity : AppCompatActivity() {
     private val vaultDir by lazy { File(filesDir, "private-vault").apply { mkdirs() } }
     private val previewDir by lazy { File(cacheDir, "vault").apply { mkdirs() } }
+    private val prefs by lazy { getSharedPreferences("mediahub_vault", MODE_PRIVATE) }
     private lateinit var list: LinearLayout
+    private var unlocked = false
 
     private val picker = registerForActivityResult(ActivityResultContracts.OpenDocument()) { uri ->
         if (uri != null) importItem(uri)
@@ -46,6 +48,65 @@ class PrivateVaultActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (hasPin() && !unlocked) {
+            showPinGate()
+            return
+        }
+        unlocked = true
+        showVaultUi()
+    }
+
+    private fun showPinGate() {
+        val root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(28), dp(48), dp(28), dp(28))
+            setBackgroundColor(0xFF0B0618.toInt())
+        }
+        root.addView(TextView(this).apply {
+            text = "🔒  Private Vault"
+            textSize = 24f
+            setTextColor(0xFFFFFFFF.toInt())
+            gravity = Gravity.CENTER
+        })
+        root.addView(TextView(this).apply {
+            text = "Enter your PIN to unlock"
+            textSize = 14f
+            setTextColor(0xFFB9A9C9.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, dp(12), 0, dp(24))
+        })
+        val pin = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = "PIN"
+            setHintTextColor(0xFF9A8BB0.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(dp(16), dp(14), dp(16), dp(14))
+            setSingleLine(true)
+        }
+        root.addView(pin)
+        root.addView(Button(this).apply {
+            text = "Unlock"
+            setOnClickListener {
+                if (verifyPin(pin.text?.toString().orEmpty())) {
+                    unlocked = true
+                    showVaultUi()
+                } else {
+                    Toast.makeText(this@PrivateVaultActivity, "Incorrect PIN", Toast.LENGTH_SHORT).show()
+                }
+            }
+        })
+        root.addView(TextView(this).apply {
+            text = "PIN is stored as a local hash only. If you forget it, clear app data (this also deletes vault files)."
+            textSize = 11f
+            setTextColor(0xFF6F627B.toInt())
+            gravity = Gravity.CENTER
+            setPadding(0, dp(24), 0, 0)
+        })
+        setContentView(root)
+    }
+
+    private fun showVaultUi() {
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(36), dp(20), dp(24))
@@ -58,7 +119,7 @@ class PrivateVaultActivity : AppCompatActivity() {
             setPadding(0, 0, 0, dp(8))
         })
         root.addView(TextView(this).apply {
-            text = "Files are encrypted on this device with AES-256-GCM. They remain private to MediaHub Pro and are never uploaded."
+            text = "AES-256-GCM encryption on this device. Files are never uploaded."
             textSize = 13f
             setTextColor(0xFFD4C4E8.toInt())
             setPadding(0, 0, 0, dp(16))
@@ -67,10 +128,48 @@ class PrivateVaultActivity : AppCompatActivity() {
             text = "＋  Add files to vault"
             setOnClickListener { picker.launch(arrayOf("*/*")) }
         })
+        root.addView(Button(this).apply {
+            text = if (hasPin()) "Change / remove PIN" else "Set PIN lock"
+            setOnClickListener { configurePin() }
+        })
         list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
         root.addView(list)
         setContentView(root)
         renderItems()
+    }
+
+    private fun configurePin() {
+        val input = EditText(this).apply {
+            inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_VARIATION_PASSWORD
+            hint = if (hasPin()) "New PIN (blank = remove)" else "Choose a 4–8 digit PIN"
+            setHintTextColor(0xFF9A8BB0.toInt())
+            setTextColor(0xFF111111.toInt())
+        }
+        AlertDialog.Builder(this)
+            .setTitle("Vault PIN")
+            .setMessage("PIN protects access to this screen. Encryption still uses the Android Keystore.")
+            .setView(input)
+            .setNegativeButton("Cancel", null)
+            .setPositiveButton("Save") { _, _ ->
+                val value = input.text?.toString().orEmpty()
+                if (value.isBlank()) {
+                    prefs.edit().remove("pin_hash").apply()
+                    Toast.makeText(this, "PIN removed", Toast.LENGTH_SHORT).show()
+                } else if (value.length in 4..8 && value.all { it.isDigit() }) {
+                    prefs.edit().putString("pin_hash", sha256(value)).apply()
+                    Toast.makeText(this, "PIN saved", Toast.LENGTH_SHORT).show()
+                } else {
+                    Toast.makeText(this, "Use 4–8 digits", Toast.LENGTH_SHORT).show()
+                }
+            }
+            .show()
+    }
+
+    private fun hasPin() = !prefs.getString("pin_hash", null).isNullOrBlank()
+    private fun verifyPin(pin: String) = prefs.getString("pin_hash", null) == sha256(pin)
+    private fun sha256(value: String): String {
+        val digest = MessageDigest.getInstance("SHA-256").digest(value.toByteArray())
+        return digest.joinToString("") { "%02x".format(it) }
     }
 
     private fun importItem(uri: Uri) {
@@ -119,13 +218,12 @@ class PrivateVaultActivity : AppCompatActivity() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(12), dp(12), dp(12), dp(12))
                 setBackgroundColor(0xFF1A1230.toInt())
-                val title = TextView(this@PrivateVaultActivity).apply {
+                addView(TextView(this@PrivateVaultActivity).apply {
                     text = "Encrypted item ${index + 1}"
                     setTextColor(0xFFFFFFFF.toInt())
                     textSize = 14f
                     layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-                }
-                addView(title)
+                })
                 addView(Button(this@PrivateVaultActivity).apply {
                     text = "Open"
                     setOnClickListener { openItem(file) }
