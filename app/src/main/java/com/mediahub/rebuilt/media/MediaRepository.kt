@@ -100,7 +100,7 @@ object MediaRepository {
         val seen = LinkedHashMap<String, MediaItem>()
         for (volume in volumeNames(context)) {
             for (item in queryVolume(context, kind, volume)) {
-                val key = "${item.title}|${item.sizeBytes}|${item.durationMs}|${item.artist}"
+                val key = item.uri.toString()
                 if (!seen.containsKey(key)) seen[key] = item
             }
         }
