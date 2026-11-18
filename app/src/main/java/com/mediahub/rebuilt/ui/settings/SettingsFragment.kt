@@ -186,6 +186,11 @@ class SettingsFragment : Fragment() {
                 }.show()
         })
 
+        section(root, "OFFLINE MEDIA TRANSFER")
+        root.addView(action("Send or receive files with Quick Share") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.transfer.MediaHubTransferActivity::class.java))
+        })
+
         section(root, "MEDIAHUB STUDIO")
         root.addView(action("Open video trim and export studio") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.studio.MediaHubStudioActivity::class.java))
