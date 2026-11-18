@@ -1,6 +1,9 @@
 package com.mediahub.rebuilt.ui.music
 
+import android.Manifest
 import android.content.ComponentName
+import android.content.pm.PackageManager
+import android.os.Build
 import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
@@ -13,6 +16,7 @@ import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
@@ -39,6 +43,20 @@ class MusicFragment : Fragment() {
     private lateinit var status: TextView
     private lateinit var songList: RecyclerView
     private lateinit var popularRow: LinearLayout
+    private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) refreshLibrary() else if (isAdded) status.text = "Allow Music and audio access in Android settings to show your full music library."
+    }
+    private val folderPicker = registerForActivityResult(ActivityResultContracts.OpenDocumentTree()) { uri ->
+        if (uri != null && isAdded) {
+            try {
+                requireContext().contentResolver.takePersistableUriPermission(uri, Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                MediaRepository.rememberMusicFolder(requireContext(), uri)
+                refreshLibrary()
+            } catch (error: Exception) {
+                status.text = "Could not access that folder: ${error.localizedMessage ?: "permission unavailable"}"
+            }
+        }
+    }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val scroll = android.widget.ScrollView(requireContext()).apply {
@@ -135,6 +153,28 @@ class MusicFragment : Fragment() {
         }
         root.addView(status)
 
+        val libraryActions = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL }
+        libraryActions.addView(TextView(requireContext()).apply {
+            text = "＋ ADD MUSIC FOLDER"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 11f
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = GradientDrawable().apply { setColor(0xFF241632.toInt()); cornerRadius = dp(12).toFloat() }
+            isClickable = true
+            setOnClickListener { folderPicker.launch(null) }
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) }
+        })
+        libraryActions.addView(TextView(requireContext()).apply {
+            text = "↻ RESCAN"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 11f
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = GradientDrawable().apply { setColor(0xFF241632.toInt()); cornerRadius = dp(12).toFloat() }
+            isClickable = true
+            setOnClickListener { refreshLibrary() }
+        })
+        root.addView(libraryActions)
+
         val row = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL }
         row.addView(TextView(requireContext()).apply {
             text = "▶  PLAY ALL"
@@ -191,20 +231,32 @@ class MusicFragment : Fragment() {
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
+        if (hasAudioPermission()) refreshLibrary() else audioPermission.launch(requiredAudioPermission())
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (isAdded && hasAudioPermission() && songs.isEmpty()) refreshLibrary()
+    }
+
+    private fun requiredAudioPermission(): String = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+
+    private fun hasAudioPermission(): Boolean = ContextCompat.checkSelfPermission(requireContext(), requiredAudioPermission()) == PackageManager.PERMISSION_GRANTED
+
+    private fun refreshLibrary() {
+        if (!isAdded || !hasAudioPermission()) return
+        status.text = "Scanning all phone, SD card and added music folders…"
         viewLifecycleOwner.lifecycleScope.launch {
-            songs = MediaRepository.loadMusic(requireContext())
-            status.text = if (songs.isEmpty()) {
-                "No audio found on phone or SD card"
-            } else {
-                "${songs.size} tracks (phone + SD card)"
+            try {
+                songs = MediaRepository.loadMusic(requireContext())
+                if (!isAdded) return@launch
+                status.text = if (songs.isEmpty()) "No audio indexed yet. Add your Music folder to include files Android has not indexed." else "${songs.size} audio files found · phone, SD card and added folders"
+                popularRow.removeAllViews()
+                songs.take(8).forEachIndexed { index, song -> popularRow.addView(popularCard(song, index)) }
+                songList.adapter = SongAdapter(songs) { playAt(it) }
+            } catch (error: Exception) {
+                if (isAdded) status.text = "Music scan failed: ${error.localizedMessage ?: "unknown error"}"
             }
-
-            popularRow.removeAllViews()
-            songs.take(8).forEachIndexed { index, song ->
-                popularRow.addView(popularCard(song, index))
-            }
-
-            songList.adapter = SongAdapter(songs) { playAt(it) }
         }
     }
 
