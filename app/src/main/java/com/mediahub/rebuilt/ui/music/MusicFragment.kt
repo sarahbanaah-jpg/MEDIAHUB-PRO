@@ -207,7 +207,7 @@ class MusicFragment : Fragment() {
         status.text = "Scanning all phone, SD card and added music folders…"
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                songs = MediaRepository.loadMusic(requireContext()).sortedWith(compareBy(String.CASE_INSENSITIVE_ORDER) { it.title.trim() }.thenBy(String.CASE_INSENSITIVE_ORDER) { it.artist.trim() })
+                songs = MediaRepository.loadMusic(requireContext()).sortedWith(\n                    compareBy<MediaItem, String>(String.CASE_INSENSITIVE_ORDER) { song -> song.title.trim() }\n                        .thenBy(String.CASE_INSENSITIVE_ORDER) { song -> song.artist.trim() }\n                )
                 if (!isAdded) return@launch
                 status.text = if (songs.isEmpty()) "No audio indexed yet. Add your Music folder to include files Android has not indexed." else "${songs.size} audio files found · phone, SD card and added folders"
                 songList.adapter = SongAdapter(songs) { playAt(it) }
