@@ -7,15 +7,20 @@ import android.provider.Settings
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.view.Gravity
+import android.widget.EditText
+import android.text.InputType
+import android.widget.ArrayAdapter
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
+import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.diagnostics.Diagnostics
+import com.mediahub.rebuilt.media.MediaLibraryTools
 import com.mediahub.rebuilt.performance.DevicePerformance
 import com.mediahub.rebuilt.updates.UpdateChecker
 import kotlinx.coroutines.Dispatchers
@@ -109,6 +114,67 @@ class SettingsFragment : Fragment() {
                     }, "Share diagnostic ZIP"))
                 }
             }
+        })
+
+        section(root, "LOCAL MEDIA LIBRARY")
+        root.addView(action("View storage breakdown") {
+            it.text = "Reading media library…"
+            viewLifecycleOwner.lifecycleScope.launch {
+                try {
+                    val snapshot = withContext(Dispatchers.IO) { MediaLibraryTools.storageSnapshot(requireContext()) }
+                    if (!isAdded) return@launch
+                    it.text = "View storage breakdown"
+                    val message = "Device used: ${MediaLibraryTools.formatBytes(snapshot.usedBytes)} of ${MediaLibraryTools.formatBytes(snapshot.totalBytes)}\\n\\n" +
+                        "Music: ${MediaLibraryTools.formatBytes(snapshot.audioBytes)} (${snapshot.audioCount} files)\\n" +
+                        "Videos: ${MediaLibraryTools.formatBytes(snapshot.videoBytes)} (${snapshot.videoCount} files)\\n" +
+                        "Photos: ${MediaLibraryTools.formatBytes(snapshot.imageBytes)} (${snapshot.imageCount} files)\\n\\n" +
+                        "Free: ${MediaLibraryTools.formatBytes(snapshot.freeBytes)}"
+                    AlertDialog.Builder(requireContext()).setTitle("Storage overview").setMessage(message).setPositiveButton("OK", null).show()
+                } catch (error: Exception) {
+                    if (isAdded) {
+                        it.text = "View storage breakdown"
+                        Toast.makeText(requireContext(), "Unable to read media storage: ${error.localizedMessage ?: "unknown error"}", Toast.LENGTH_LONG).show()
+                    }
+                }
+            }
+        })
+        root.addView(action("Search local media by filename") {
+            val input = EditText(requireContext()).apply {
+                hint = "Enter a song, video or photo name"
+                inputType = InputType.TYPE_CLASS_TEXT
+                setSingleLine(true)
+            }
+            AlertDialog.Builder(requireContext())
+                .setTitle("Search this device")
+                .setView(input)
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Search") { _, _ ->
+                    val term = input.text?.toString().orEmpty()
+                    viewLifecycleOwner.lifecycleScope.launch {
+                        try {
+                            val results = withContext(Dispatchers.IO) { MediaLibraryTools.search(requireContext(), term) }
+                            if (!isAdded) return@launch
+                            val labels = results.map { "${it.displayName}  ·  ${MediaLibraryTools.formatBytes(it.sizeBytes)}" }
+                            AlertDialog.Builder(requireContext())
+                                .setTitle("Search results (${results.size})")
+                                .setAdapter(ArrayAdapter(requireContext(), android.R.layout.simple_list_item_1, labels)) { _, which ->
+                                    val selected = results[which]
+                                    try {
+                                        startActivity(Intent(Intent.ACTION_VIEW).apply {
+                                            setDataAndType(selected.contentUri, selected.mimeType ?: "*/*")
+                                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                                        })
+                                    } catch (_: Exception) {
+                                        Toast.makeText(requireContext(), "No compatible app can open this file.", Toast.LENGTH_LONG).show()
+                                    }
+                                }
+                                .setPositiveButton("Close", null)
+                                .show()
+                        } catch (error: Exception) {
+                            if (isAdded) Toast.makeText(requireContext(), "Search failed: ${error.localizedMessage ?: "unknown error"}", Toast.LENGTH_LONG).show()
+                        }
+                    }
+                }.show()
         })
 
         section(root, "ABOUT")
