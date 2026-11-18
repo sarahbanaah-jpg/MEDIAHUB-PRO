@@ -51,7 +51,7 @@ class MainActivity : AppCompatActivity() {
 
         contentContainer = findViewById(R.id.contentContainer)
         bottomNav = findViewById(R.id.bottomNav)
-        dynamicIsland = DynamicIslandOverlay(this, findViewById(android.R.id.content).let { it as FrameLayout })
+        dynamicIsland = DynamicIslandOverlay(this, findViewById<FrameLayout>(android.R.id.content))
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
