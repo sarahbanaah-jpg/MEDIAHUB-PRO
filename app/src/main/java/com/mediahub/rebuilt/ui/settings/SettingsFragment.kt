@@ -135,6 +135,10 @@ class SettingsFragment : Fragment() {
                 .setNegativeButton("Cancel", null)
                 .show()
         })
+        root.addView(action("Grant notification access for Dynamic Island") {
+            try { startActivity(Intent(Settings.ACTION_NOTIFICATION_LISTENER_SETTINGS)) }
+            catch (_: Exception) { Toast.makeText(requireContext(), "Open Android Special app access settings to enable notification access.", Toast.LENGTH_LONG).show() }
+        })
         root.addView(action("Dynamic Island: enable / disable") {
             val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
             val enabled = !prefs.getBoolean("island_enabled", true)
