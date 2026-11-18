@@ -40,6 +40,12 @@
         </activity>
 
         <activity
+            android:name=".ambient.AmbientDisplayActivity"
+            android:exported="false"
+            android:screenOrientation="unspecified"
+            android:theme="@style/Theme.MediaHubPro" />
+
+        <activity
             android:name=".vault.PrivateVaultActivity"
             android:exported="false"
             android:theme="@style/Theme.MediaHubPro" />
