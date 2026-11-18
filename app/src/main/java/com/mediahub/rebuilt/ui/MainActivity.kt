@@ -3,11 +3,15 @@ package com.mediahub.rebuilt.ui
 import android.Manifest
 import android.content.Intent
 import android.content.pm.PackageManager
+import android.graphics.RenderEffect
+import android.graphics.Shader
+import android.graphics.drawable.Drawable
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
+import android.view.ViewGroup
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -27,11 +31,14 @@ import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
 import com.mediahub.rebuilt.ui.welcome.WelcomeVoice
 import com.mediahub.rebuilt.updates.UpdateChecker
+import eightbitlab.com.blurview.BlurView
+import eightbitlab.com.blurview.RenderScriptBlur
 
 class MainActivity : AppCompatActivity() {
 
     private lateinit var contentContainer: FrameLayout
     private lateinit var bottomNav: LinearLayout
+    private lateinit var bottomNavBlur: BlurView
     private var mandatoryUpdate = false
     private var dynamicIsland: DynamicIslandOverlay? = null
 
@@ -51,15 +58,17 @@ class MainActivity : AppCompatActivity() {
 
         contentContainer = findViewById(R.id.contentContainer)
         bottomNav = findViewById(R.id.bottomNav)
-        dynamicIsland = DynamicIslandOverlay(this, findViewById<FrameLayout>(android.R.id.content))
+        bottomNavBlur = findViewById(R.id.bottomNavBlur)
+        dynamicIsland = DynamicIslandOverlay(this, findViewById(android.R.id.content))
 
-        ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { v, insets ->
+        ViewCompat.setOnApplyWindowInsetsListener(bottomNavBlur) { v, insets ->
             val bars = insets.getInsets(WindowInsetsCompat.Type.systemBars())
-            v.setPadding(v.paddingLeft, v.paddingTop, v.paddingRight, bars.bottom + dp(6))
+            val lp = v.layoutParams as FrameLayout.LayoutParams
+            lp.bottomMargin = bars.bottom + dp(12)
+            v.layoutParams = lp
             insets
         }
 
-        // Male welcome voice (not female)
         WelcomeVoice.speakOnce(this)
 
         UpdateChecker.check(this, notify = true) { info ->
@@ -145,9 +154,42 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMainUi() {
-        bottomNav.visibility = View.VISIBLE
+        bottomNavBlur.visibility = View.VISIBLE
+        setupRealLiquidGlass()
         setupBottomNav()
         switchTo(HomeFragment(), R.id.navHome)
+    }
+
+    /** Real liquid glass: live blur of the content behind the floating bar. */
+    private fun setupRealLiquidGlass() {
+        val root = findViewById<ViewGroup>(R.id.rootFrame)
+        val windowBackground: Drawable? = window.decorView.background
+
+        bottomNavBlur.setupWith(root)
+            .setFrameClearDrawable(windowBackground)
+            .setBlurAlgorithm(RenderScriptBlur(this))
+            .setBlurRadius(18f)           // real blur strength
+            .setBlurAutoUpdate(true)      // keeps blur live while scrolling
+            .setOverlayColor(0x99100E18.toInt())
+
+        // Extra frosted edge on Android 12+
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+            try {
+                bottomNavBlur.setRenderEffect(
+                    RenderEffect.createBlurEffect(2f, 2f, Shader.TileMode.CLAMP)
+                )
+            } catch (_: Throwable) {
+                // optional polish only
+            }
+        }
+
+        // Clip to rounded capsule
+        bottomNavBlur.clipToOutline = true
+        bottomNavBlur.outlineProvider = object : android.view.ViewOutlineProvider() {
+            override fun getOutline(view: View, outline: android.graphics.Outline) {
+                outline.setRoundRect(0, 0, view.width, view.height, dp(32).toFloat())
+            }
+        }
     }
 
     private fun setupBottomNav() {

@@ -1,5 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <FrameLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:id="@+id/rootFrame"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:background="@color/mh_background">
@@ -10,154 +12,108 @@
         android:layout_height="match_parent"
         android:layout_marginBottom="100dp" />
 
-    <!-- Floating liquid-glass bottom navigation (YouTube Music style) -->
-    <LinearLayout
-        android:id="@+id/bottomNav"
+    <!-- REAL liquid glass bottom bar: live blur of content behind it -->
+    <eightbitlab.com.blurview.BlurView
+        android:id="@+id/bottomNavBlur"
         android:layout_width="match_parent"
         android:layout_height="64dp"
         android:layout_gravity="bottom"
         android:layout_marginStart="18dp"
         android:layout_marginEnd="18dp"
         android:layout_marginBottom="18dp"
-        android:background="@drawable/bg_liquid_glass"
-        android:elevation="20dp"
-        android:gravity="center"
-        android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:clipToPadding="false"
-        android:visibility="gone">
+        android:elevation="22dp"
+        android:visibility="gone"
+        app:blurOverlayColor="#99100E18">
 
         <LinearLayout
-            android:id="@+id/navHome"
-            android:layout_width="0dp"
+            android:id="@+id/bottomNav"
+            android:layout_width="match_parent"
             android:layout_height="match_parent"
-            android:layout_weight="1"
+            android:background="@drawable/bg_liquid_glass_real"
             android:gravity="center"
-            android:orientation="vertical"
-            android:background="@drawable/bg_nav_pill_active"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⌂"
-                android:textColor="@color/mh_accent"
-                android:textSize="20sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="Home"
-                android:textColor="@color/mh_accent"
-                android:textSize="10sp"
-                android:textStyle="bold" />
-        </LinearLayout>
+            android:orientation="horizontal"
+            android:paddingStart="8dp"
+            android:paddingEnd="8dp">
 
-        <LinearLayout
-            android:id="@+id/navMusic"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="♫"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="Music"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
-        </LinearLayout>
+            <LinearLayout
+                android:id="@+id/navHome"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:background="@drawable/bg_nav_pill_active"
+                android:clickable="true"
+                android:focusable="true">
+                <TextView
+                    android:tag="icon"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:text="⌂"
+                    android:textColor="@color/mh_accent"
+                    android:textSize="20sp" />
+                <TextView
+                    android:tag="label"
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:layout_marginTop="1dp"
+                    android:text="Home"
+                    android:textColor="@color/mh_accent"
+                    android:textSize="10sp"
+                    android:textStyle="bold" />
+            </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/navVideos"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▶"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="Videos"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
-        </LinearLayout>
+            <LinearLayout
+                android:id="@+id/navMusic"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+                <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="♫" android:textColor="@color/mh_muted" android:textSize="18sp" />
+                <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Music" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/navPhotos"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="▣"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="Photos"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
-        </LinearLayout>
+            <LinearLayout
+                android:id="@+id/navVideos"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+                <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▶" android:textColor="@color/mh_muted" android:textSize="18sp" />
+                <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Videos" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            </LinearLayout>
 
-        <LinearLayout
-            android:id="@+id/navSettings"
-            android:layout_width="0dp"
-            android:layout_height="match_parent"
-            android:layout_weight="1"
-            android:gravity="center"
-            android:orientation="vertical"
-            android:clickable="true"
-            android:focusable="true">
-            <TextView
-                android:tag="icon"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:text="⚙"
-                android:textColor="@color/mh_muted"
-                android:textSize="18sp" />
-            <TextView
-                android:tag="label"
-                android:layout_width="wrap_content"
-                android:layout_height="wrap_content"
-                android:layout_marginTop="1dp"
-                android:text="Settings"
-                android:textColor="@color/mh_muted"
-                android:textSize="10sp" />
+            <LinearLayout
+                android:id="@+id/navPhotos"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+                <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▣" android:textColor="@color/mh_muted" android:textSize="18sp" />
+                <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Photos" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            </LinearLayout>
+
+            <LinearLayout
+                android:id="@+id/navSettings"
+                android:layout_width="0dp"
+                android:layout_height="match_parent"
+                android:layout_weight="1"
+                android:gravity="center"
+                android:orientation="vertical"
+                android:clickable="true"
+                android:focusable="true">
+                <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⚙" android:textColor="@color/mh_muted" android:textSize="18sp" />
+                <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Settings" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            </LinearLayout>
         </LinearLayout>
-    </LinearLayout>
+    </eightbitlab.com.blurview.BlurView>
 </FrameLayout>
