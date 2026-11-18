@@ -16,7 +16,7 @@
 
     <application
         android:name=".MediaHubApp"
-        android:allowBackup="true"
+        android:allowBackup="true"\n        android:fullBackupContent="@xml/backup_rules"\n        android:dataExtractionRules="@xml/data_extraction_rules"
         android:icon="@drawable/ic_mediahub"
         android:label="MediaHub Pro"
         android:roundIcon="@drawable/ic_mediahub"
