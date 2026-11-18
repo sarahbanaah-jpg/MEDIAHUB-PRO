@@ -22,6 +22,10 @@ class DynamicIslandOverlay(private val context: Context, private val host: Frame
     private val prefs = context.getSharedPreferences("mediahub_settings", Context.MODE_PRIVATE)
     private val label = TextView(context)
     private var receiverRegistered = false
+    private var notificationReceiverRegistered = false
+    private val notificationReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) { render() }
+    }
     private val batteryReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
             if (prefs.getString("island_mode", "smart") == "charging") {
@@ -61,6 +65,8 @@ class DynamicIslandOverlay(private val context: Context, private val host: Frame
         if (receiverRegistered) return
         ContextCompat.registerReceiver(context, batteryReceiver, IntentFilter(Intent.ACTION_BATTERY_CHANGED), ContextCompat.RECEIVER_NOT_EXPORTED)
         receiverRegistered = true
+        ContextCompat.registerReceiver(context, notificationReceiver, IntentFilter(com.mediahub.rebuilt.service.MediaHubNotificationListener.ACTION_NOTIFICATION_UPDATED), ContextCompat.RECEIVER_NOT_EXPORTED)
+        notificationReceiverRegistered = true
         render()
     }
 
@@ -68,6 +74,10 @@ class DynamicIslandOverlay(private val context: Context, private val host: Frame
         if (!receiverRegistered) return
         try { context.unregisterReceiver(batteryReceiver) } catch (_: Exception) { }
         receiverRegistered = false
+        if (notificationReceiverRegistered) {
+            try { context.unregisterReceiver(notificationReceiver) } catch (_: Exception) { }
+            notificationReceiverRegistered = false
+        }
     }
 
     fun refresh() {
@@ -88,7 +98,7 @@ class DynamicIslandOverlay(private val context: Context, private val host: Frame
             "music" -> label.text = "♫  " + prefs.getString("island_title", "Music player")
             "video" -> label.text = "▶  " + prefs.getString("island_title", "Video player")
             "charging" -> label.text = "⚡  Charging mode"
-            "notifications" -> label.text = "●  MediaHub alerts"
+            "notifications" -> label.text = "●  " + prefs.getString("island_notification_title", "No recent notifications")
             else -> label.text = prefs.getString("island_title", null)?.let { "♫  $it" } ?: "MEDIAHUB PRO"
         }
     }
