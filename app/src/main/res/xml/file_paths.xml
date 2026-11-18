@@ -3,4 +3,5 @@
     <cache-path name="diagnostics" path="diagnostics/" />
     <cache-path name="updates" path="updates/" />\n    <cache-path name="vault_previews" path="vault/" />
     <files-path name="updates_files" path="updates/" />
+    <external-files-path name="studio_exports" path="Movies/" />
 </paths>
