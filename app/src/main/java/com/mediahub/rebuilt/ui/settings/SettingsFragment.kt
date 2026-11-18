@@ -182,6 +182,11 @@ class SettingsFragment : Fragment() {
                 }.show()
         })
 
+        section(root, "MEDIAHUB STUDIO")
+        root.addView(action("Open video trim and export studio") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.studio.MediaHubStudioActivity::class.java))
+        })
+
         section(root, "MEDIAHUB REMOTE")
         root.addView(action("Pair another device on this Wi-Fi") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.remote.MediaHubRemoteActivity::class.java))
