@@ -182,6 +182,11 @@ class SettingsFragment : Fragment() {
                 }.show()
         })
 
+        section(root, "MEDIAHUB REMOTE")
+        root.addView(action("Pair another device on this Wi-Fi") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.remote.MediaHubRemoteActivity::class.java))
+        })
+
         section(root, "INTELLIGENCE")
         root.addView(action("Analyse my media library") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity::class.java))
