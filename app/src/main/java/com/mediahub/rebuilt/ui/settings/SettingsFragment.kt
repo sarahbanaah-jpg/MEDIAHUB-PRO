@@ -182,6 +182,11 @@ class SettingsFragment : Fragment() {
                 }.show()
         })
 
+        section(root, "INTELLIGENCE")
+        root.addView(action("Analyse my media library") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity::class.java))
+        })
+
         section(root, "AMBIENT DISPLAY")
         root.addView(action("Launch charging clock") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.ambient.AmbientDisplayActivity::class.java))
