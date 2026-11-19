@@ -255,6 +255,7 @@ class MusicFragment : Fragment() {
         val queue = songs.map { song ->
             Media3Item.Builder()
                 .setUri(song.uri)
+                .setMediaId(song.id.toString())
                 .setMediaMetadata(
                     MediaMetadata.Builder()
                         .setTitle(song.title)
