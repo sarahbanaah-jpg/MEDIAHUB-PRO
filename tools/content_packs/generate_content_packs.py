@@ -74,7 +74,7 @@ def make_wallpaper(index: int) -> Path:
         x1 = x0 + int(rng.uniform(W*0.45, W*1.2))
         y1 = y0 + int(rng.uniform(-H*0.28, H*0.28))
         width = int(rng.uniform(5, 42))
-        draw.arc((x0, y0, x1, y1), start=int(rng.uniform(0, 120)), end=int(rng.uniform(180, 360)),
+        draw.arc((min(x0, x1), min(y0, y1), max(x0, x1), max(y0, y1)), start=int(rng.uniform(0, 120)), end=int(rng.uniform(180, 360)),
                  fill=(*accent, int(rng.uniform(18, 65))), width=width)
     image = image.filter(ImageFilter.GaussianBlur(0.35))
     path = RAW / "wallpapers" / f"mediahub_wallpaper_{index+1:03d}.jpg"
