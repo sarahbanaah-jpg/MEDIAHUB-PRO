@@ -184,7 +184,7 @@ def main():
     art_dir.mkdir(parents=True, exist_ok=True)
     for art in (RAW / "game-art").glob("*.png"):
         shutil.copy2(art, art_dir / art.name)
-    shutil.copy2(RAW / "game-art" / "ABOUT.txt", art_dir / "ABOUT.txt")
+    (art_dir / "ABOUT.txt").write_text("24 original high-resolution game-art texture images (PNG), created specifically for MediaHub Pro.\\n")
     groups = [
         ("mediahub-wallpapers.zip", RAW / "wallpapers"),
         ("mediahub-audio.zip", RAW / "audio"),
