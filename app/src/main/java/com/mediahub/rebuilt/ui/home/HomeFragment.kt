@@ -18,7 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
-import com.mediahub.rebuilt.arcade.MediaHubArcadeActivity
+import com.mediahub.rebuilt.arcade.MediaHubGameCenterActivity
 import com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity
 import com.mediahub.rebuilt.learn.MediaHubLearnActivity
 import com.mediahub.rebuilt.recorder.MediaHubRecorderActivity
@@ -223,8 +223,8 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("🎮", "Arcade", "Offline mini-games") {
-                startActivity(Intent(requireContext(), MediaHubArcadeActivity::class.java))
+            toolCard("🎮", "Game Center", "200 offline challenges") {
+                startActivity(Intent(requireContext(), MediaHubGameCenterActivity::class.java))
             },
             toolCard("🎙", "Recorder", "Private voice notes") {
                 startActivity(Intent(requireContext(), MediaHubRecorderActivity::class.java))
