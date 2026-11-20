@@ -1,0 +1,63 @@
+name: Build and publish MediaHub offline content packs
+
+on:
+  workflow_dispatch:
+  push:
+    branches:
+      - main
+    paths:
+      - "tools/content_packs/**"
+      - ".github/workflows/mediahub-content-packs.yml"
+
+permissions:
+  contents: write
+
+jobs:
+  build-content-packs:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+
+      - name: Install media generation tools
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y ffmpeg
+          python -m pip install --upgrade pip
+          python -m pip install numpy pillow
+
+      - name: Generate original offline media collections
+        run: python tools/content_packs/generate_content_packs.py
+
+      - name: Publish content collection
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          TAG=content-packs-v1.0
+          NOTES=build/content-packs/release/RELEASE-NOTES.md
+          cat > "$NOTES" <<'EOF'
+          # MediaHub Pro Original Offline Content Collection
+
+          This release contains approximately 300 MB of optional, original content generated specifically for MediaHub Pro.
+
+          - Ultra HD Wallpapers: 90 original 2160 × 3840 portrait artworks.
+          - Audio & Game Sound: 16 original 60-second ambient soundscapes and 32 short game sound effects.
+          - Motion & Game Art: 8 animated portrait video backgrounds and 24 high-resolution game-art textures.
+
+          Download packs individually inside MediaHub Pro → Content Library. Once installed, files remain available offline. Downloads are optional and Wi-Fi-only by default.
+
+          All included artwork and audio were procedurally generated for this project; no third-party copyrighted media is bundled.
+          EOF
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            gh release upload "$TAG" build/content-packs/release/mediahub-wallpapers.zip build/content-packs/release/mediahub-audio.zip build/content-packs/release/mediahub-motion-games.zip build/content-packs/release/mediahub-content-manifest.json --clobber
+          else
+            gh release create "$TAG"               build/content-packs/release/mediahub-wallpapers.zip               build/content-packs/release/mediahub-audio.zip               build/content-packs/release/mediahub-motion-games.zip               build/content-packs/release/mediahub-content-manifest.json               --title "MediaHub Pro Offline Content Collection 1.0"               --notes-file "$NOTES"               --target ${{ github.sha }}
+          fi
+          echo "Published original offline content packs." >> "$GITHUB_STEP_SUMMARY"
+          cat build/content-packs/release/mediahub-content-manifest.json >> "$GITHUB_STEP_SUMMARY"
