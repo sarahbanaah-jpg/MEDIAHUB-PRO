@@ -62,6 +62,16 @@
             android:theme="@style/Theme.MediaHubPro" />
 
         <activity
+            android:name=".recorder.MediaHubRecorderActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MediaHubPro" />
+
+        <activity
+            android:name=".learn.MediaHubLearnActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MediaHubPro" />
+
+        <activity
             android:name=".studio.MediaHubStudioActivity"
             android:exported="false"
             android:theme="@style/Theme.MediaHubPro" />
