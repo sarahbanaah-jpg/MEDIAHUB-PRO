@@ -20,6 +20,7 @@ import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
 import com.mediahub.rebuilt.arcade.MediaHubGameCenterActivity
 import com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity
+import com.mediahub.rebuilt.content.MediaHubContentLibraryActivity
 import com.mediahub.rebuilt.learn.MediaHubLearnActivity
 import com.mediahub.rebuilt.recorder.MediaHubRecorderActivity
 import com.mediahub.rebuilt.media.MediaItem
@@ -235,6 +236,14 @@ class HomeFragment : Fragment() {
                 startActivity(Intent(requireContext(), MediaHubLearnActivity::class.java))
             },
             toolCard("🧰", "20 Tools", "Calculators & media guides") {
+                startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("✨", "Content Library", "300 MB offline packs") {
+                startActivity(Intent(requireContext(), MediaHubContentLibraryActivity::class.java))
+            },
+            toolCard("🗂", "Storage Planner", "Manage media space") {
                 startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java))
             }
         ))

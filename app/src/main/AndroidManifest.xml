@@ -77,6 +77,11 @@
             android:theme="@style/Theme.MediaHubPro" />
 
         <activity
+            android:name=".content.MediaHubContentLibraryActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MediaHubPro" />
+
+        <activity
             android:name=".toolkit.MediaHubToolkitActivity"
             android:exported="false"
             android:theme="@style/Theme.MediaHubPro" />
