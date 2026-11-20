@@ -18,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
+import com.mediahub.rebuilt.arcade.MediaHubArcadeActivity
 import com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity
 import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
@@ -216,6 +217,14 @@ class HomeFragment : Fragment() {
             },
             toolCard("⇄", "Transfer", "Share files") {
                 startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("🎮", "Arcade", "Offline mini-games") {
+                startActivity(Intent(requireContext(), MediaHubArcadeActivity::class.java))
+            },
+            toolCard("✨", "Discover", "Explore your toolkit") {
+                Toast.makeText(requireContext(), "Explore Studio, Vault, Remote and Intelligence above.", Toast.LENGTH_SHORT).show()
             }
         ))
 
