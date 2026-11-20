@@ -4,7 +4,6 @@ import android.app.PendingIntent
 import android.content.Intent
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
-import androidx.media3.common.MediaItem
 import androidx.media3.common.Player
 import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.session.MediaSession
@@ -13,7 +12,8 @@ import com.mediahub.rebuilt.ui.MainActivity
 
 /**
  * Media3 MediaSessionService.
- * Provides lock-screen controls, media notification, and background playback.
+ * Lock-screen controls, media notification, background playback.
+ * Default: play through the full queue (auto-next when a track ends).
  */
 class PlaybackService : MediaSessionService() {
 
@@ -34,6 +34,9 @@ class PlaybackService : MediaSessionService() {
             .setHandleAudioBecomingNoisy(true)
             .build()
 
+        // Continuous play: when the current track ends, go to the next in the queue
+        exo.repeatMode = Player.REPEAT_MODE_ALL
+        exo.shuffleModeEnabled = false
         player = exo
 
         val sessionActivity = PendingIntent.getActivity(
@@ -60,15 +63,5 @@ class PlaybackService : MediaSessionService() {
         }
         player = null
         super.onDestroy()
-    }
-
-    companion object {
-        fun play(context: android.content.Context, uri: android.net.Uri, title: String? = null) {
-            val intent = Intent(context, PlaybackService::class.java)
-            context.startForegroundService(intent)
-
-            // Media3 session will be controlled via MediaController from UI
-            // For simple cases we can also set media item directly if needed
-        }
     }
 }

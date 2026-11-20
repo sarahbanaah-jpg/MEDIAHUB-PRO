@@ -7,7 +7,6 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.Gravity
-import android.view.View
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -26,6 +25,7 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediahub.rebuilt.media.DefaultAlbumArt
 import com.mediahub.rebuilt.media.Favourites
+import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.service.PlaybackService
 import com.mediahub.rebuilt.ui.MainActivity
@@ -33,6 +33,10 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Luxury Now Playing — gold frame, dark theme, real library queue.
+ * When the current track ends, Media3 advances to the next item in the queue automatically.
+ */
 class NowPlayingActivity : AppCompatActivity() {
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
@@ -49,6 +53,7 @@ class NowPlayingActivity : AppCompatActivity() {
     private lateinit var repeatButton: TextView
     private lateinit var favouriteButton: TextView
     private lateinit var sleepLabel: TextView
+    private lateinit var trendingRow: LinearLayout
     private var seeking = false
 
     private val playerListener = object : Player.Listener {
@@ -73,94 +78,98 @@ class NowPlayingActivity : AppCompatActivity() {
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = 0x00000000
         window.navigationBarColor = 0x00000000
-        window.decorView.systemUiVisibility = 0
 
         val scroll = ScrollView(this).apply {
             isFillViewport = true
-            clipToPadding = false
-            setBackground(GradientDrawable(
-                GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0xFFFFA36D.toInt(), 0xFFE97891.toInt(), 0xFF8A4D91.toInt(), 0xFF21152F.toInt(), 0xFF100B20.toInt())
-            ))
+            setBackgroundColor(0xFF0A0A0A.toInt())
         }
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(24), dp(44), dp(24), dp(22))
+            setPadding(dp(20), dp(40), dp(20), dp(28))
         }
         scroll.addView(root)
 
+        // Top bar
         val top = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        top.addView(glassButton("‹", 46) { finish() })
+        top.addView(goldCircleBtn("‹") { finish() })
         top.addView(TextView(this).apply {
             text = "NOW PLAYING"
-            setTextColor(0xFFFFF5FA.toInt())
-            textSize = 15f
-            letterSpacing = 0.08f
+            setTextColor(0xFFE8C872.toInt())
+            textSize = 14f
+            letterSpacing = 0.18f
+            setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f)
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         })
-        top.addView(glassButton("•••", 46) { showMore() })
+        top.addView(ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
+            setImageBitmap(DefaultAlbumArt.mountainBitmap(80))
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xFF2A2A2A.toInt())
+            }
+            clipToOutline = true
+        })
         root.addView(top)
 
-        artView = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(300), dp(300)).apply {
-                topMargin = dp(24)
+        // Gold ornate frame around album art
+        val frame = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            setPadding(dp(10), dp(10), dp(10), dp(10))
+            background = GradientDrawable().apply {
+                setColor(0xFF1A1508.toInt())
+                cornerRadius = dp(18).toFloat()
+                setStroke(dp(3), 0xFFE8C872.toInt())
             }
-            scaleType = ImageView.ScaleType.CENTER_CROP
-            background = rounded(0x33FFFFFF, 28, 0xAAFF8BCB.toInt(), 2)
-            clipToOutline = true
-            elevation = dp(12).toFloat()
+            layoutParams = LinearLayout.LayoutParams(dp(300), dp(300)).apply {
+                topMargin = dp(28)
+            }
+            elevation = dp(16).toFloat()
         }
-        root.addView(artView)
+        artView = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(280), dp(280))
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = GradientDrawable().apply {
+                setColor(0xFF111111.toInt())
+                cornerRadius = dp(12).toFloat()
+            }
+            clipToOutline = true
+        }
+        frame.addView(artView)
+        root.addView(frame)
         artView.setImageBitmap(DefaultAlbumArt.mountainBitmap(700))
 
         titleView = TextView(this).apply {
             text = "Nothing playing"
             setTextColor(0xFFFFFFFF.toInt())
-            textSize = 32f
-            setTypeface(Typeface.DEFAULT, Typeface.BOLD)
+            textSize = 28f
+            setTypeface(null, Typeface.BOLD)
             gravity = Gravity.CENTER
             maxLines = 2
-            setPadding(0, dp(18), 0, dp(3))
+            setPadding(0, dp(22), 0, dp(4))
         }
         root.addView(titleView)
         artistView = TextView(this).apply {
             text = "Choose a song from your library"
-            setTextColor(0xFFFFE4F1.toInt())
-            textSize = 16f
+            setTextColor(0xFFE8C872.toInt())
+            textSize = 15f
             gravity = Gravity.CENTER
         }
         root.addView(artistView)
 
-        // This panel displays real track metadata; no fabricated waveform or lyrics are shown.
-        val infoPanel = glassPanel().apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(14), dp(18), dp(14))
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(20) }
-        }
-        infoPanel.addView(TextView(this).apply {
-            text = "TRACK INFORMATION"
-            setTextColor(0xFFFFD1E7.toInt())
-            textSize = 11f
-            letterSpacing = 0.1f
-        })
-        infoPanel.addView(TextView(this).apply {
-            text = "Playing from your device library"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 14f
-            setPadding(0, dp(7), 0, 0)
-        })
-        root.addView(infoPanel)
-
+        // Progress
         seekBar = SeekBar(this).apply {
             max = 1000
-            progressTintList = android.content.res.ColorStateList.valueOf(0xFFFF5DB5.toInt())
-            thumbTintList = android.content.res.ColorStateList.valueOf(0xFFFFC4E1.toInt())
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+            progressTintList = android.content.res.ColorStateList.valueOf(0xFFE8C872.toInt())
+            thumbTintList = android.content.res.ColorStateList.valueOf(0xFFFF2D95.toInt())
+            progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0xFF3A3A3A.toInt())
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(22) }
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
                 override fun onProgressChanged(sb: SeekBar?, progress: Int, fromUser: Boolean) {}
                 override fun onStartTrackingTouch(sb: SeekBar?) { seeking = true }
@@ -176,61 +185,221 @@ class NowPlayingActivity : AppCompatActivity() {
 
         val times = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         positionView = TextView(this).apply {
-            text = "0:00"; setTextColor(0xFFFFF0F7.toInt()); textSize = 13f
+            text = "0:00"; setTextColor(0xFFB0B0B0.toInt()); textSize = 12f
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         durationView = TextView(this).apply {
-            text = "0:00"; setTextColor(0xFFFFF0F7.toInt()); textSize = 13f
+            text = "0:00"; setTextColor(0xFFB0B0B0.toInt()); textSize = 12f
             gravity = Gravity.END; layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         times.addView(positionView); times.addView(durationView); root.addView(times)
 
+        // Glass control bar with gold play
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(18) }
+            setPadding(dp(12), dp(12), dp(12), dp(12))
+            background = GradientDrawable().apply {
+                setColor(0xEE1A1A1A.toInt())
+                cornerRadius = dp(28).toFloat()
+                setStroke(dp(1), 0x44E8C872.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) }
+            elevation = dp(8).toFloat()
         }
-        shuffleButton = controlButton("⇄", 48) { toggleShuffle() }
+        shuffleButton = controlIcon("⇄") { toggleShuffle() }
         controls.addView(shuffleButton)
-        controls.addView(controlButton("|◀", 48) { controller?.seekToPreviousMediaItem() })
-        playButton = controlButton("▶", 76) { togglePlay() }
+        controls.addView(controlIcon("⏮") { controller?.seekToPreviousMediaItem() })
+        playButton = TextView(this).apply {
+            text = "▶"
+            gravity = Gravity.CENTER
+            textSize = 22f
+            setTextColor(0xFF1A1200.toInt())
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                colors = intArrayOf(0xFFF5D78E.toInt(), 0xFFC9A227.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(dp(58), dp(58)).apply {
+                marginStart = dp(10); marginEnd = dp(10)
+            }
+            elevation = dp(6).toFloat()
+            setOnClickListener { togglePlay() }
+        }
         controls.addView(playButton)
-        controls.addView(controlButton("▶|", 48) { controller?.seekToNextMediaItem() })
-        repeatButton = controlButton("↻", 48) { cycleRepeat() }
+        controls.addView(controlIcon("⏭") { controller?.seekToNextMediaItem() })
+        repeatButton = controlIcon("↻") { cycleRepeat() }
         controls.addView(repeatButton)
         root.addView(controls)
 
         val actions = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
         }
-        favouriteButton = chip("♡ FAVOURITE") { toggleFavourite() }
+        favouriteButton = chip("♡ Favourite") { toggleFavourite() }
         actions.addView(favouriteButton)
-        actions.addView(chip("SLEEP TIMER") { showSleepTimer() })
+        actions.addView(chip("Sleep timer") { showSleepTimer() })
         root.addView(actions)
-
         sleepLabel = TextView(this).apply {
-            text = ""; setTextColor(0xFFFFD0E7.toInt()); textSize = 12f
-            gravity = Gravity.CENTER; setPadding(0, dp(8), 0, 0)
+            text = ""; setTextColor(0xFFE8C872.toInt()); textSize = 12f
+            gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0)
         }
         root.addView(sleepLabel)
 
-        val nav = glassPanel().apply {
+        // From your library (real tracks)
+        val trendHeader = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(0, dp(24), 0, dp(12))
+        }
+        trendHeader.addView(TextView(this).apply {
+            text = "FROM YOUR LIBRARY"
+            setTextColor(0xFFE8C872.toInt())
+            textSize = 13f
+            setTypeface(null, Typeface.BOLD)
+            letterSpacing = 0.08f
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
+        })
+        trendHeader.addView(TextView(this).apply {
+            text = "See all ›"
+            setTextColor(0xFFFF2D95.toInt())
+            textSize = 13f
+            setOnClickListener { finish() }
+        })
+        root.addView(trendHeader)
+
+        trendingRow = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+        }
+        root.addView(trendingRow)
+
+        // Genre chips (labels only — library is local)
+        val chips = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(16), 0, 0)
+        }
+        listOf("All music" to true, "Favourites" to false, "Recent" to false).forEach { (label, active) ->
+            chips.addView(TextView(this).apply {
+                text = label
+                setTextColor(if (active) 0xFF1A1200.toInt() else 0xFFFF2D95.toInt())
+                textSize = 12f
+                setPadding(dp(14), dp(10), dp(14), dp(10))
+                background = GradientDrawable().apply {
+                    setColor(if (active) 0xFFE8C872.toInt() else 0xFF1A1A1A.toInt())
+                    cornerRadius = dp(20).toFloat()
+                    setStroke(dp(1), 0xFFFF2D95.toInt())
+                }
+                layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
+                setOnClickListener { finish() }
+            })
+        }
+        root.addView(chips)
+
+        // Bottom nav glass
+        val nav = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
-            setPadding(dp(8), dp(10), dp(8), dp(10))
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(20) }
+            setPadding(dp(8), dp(12), dp(8), dp(12))
+            background = GradientDrawable().apply {
+                setColor(0xEE141414.toInt())
+                cornerRadius = dp(28).toFloat()
+                setStroke(dp(1), 0x44E8C872.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(22) }
         }
-        nav.addView(navItem("⌂", "HOME") {
+        nav.addView(navItem("⌂", "Home") {
             startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
         })
-        nav.addView(navItem("♫", "LIBRARY") { finish() })
-        nav.addView(navItem("⋯", "MORE") { showMore() })
+        nav.addView(navItem("♫", "Library") { finish() })
+        nav.addView(navItem("♥", "Fav") {
+            if (currentTrackId > 0) toggleFavourite()
+            else Toast.makeText(this, "Play a track first", Toast.LENGTH_SHORT).show()
+        })
+        nav.addView(navItem("⋯", "More") { showMore() })
         root.addView(nav)
+
+        root.addView(TextView(this).apply {
+            text = "© Grimy. All rights reserved."
+            setTextColor(0xFF666666.toInt())
+            textSize = 11f
+            gravity = Gravity.CENTER
+            setPadding(0, dp(16), 0, 0)
+        })
 
         setContentView(scroll)
         connectController()
+        loadTrending()
+    }
+
+    private fun loadTrending() {
+        lifecycleScope.launch {
+            val songs = withContext(Dispatchers.IO) {
+                MediaRepository.loadMusic(this@NowPlayingActivity).shuffled().take(3)
+            }
+            trendingRow.removeAllViews()
+            if (songs.isEmpty()) {
+                trendingRow.addView(TextView(this@NowPlayingActivity).apply {
+                    text = "Your local tracks will appear here"
+                    setTextColor(0xFF888888.toInt())
+                    textSize = 13f
+                })
+                return@launch
+            }
+            songs.forEach { song ->
+                trendingRow.addView(trendCard(song))
+            }
+        }
+    }
+
+    private fun trendCard(song: MediaItem): LinearLayout {
+        val card = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(8), dp(8), dp(8), dp(8))
+            background = GradientDrawable().apply {
+                setColor(0xFF161616.toInt())
+                cornerRadius = dp(14).toFloat()
+                setStroke(dp(1), 0x33E8C872.toInt())
+            }
+            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply {
+                marginEnd = dp(8)
+            }
+            setOnClickListener {
+                // Jump to this track if it is in the current queue by title match via next/prev is limited;
+                // open library for full control
+                finish()
+            }
+        }
+        val thumb = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(-1, dp(72))
+            scaleType = ImageView.ScaleType.CENTER_CROP
+            background = GradientDrawable().apply {
+                setColor(0xFF222222.toInt())
+                cornerRadius = dp(10).toFloat()
+            }
+            clipToOutline = true
+        }
+        card.addView(thumb)
+        lifecycleScope.launch {
+            val bmp = withContext(Dispatchers.IO) {
+                DefaultAlbumArt.forTrack(this@NowPlayingActivity, song, 160)
+            }
+            thumb.setImageBitmap(bmp)
+        }
+        card.addView(TextView(this).apply {
+            text = song.title
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 11f
+            maxLines = 1
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(6), 0, 0)
+        })
+        card.addView(TextView(this).apply {
+            text = song.artist.ifBlank { "Artist" }
+            setTextColor(0xFFFF2D95.toInt())
+            textSize = 10f
+            maxLines = 1
+        })
+        return card
     }
 
     private fun connectController() {
@@ -241,6 +410,8 @@ class NowPlayingActivity : AppCompatActivity() {
             try {
                 controller = future.get()
                 controller?.addListener(playerListener)
+                // Keep continuous queue play
+                controller?.repeatMode = Player.REPEAT_MODE_ALL
                 refreshMetadata(loadArtwork = true)
                 updateProgress()
                 window.decorView.post(tickRunnable)
@@ -293,19 +464,18 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun updateModes() {
-        shuffleButton.alpha = if (controller?.shuffleModeEnabled == true) 1f else 0.48f
-        repeatButton.alpha = if (controller?.repeatMode != Player.REPEAT_MODE_OFF) 1f else 0.48f
+        shuffleButton.alpha = if (controller?.shuffleModeEnabled == true) 1f else 0.45f
+        repeatButton.alpha = if (controller?.repeatMode != Player.REPEAT_MODE_OFF) 1f else 0.45f
     }
 
     private fun updateFavourite() {
         val active = currentTrackId > 0 && Favourites.isFavourite(this, currentTrackId)
-        favouriteButton.text = if (active) "♥ FAVOURITED" else "♡ FAVOURITE"
-        favouriteButton.alpha = if (active) 1f else 0.82f
+        favouriteButton.text = if (active) "♥ Favourited" else "♡ Favourite"
     }
 
     private fun toggleFavourite() {
         if (currentTrackId <= 0L) {
-            Toast.makeText(this, "Select a track from your library first", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "Select a track first", Toast.LENGTH_SHORT).show()
             return
         }
         Favourites.toggle(this, currentTrackId)
@@ -333,9 +503,13 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun showMore() {
-        AlertDialog.Builder(this).setTitle("Playback options")
+        AlertDialog.Builder(this).setTitle("Playback")
             .setItems(arrayOf("Sleep timer", "Equalizer", "Bass boost")) { _, which ->
-                when (which) { 0 -> showSleepTimer(); 1 -> openAudioEffects("Equalizer"); 2 -> openAudioEffects("Bass boost") }
+                when (which) {
+                    0 -> showSleepTimer()
+                    1 -> openAudioEffects("Equalizer")
+                    2 -> openAudioEffects("Bass boost")
+                }
             }.show()
     }
 
@@ -343,7 +517,7 @@ class NowPlayingActivity : AppCompatActivity() {
         try {
             startActivity(Intent("android.media.action.DISPLAY_AUDIO_EFFECT_CONTROL_PANEL"))
         } catch (_: Exception) {
-            Toast.makeText(this, "$label is not available on this device", Toast.LENGTH_SHORT).show()
+            Toast.makeText(this, "$label not available on this device", Toast.LENGTH_SHORT).show()
         }
     }
 
@@ -361,41 +535,31 @@ class NowPlayingActivity : AppCompatActivity() {
         }.show()
     }
 
-    private fun glassPanel() = LinearLayout(this).apply {
-        background = rounded(0x55FFFFFF, 22, 0x66FFFFFF, 1)
-        elevation = dp(5).toFloat()
-    }
-
-    private fun rounded(fill: Int, radius: Int, stroke: Int = 0, strokeWidth: Int = 0) =
-        GradientDrawable().apply {
-            setColor(fill); cornerRadius = dp(radius).toFloat()
-            if (strokeWidth > 0) setStroke(dp(strokeWidth), stroke)
+    private fun goldCircleBtn(label: String, click: () -> Unit) = TextView(this).apply {
+        text = label; gravity = Gravity.CENTER; textSize = 22f; setTextColor(0xFFE8C872.toInt())
+        background = GradientDrawable().apply {
+            shape = GradientDrawable.OVAL
+            setColor(0xFF1A1A1A.toInt())
+            setStroke(dp(1), 0x66E8C872.toInt())
         }
-
-    private fun glassButton(label: String, size: Int, click: () -> Unit) = TextView(this).apply {
-        text = label; gravity = Gravity.CENTER; textSize = 23f; setTextColor(0xFFFFFFFF.toInt())
-        background = rounded(0x55FFFFFF, 18, 0x55FFFFFF, 1)
-        layoutParams = LinearLayout.LayoutParams(dp(size), dp(size))
+        layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
         setOnClickListener { click() }
     }
 
-    private fun controlButton(label: String, size: Int, click: () -> Unit) = TextView(this).apply {
-        text = label; gravity = Gravity.CENTER; textSize = if (size > 60) 26f else 19f
-        setTextColor(0xFFFFFFFF.toInt())
-        background = if (size > 60) GradientDrawable(GradientDrawable.Orientation.TL_BR,
-            intArrayOf(0xFFFF3F9F.toInt(), 0xFFFF956F.toInt())).apply { shape = GradientDrawable.OVAL }
-            else rounded(0x55FFFFFF, 50, 0x55FFFFFF, 1)
-        layoutParams = LinearLayout.LayoutParams(dp(size), dp(size)).apply {
-            marginStart = dp(3); marginEnd = dp(3)
-        }
+    private fun controlIcon(label: String, click: () -> Unit) = TextView(this).apply {
+        text = label; gravity = Gravity.CENTER; textSize = 18f; setTextColor(0xFFFFFFFF.toInt())
+        layoutParams = LinearLayout.LayoutParams(dp(44), dp(44))
         setOnClickListener { click() }
     }
 
     private fun chip(label: String, click: () -> Unit) = TextView(this).apply {
-        text = label; gravity = Gravity.CENTER; textSize = 11f
-        setTextColor(0xFFFFFFFF.toInt()); setPadding(dp(14), dp(12), dp(14), dp(12))
-        background = rounded(0x55FFFFFF, 20, 0x66FFFFFF, 1)
-        layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(5); marginEnd = dp(5) }
+        text = label; gravity = Gravity.CENTER; textSize = 12f
+        setTextColor(0xFFFFFFFF.toInt()); setPadding(dp(14), dp(10), dp(14), dp(10))
+        background = GradientDrawable().apply {
+            setColor(0xFF1A1A1A.toInt()); cornerRadius = dp(18).toFloat()
+            setStroke(dp(1), 0x44E8C872.toInt())
+        }
+        layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4); marginEnd = dp(4) }
         setOnClickListener { click() }
     }
 
@@ -403,10 +567,10 @@ class NowPlayingActivity : AppCompatActivity() {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
         layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         addView(TextView(this@NowPlayingActivity).apply {
-            text = icon; textSize = 22f; gravity = Gravity.CENTER; setTextColor(0xFFFFFFFF.toInt())
+            text = icon; textSize = 18f; gravity = Gravity.CENTER; setTextColor(0xFFE8C872.toInt())
         })
         addView(TextView(this@NowPlayingActivity).apply {
-            text = label; textSize = 10f; gravity = Gravity.CENTER; setTextColor(0xFFFFF0F7.toInt())
+            text = label; textSize = 10f; gravity = Gravity.CENTER; setTextColor(0xFFAAAAAA.toInt())
         })
         setOnClickListener { click() }
     }
