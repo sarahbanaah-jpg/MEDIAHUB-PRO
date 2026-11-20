@@ -134,6 +134,7 @@ def make_game_art(index: int):
     palette = PALETTES[index % len(PALETTES)]
     noise = fractal_texture(12000 + index, size, size)
     top, bottom, accent = [np.asarray(c, dtype=np.float32) for c in palette]
+    accent_rgb = tuple(int(channel) for channel in accent)
     y = np.linspace(0, 1, size, dtype=np.float32)[:, None, None]
     arr = top[None, None, :] * (1-y) + bottom[None, None, :] * y
     arr = arr + (noise[..., None]-0.5)*42
@@ -142,7 +143,7 @@ def make_game_art(index: int):
     for k in range(12):
         x = int(rng.integers(-100, size+100)); y0 = int(rng.integers(-100, size+100))
         r = int(rng.integers(60, 330))
-        draw.ellipse((x-r, y0-r, x+r, y0+r), outline=(*accent, int(rng.integers(35, 115))), width=int(rng.integers(4, 18)))
+        draw.ellipse((x-r, y0-r, x+r, y0+r), outline=(*accent_rgb, int(rng.integers(35, 115))), width=int(rng.integers(4, 18)))
     img.save(RAW / "game-art" / f"game_texture_{index+1:02d}.png", optimize=True)
 
 def make_motion(index: int, wallpaper: Path, ffmpeg: str):
