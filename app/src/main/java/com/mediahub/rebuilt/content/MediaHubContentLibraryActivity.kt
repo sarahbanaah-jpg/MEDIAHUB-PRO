@@ -28,7 +28,7 @@ import java.util.zip.ZipInputStream
 class MediaHubContentLibraryActivity : AppCompatActivity() {
     private data class Pack(val id: String, val title: String, val detail: String, val size: String, val file: String)
     private val packs = listOf(
-        Pack("wallpapers", "Ultra HD Wallpaper Collection", "80 original 4K-style abstract wallpapers, phone-ready portrait artwork and lock-screen backgrounds.", "~240 MB", "mediahub-wallpapers.zip"),
+        Pack("wallpapers", "Ultra HD Wallpaper Collection", "90 original 2160 × 3840 abstract wallpapers, phone-ready portrait artwork and lock-screen backgrounds.", "~250 MB", "mediahub-wallpapers.zip"),
         Pack("audio", "Original Audio & Game Sound Pack", "Original ambient loops, focus soundscapes and short game sound effects for offline use.", "~25 MB", "mediahub-audio.zip"),
         Pack("motion", "Motion Visuals & Game Art Pack", "Animated video backgrounds and original game artwork for creative projects.", "~35 MB", "mediahub-motion-games.zip")
     )
@@ -36,7 +36,8 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
     private val panel = 0xFF171720.toInt()
     private val pink = 0xFFFF6B9F.toInt()
     private val prefs by lazy { getSharedPreferences("mediahub_content_packs", MODE_PRIVATE) }
-    private val manager by lazy { getSystemService(DOWNLOAD_SERVICE) as DownloadManager }\n    private val statusViews = mutableMapOf<String, TextView>()
+    private val manager by lazy { getSystemService(DOWNLOAD_SERVICE) as DownloadManager }
+    private val statusViews = mutableMapOf<String, TextView>()
     private lateinit var root: LinearLayout
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -51,7 +52,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         val filter = IntentFilter(DownloadManager.ACTION_DOWNLOAD_COMPLETE)
         if (Build.VERSION.SDK_INT >= 33) registerReceiver(receiver, filter, Context.RECEIVER_NOT_EXPORTED)
-        else @Suppress("DEPRECATION") registerReceiver(receiver, filter)
+        else registerReceiver(receiver, filter)
         render()
         packs.forEach { pack ->
             val id = prefs.getLong("download_${pack.id}", -1L)
@@ -118,7 +119,8 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             text = packStatus(pack); textSize = 12f; setTextColor(pink); setPadding(0, 0, 0, dp(10))
             tag = "status_${pack.id}"
         }
-        statusViews[pack.id] = status\n        box.addView(status)
+        statusViews[pack.id] = status
+        box.addView(status)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(Button(this).apply {
             text = "Download pack"
