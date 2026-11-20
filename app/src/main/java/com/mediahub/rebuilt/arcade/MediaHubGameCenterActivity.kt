@@ -88,7 +88,7 @@ class MediaHubGameCenterActivity : AppCompatActivity() {
         fun render(q:String){
             list.removeAllViews()
             games.forEachIndexed{index,g->
-                if(q.isNotBlank()&&!${g.name+" "+g.category+" "+g.detail}.contains(q,true))return@forEachIndexed
+                if(q.isNotBlank() && !(g.name + " " + g.category + " " + g.detail).contains(q,true)) return@forEachIndexed
                 val item=LinearLayout(this).apply{
                     orientation=LinearLayout.VERTICAL;setPadding(dp(16),dp(14),dp(16),dp(14));background=card()
                     isClickable=true;isFocusable=true;setOnClickListener{chooseLevel(index)}
