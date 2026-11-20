@@ -11,22 +11,21 @@
         android:layout_height="match_parent"
         android:layout_marginBottom="100dp" />
 
-    <!-- Heavy liquid-glass mini player (above bottom nav) -->
+    <!-- Clean mini player -->
     <LinearLayout
         android:id="@+id/miniPlayer"
         android:layout_width="match_parent"
-        android:layout_height="56dp"
+        android:layout_height="52dp"
         android:layout_gravity="bottom"
-        android:layout_marginStart="18dp"
-        android:layout_marginEnd="18dp"
-        android:layout_marginBottom="90dp"
-        android:background="@drawable/bg_heavy_liquid_glass"
-        android:elevation="28dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="88dp"
+        android:background="@drawable/bg_mini_player_clean"
+        android:elevation="12dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
-        android:paddingStart="14dp"
-        android:paddingEnd="12dp"
-        android:clipToOutline="true"
+        android:paddingStart="16dp"
+        android:paddingEnd="10dp"
         android:visibility="gone"
         android:clickable="true"
         android:focusable="true">
@@ -36,13 +35,11 @@
             android:layout_width="0dp"
             android:layout_height="wrap_content"
             android:layout_weight="1"
-            android:ellipsize="marquee"
-            android:marqueeRepeatLimit="marquee_forever"
-            android:singleLine="true"
+            android:ellipsize="end"
+            android:maxLines="1"
             android:text="Now Playing"
             android:textColor="#FFFFFFFF"
-            android:textSize="14sp"
-            android:textStyle="bold" />
+            android:textSize="13sp" />
 
         <TextView
             android:id="@+id/miniPlayerPlay"
@@ -50,27 +47,25 @@
             android:layout_height="40dp"
             android:gravity="center"
             android:text="▶"
-            android:textColor="#FFFFFFFF"
-            android:textSize="16sp"
-            android:background="@drawable/bg_nav_pill_active" />
+            android:textColor="#FFFF2D95"
+            android:textSize="15sp" />
     </LinearLayout>
 
-    <!-- Floating liquid glass bottom nav -->
+    <!-- Clean premium bottom navigation -->
     <LinearLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
-        android:layout_height="64dp"
+        android:layout_height="60dp"
         android:layout_gravity="bottom"
-        android:layout_marginStart="18dp"
-        android:layout_marginEnd="18dp"
-        android:layout_marginBottom="18dp"
-        android:background="@drawable/bg_heavy_liquid_glass"
-        android:elevation="24dp"
+        android:layout_marginStart="16dp"
+        android:layout_marginEnd="16dp"
+        android:layout_marginBottom="16dp"
+        android:background="@drawable/bg_bottom_nav_clean"
+        android:elevation="16dp"
         android:gravity="center"
         android:orientation="horizontal"
-        android:paddingStart="8dp"
-        android:paddingEnd="8dp"
-        android:clipToOutline="true"
+        android:paddingStart="4dp"
+        android:paddingEnd="4dp"
         android:visibility="gone">
 
         <LinearLayout
@@ -80,11 +75,26 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
-            android:background="@drawable/bg_nav_pill_active"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:clickable="true"
             android:focusable="true">
-            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⌂" android:textColor="@color/mh_accent" android:textSize="20sp" />
-            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Home" android:textColor="@color/mh_accent" android:textSize="10sp" android:textStyle="bold" />
+            <TextView
+                android:tag="icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="●"
+                android:textColor="@color/mh_accent"
+                android:textSize="8sp" />
+            <TextView
+                android:tag="label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="4dp"
+                android:text="Home"
+                android:textColor="@color/mh_accent"
+                android:textSize="11sp"
+                android:textStyle="bold" />
         </LinearLayout>
 
         <LinearLayout
@@ -94,10 +104,25 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:clickable="true"
             android:focusable="true">
-            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="♫" android:textColor="@color/mh_muted" android:textSize="18sp" />
-            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Music" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            <TextView
+                android:tag="icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="♪"
+                android:textColor="@color/mh_muted"
+                android:textSize="16sp" />
+            <TextView
+                android:tag="label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Music"
+                android:textColor="@color/mh_muted"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -107,10 +132,25 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:clickable="true"
             android:focusable="true">
-            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▶" android:textColor="@color/mh_muted" android:textSize="18sp" />
-            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Videos" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            <TextView
+                android:tag="icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▶"
+                android:textColor="@color/mh_muted"
+                android:textSize="14sp" />
+            <TextView
+                android:tag="label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Videos"
+                android:textColor="@color/mh_muted"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -120,10 +160,25 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:clickable="true"
             android:focusable="true">
-            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="▣" android:textColor="@color/mh_muted" android:textSize="18sp" />
-            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Photos" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            <TextView
+                android:tag="icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="▦"
+                android:textColor="@color/mh_muted"
+                android:textSize="14sp" />
+            <TextView
+                android:tag="label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Photos"
+                android:textColor="@color/mh_muted"
+                android:textSize="11sp" />
         </LinearLayout>
 
         <LinearLayout
@@ -133,10 +188,25 @@
             android:layout_weight="1"
             android:gravity="center"
             android:orientation="vertical"
+            android:paddingTop="6dp"
+            android:paddingBottom="6dp"
             android:clickable="true"
             android:focusable="true">
-            <TextView android:tag="icon" android:layout_width="wrap_content" android:layout_height="wrap_content" android:text="⚙" android:textColor="@color/mh_muted" android:textSize="18sp" />
-            <TextView android:tag="label" android:layout_width="wrap_content" android:layout_height="wrap_content" android:layout_marginTop="1dp" android:text="Settings" android:textColor="@color/mh_muted" android:textSize="10sp" />
+            <TextView
+                android:tag="icon"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:text="◎"
+                android:textColor="@color/mh_muted"
+                android:textSize="14sp" />
+            <TextView
+                android:tag="label"
+                android:layout_width="wrap_content"
+                android:layout_height="wrap_content"
+                android:layout_marginTop="2dp"
+                android:text="Settings"
+                android:textColor="@color/mh_muted"
+                android:textSize="11sp" />
         </LinearLayout>
     </LinearLayout>
 </FrameLayout>

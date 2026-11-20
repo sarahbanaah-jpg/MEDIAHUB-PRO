@@ -4,15 +4,12 @@ import android.Manifest
 import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
-import android.graphics.Outline
-import android.graphics.RenderEffect
-import android.graphics.Shader
+import android.graphics.Typeface
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
 import android.provider.Settings
 import android.view.View
-import android.view.ViewOutlineProvider
 import android.widget.FrameLayout
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -71,13 +68,6 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = 0x00000000
         window.navigationBarColor = 0x00000000
 
-        // Stronger system backdrop blur where OEM supports it (liquid glass depth)
-        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-            try {
-                window.setBackgroundBlurRadius(48)
-            } catch (_: Throwable) { }
-        }
-
         setContentView(R.layout.activity_main)
 
         contentContainer = findViewById(R.id.contentContainer)
@@ -93,7 +83,7 @@ class MainActivity : AppCompatActivity() {
             lp.bottomMargin = bars.bottom + dp(12)
             v.layoutParams = lp
             val miniLp = miniPlayer.layoutParams as FrameLayout.LayoutParams
-            miniLp.bottomMargin = bars.bottom + dp(84)
+            miniLp.bottomMargin = bars.bottom + dp(80)
             miniPlayer.layoutParams = miniLp
             insets
         }
@@ -228,41 +218,8 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMainUi() {
         bottomNav.visibility = View.VISIBLE
-        applyLiquidGlassDistortion(bottomNav)
-        applyLiquidGlassDistortion(miniPlayer)
         setupBottomNav()
         switchTo(HomeFragment(), R.id.navHome)
-    }
-
-    /**
-     * Applies the liquid-glass distortion card look from the CSS/SVG reference:
-     * frosted translucent fill, white edge lights, specular top, soft blur.
-     * True displacement-map refraction is web-only (SVG feDisplacementMap).
-     */
-    private fun applyLiquidGlassDistortion(bar: View) {
-        bar.clipToOutline = true
-        bar.outlineProvider = object : ViewOutlineProvider() {
-            override fun getOutline(view: View, outline: Outline) {
-                // Full pill like border-radius: 9999px
-                outline.setRoundRect(
-                    0, 0,
-                    view.width.coerceAtLeast(1),
-                    view.height.coerceAtLeast(1),
-                    view.height.coerceAtLeast(1) / 2f
-                )
-            }
-        }
-        bar.post {
-            bar.invalidateOutline()
-            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
-                try {
-                    // Approximates backdrop-filter blur + saturate polish
-                    bar.setRenderEffect(
-                        RenderEffect.createBlurEffect(3f, 3f, Shader.TileMode.CLAMP)
-                    )
-                } catch (_: Throwable) { }
-            }
-        }
     }
 
     private fun setupBottomNav() {
@@ -285,16 +242,17 @@ class MainActivity : AppCompatActivity() {
             .commit()
 
         val activeColor = 0xFFFF2D95.toInt()
-        val inactiveColor = 0xFF9A8BB0.toInt()
-        listOf(R.id.navHome, R.id.navVideos, R.id.navMusic, R.id.navPhotos, R.id.navSettings).forEach { id ->
+        val inactiveColor = 0xFF8E8E9A.toInt()
+        listOf(R.id.navHome, R.id.navMusic, R.id.navVideos, R.id.navPhotos, R.id.navSettings).forEach { id ->
             val view = findViewById<View>(id)
             val label = view.findViewWithTag<TextView>("label")
             val icon = view.findViewWithTag<TextView>("icon")
             val active = id == activeId
             label?.setTextColor(if (active) activeColor else inactiveColor)
             icon?.setTextColor(if (active) activeColor else inactiveColor)
-            label?.typeface = if (active) android.graphics.Typeface.DEFAULT_BOLD else android.graphics.Typeface.DEFAULT
-            view.setBackgroundResource(if (active) R.drawable.bg_nav_pill_active else 0)
+            label?.typeface = if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
+            // Soft rounded highlight only on active — no giant oval
+            view.setBackgroundResource(if (active) R.drawable.bg_nav_item_active else 0)
         }
     }
 
