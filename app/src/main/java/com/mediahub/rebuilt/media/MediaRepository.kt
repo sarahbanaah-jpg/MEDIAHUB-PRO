@@ -12,6 +12,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * Scans ALL external volumes (internal + SD card) for media.
+ * Music results are deduplicated so the same track is not listed twice.
  */
 object MediaRepository {
 
@@ -22,10 +23,42 @@ object MediaRepository {
     suspend fun loadMusic(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
         val indexed = queryAllVolumes(context, MediaItem.Kind.AUDIO)
         val selectedFolders = querySavedMusicFolders(context)
-        (indexed + selectedFolders).distinctBy { it.uri.toString() }.sortedByDescending { it.dateAdded }
+        dedupeMusic(indexed + selectedFolders)
+            .sortedBy { it.title.lowercase() }
     }
 
-    /** Persist a user-selected folder so audio missed by MediaStore can still be listed. */
+    /**
+     * Same file often appears once per volume + again on EXTERNAL_CONTENT_URI.
+     * Prefer one entry per content fingerprint: title + duration + size (+ artist).
+     */
+    private fun dedupeMusic(items: List<MediaItem>): List<MediaItem> {
+        val best = LinkedHashMap<String, MediaItem>()
+        for (item in items) {
+            val key = musicKey(item)
+            val existing = best[key]
+            if (existing == null) {
+                best[key] = item
+            } else {
+                // Prefer the entry with a real artist name, then longer path/uri stability
+                val preferNew =
+                    (existing.artist.isBlank() && item.artist.isNotBlank()) ||
+                    (existing.album.isBlank() && item.album.isNotBlank()) ||
+                    (item.dateAdded > existing.dateAdded && item.artist.isNotBlank())
+                if (preferNew) best[key] = item
+            }
+        }
+        return best.values.toList()
+    }
+
+    private fun musicKey(item: MediaItem): String {
+        val title = item.title.trim().lowercase()
+        val artist = item.artist.trim().lowercase().let { if (it == "<unknown>" || it == "unknown") "" else it }
+        // Duration rounded to whole seconds + size buckets near-identical copies
+        val durationSec = (item.durationMs / 1000L).coerceAtLeast(0L)
+        val size = item.sizeBytes
+        return "$title|$artist|$durationSec|$size"
+    }
+
     fun rememberMusicFolder(context: Context, treeUri: Uri) {
         val prefs = context.getSharedPreferences("mediahub_music_folders", Context.MODE_PRIVATE)
         val existing = prefs.getStringSet("tree_uris", emptySet()).orEmpty().toMutableSet()
@@ -35,7 +68,8 @@ object MediaRepository {
 
     private fun querySavedMusicFolders(context: Context): List<MediaItem> {
         val result = mutableListOf<MediaItem>()
-        val folders = context.getSharedPreferences("mediahub_music_folders", Context.MODE_PRIVATE).getStringSet("tree_uris", emptySet()).orEmpty()
+        val folders = context.getSharedPreferences("mediahub_music_folders", Context.MODE_PRIVATE)
+            .getStringSet("tree_uris", emptySet()).orEmpty()
         folders.forEach { value ->
             try {
                 val tree = Uri.parse(value)
@@ -47,10 +81,22 @@ object MediaRepository {
         return result
     }
 
-    private fun scanDocumentFolder(context: Context, tree: Uri, documentId: String, output: MutableList<MediaItem>, depth: Int) {
+    private fun scanDocumentFolder(
+        context: Context,
+        tree: Uri,
+        documentId: String,
+        output: MutableList<MediaItem>,
+        depth: Int
+    ) {
         if (depth > 20 || output.size >= 10000) return
         val children = DocumentsContract.buildChildDocumentsUriUsingTree(tree, documentId)
-        val columns = arrayOf(DocumentsContract.Document.COLUMN_DOCUMENT_ID, DocumentsContract.Document.COLUMN_DISPLAY_NAME, DocumentsContract.Document.COLUMN_MIME_TYPE, DocumentsContract.Document.COLUMN_SIZE, DocumentsContract.Document.COLUMN_LAST_MODIFIED)
+        val columns = arrayOf(
+            DocumentsContract.Document.COLUMN_DOCUMENT_ID,
+            DocumentsContract.Document.COLUMN_DISPLAY_NAME,
+            DocumentsContract.Document.COLUMN_MIME_TYPE,
+            DocumentsContract.Document.COLUMN_SIZE,
+            DocumentsContract.Document.COLUMN_LAST_MODIFIED
+        )
         context.contentResolver.query(children, columns, null, null, null)?.use { cursor ->
             val idCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DOCUMENT_ID)
             val nameCol = cursor.getColumnIndexOrThrow(DocumentsContract.Document.COLUMN_DISPLAY_NAME)
@@ -66,9 +112,16 @@ object MediaRepository {
                     scanDocumentFolder(context, tree, id, output, depth + 1)
                 } else if (isAudioDocument(name, mime)) {
                     val title = name.substringBeforeLast(".", name).ifBlank { name }
-                    output += MediaItem(id = documentUri.toString().hashCode().toLong(), title = title, uri = documentUri, durationMs = 0L,
+                    output += MediaItem(
+                        id = documentUri.toString().hashCode().toLong(),
+                        title = title,
+                        uri = documentUri,
+                        durationMs = 0L,
                         sizeBytes = if (sizeCol >= 0) cursor.getLong(sizeCol).coerceAtLeast(0L) else 0L,
-                        mimeType = mime.ifBlank { null }, dateAdded = if (dateCol >= 0) cursor.getLong(dateCol) else 0L, kind = MediaItem.Kind.AUDIO)
+                        mimeType = mime.ifBlank { null },
+                        dateAdded = if (dateCol >= 0) cursor.getLong(dateCol) else 0L,
+                        kind = MediaItem.Kind.AUDIO
+                    )
                 }
             }
         }
@@ -76,7 +129,9 @@ object MediaRepository {
 
     private fun isAudioDocument(name: String, mime: String): Boolean {
         if (mime.startsWith("audio/", ignoreCase = true)) return true
-        return name.substringAfterLast(".", "").lowercase() in setOf("mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "wma", "amr", "aiff", "mid", "midi", "3gp")
+        return name.substringAfterLast(".", "").lowercase() in setOf(
+            "mp3", "m4a", "aac", "wav", "flac", "ogg", "opus", "wma", "amr", "aiff", "mid", "midi", "3gp"
+        )
     }
 
     suspend fun loadPhotos(context: Context): List<MediaItem> = withContext(Dispatchers.IO) {
@@ -97,21 +152,23 @@ object MediaRepository {
     }
 
     private fun queryAllVolumes(context: Context, kind: MediaItem.Kind): List<MediaItem> {
-        val seen = LinkedHashMap<String, MediaItem>()
+        val seenUris = LinkedHashMap<String, MediaItem>()
         for (volume in volumeNames(context)) {
             for (item in queryVolume(context, kind, volume)) {
                 val key = item.uri.toString()
-                if (!seen.containsKey(key)) seen[key] = item
+                if (!seenUris.containsKey(key)) seenUris[key] = item
             }
         }
-        // Also query legacy EXTERNAL_CONTENT_URI as fallback (covers some OEM SD paths)
-        if (Build.VERSION.SDK_INT >= 29) {
+        // Do NOT also query legacy EXTERNAL_CONTENT_URI when volume names already
+        // include primary — that was the main source of duplicate tracks.
+        // Only use legacy fallback if volume scan returned nothing.
+        if (seenUris.isEmpty()) {
             for (item in queryLegacy(context, kind)) {
-                val key = "${item.title}|${item.sizeBytes}|${item.durationMs}|${item.artist}"
-                if (!seen.containsKey(key)) seen[key] = item
+                val key = item.uri.toString()
+                if (!seenUris.containsKey(key)) seenUris[key] = item
             }
         }
-        return seen.values.sortedByDescending { it.dateAdded }
+        return seenUris.values.toList()
     }
 
     private fun collectionUri(kind: MediaItem.Kind, volume: String): Uri {
@@ -180,7 +237,6 @@ object MediaRepository {
                 )
             }
 
-            // No IS_MUSIC filter — include all audio on device + SD (mp3, m4a, flac, etc.)
             context.contentResolver.query(
                 collection,
                 projection,
@@ -206,7 +262,6 @@ object MediaRepository {
                         }
                         MediaItem.Kind.AUDIO -> {
                             val mime = cursor.getString(6) ?: ""
-                            // Keep short clips and formats whose duration is not indexed.
                             val duration = cursor.getLong(4)
                             val size = cursor.getLong(5)
                             result += MediaItem(
