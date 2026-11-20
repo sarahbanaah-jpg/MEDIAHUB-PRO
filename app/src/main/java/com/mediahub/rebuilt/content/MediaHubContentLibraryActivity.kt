@@ -28,7 +28,7 @@ import java.util.zip.ZipInputStream
 class MediaHubContentLibraryActivity : AppCompatActivity() {
     private data class Pack(val id: String, val title: String, val detail: String, val size: String, val file: String)
     private val packs = listOf(
-        Pack("wallpapers", "Ultra HD Wallpaper Collection", "90 original 2160 × 3840 abstract wallpapers, phone-ready portrait artwork and lock-screen backgrounds.", "~250 MB", "mediahub-wallpapers.zip"),
+        Pack("wallpapers", "Ultra HD Wallpaper Collection", "100 original 2160 × 3840 abstract wallpapers, phone-ready portrait artwork and lock-screen backgrounds.", "~250 MB", "mediahub-wallpapers.zip"),
         Pack("audio", "Original Audio & Game Sound Pack", "Original ambient loops, focus soundscapes and short game sound effects for offline use.", "~25 MB", "mediahub-audio.zip"),
         Pack("motion", "Motion Visuals & Game Art Pack", "Animated video backgrounds and original game artwork for creative projects.", "~35 MB", "mediahub-motion-games.zip")
     )
