@@ -1,0 +1,38 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Frosted glass dropdown / menu -->
+<layer-list xmlns:android="http://schemas.android.com/apk/res/android">
+    <item>
+        <shape android:shape="rectangle">
+            <solid android:color="#18FFFFFF" />
+            <corners android:radius="18dp" />
+        </shape>
+    </item>
+    <item
+        android:left="1dp"
+        android:top="1dp"
+        android:right="1dp"
+        android:bottom="1dp">
+        <shape android:shape="rectangle">
+            <solid android:color="#E6111A18" />
+            <corners android:radius="17dp" />
+            <stroke
+                android:width="1dp"
+                android:color="#66A8FFCE" />
+        </shape>
+    </item>
+    <item
+        android:left="8dp"
+        android:top="1dp"
+        android:right="8dp"
+        android:bottom="50dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#35FFFFFF"
+                android:endColor="#00FFFFFF" />
+            <corners
+                android:topLeftRadius="16dp"
+                android:topRightRadius="16dp" />
+        </shape>
+    </item>
+</layer-list>

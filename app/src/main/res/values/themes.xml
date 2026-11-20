@@ -3,7 +3,7 @@
     <style name="Theme.MediaHubPro" parent="Theme.Material3.Dark.NoActionBar">
         <item name="colorPrimary">@color/mh_accent</item>
         <item name="colorPrimaryContainer">@color/mh_accent_deep</item>
-        <item name="colorSecondary">@color/mh_violet</item>
+        <item name="colorSecondary">@color/mh_green</item>
         <item name="android:colorBackground">@color/mh_background</item>
         <item name="colorSurface">@color/mh_surface</item>
         <item name="colorOnPrimary">@color/mh_text_primary</item>
@@ -13,6 +13,26 @@
         <item name="android:windowLightStatusBar">false</item>
         <item name="android:windowBackground">@color/mh_background</item>
         <item name="android:windowAnimationStyle">@style/MhWindowAnimation</item>
+        <item name="alertDialogTheme">@style/Theme.MediaHubPro.GlassDialog</item>
+        <item name="materialAlertDialogTheme">@style/Theme.MediaHubPro.GlassDialog</item>
+    </style>
+
+    <style name="Theme.MediaHubPro.GlassDialog" parent="ThemeOverlay.Material3.MaterialAlertDialog">
+        <item name="android:background">@drawable/bg_glass_dropdown</item>
+        <item name="backgroundTint">@android:color/transparent</item>
+        <item name="colorSurface">@color/mh_surface</item>
+        <item name="colorOnSurface">@color/mh_text_primary</item>
+        <item name="colorPrimary">@color/mh_green</item>
+        <item name="buttonBarPositiveButtonStyle">@style/MhGlassDialogButton</item>
+        <item name="buttonBarNegativeButtonStyle">@style/MhGlassDialogButton</item>
+        <item name="buttonBarNeutralButtonStyle">@style/MhGlassDialogButton</item>
+        <item name="android:windowBackground">@drawable/bg_glass_dropdown</item>
+        <item name="android:backgroundDimAmount">0.55</item>
+    </style>
+
+    <style name="MhGlassDialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
+        <item name="android:textColor">@color/mh_green_soft</item>
+        <item name="rippleColor">@color/mh_green_muted</item>
     </style>
 
     <style name="MhWindowAnimation">
