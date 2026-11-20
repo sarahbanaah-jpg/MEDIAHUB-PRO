@@ -29,7 +29,6 @@ import com.mediahub.rebuilt.ui.music.MusicFragment
 import com.mediahub.rebuilt.ui.photos.PhotosFragment
 import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
-import com.mediahub.rebuilt.ui.welcome.WelcomeVoice
 import com.mediahub.rebuilt.updates.UpdateChecker
 
 class MainActivity : AppCompatActivity() {
@@ -51,7 +50,6 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = 0x00000000
         window.navigationBarColor = 0x00000000
 
-        // Real system blur behind windows where supported (Android 12+)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
                 window.setBackgroundBlurRadius(40)
@@ -72,7 +70,7 @@ class MainActivity : AppCompatActivity() {
             insets
         }
 
-        WelcomeVoice.speakOnce(this)
+        // No TTS / computer voice on launch — clean silent open.
 
         UpdateChecker.check(this, notify = true) { info ->
             if (info != null && !isFinishing) {
@@ -163,13 +161,6 @@ class MainActivity : AppCompatActivity() {
         switchTo(HomeFragment(), R.id.navHome)
     }
 
-    /**
-     * Real translucent liquid glass:
-     * - Content under the bar is visible through the translucent fill
-     * - Rounded clip + elevation for physical glass depth
-     * - Android 12+ RenderEffect soft frosted polish where supported
-     * - System window background blur on S+
-     */
     private fun applyRealLiquidGlass(bar: View) {
         bar.clipToOutline = true
         bar.outlineProvider = object : ViewOutlineProvider() {
@@ -181,7 +172,6 @@ class MainActivity : AppCompatActivity() {
             bar.invalidateOutline()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
-                    // Soft native frosted polish (does not replace translucency — enhances it)
                     bar.setRenderEffect(
                         RenderEffect.createBlurEffect(1.5f, 1.5f, Shader.TileMode.CLAMP)
                     )
