@@ -70,7 +70,7 @@ class MusicFragment : Fragment() {
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF070B0A.toInt())
+            setBackgroundColor(0xFF07070B.toInt())
             setPadding(dp(18), dp(24), dp(18), dp(12))
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -94,7 +94,7 @@ class MusicFragment : Fragment() {
         })
         greetCol.addView(TextView(requireContext()).apply {
             text = "Phone · SD card · Favourites"
-            setTextColor(0xFFA8FFCE.toInt())
+            setTextColor(0xFFFFA0B8.toInt())
             textSize = 13f
             setPadding(0, dp(4), 0, 0)
         })
@@ -122,7 +122,7 @@ class MusicFragment : Fragment() {
 
         status = TextView(requireContext()).apply {
             text = "Scanning phone + SD card…"
-            setTextColor(0xFF3DDC97.toInt())
+            setTextColor(0xFFFF4D8D.toInt())
             textSize = 12f
             setPadding(0, 0, 0, dp(8))
         }
@@ -161,9 +161,9 @@ class MusicFragment : Fragment() {
             setTypeface(null, Typeface.BOLD)
             setPadding(dp(16), dp(14), dp(16), dp(14))
             background = GradientDrawable().apply {
-                setColor(0xFF121A18.toInt())
+                setColor(0xFF17171F.toInt())
                 cornerRadius = dp(15).toFloat()
-                setStroke(dp(1), 0x33A8FFCE)
+                setStroke(dp(1), 0x33FFFFFF)
             }
             isClickable = true
             isFocusable = true
@@ -195,12 +195,12 @@ class MusicFragment : Fragment() {
             text = label
             textSize = 13f
             setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
-            setTextColor(if (active) 0xFF070B0A.toInt() else 0xFFA8FFCE.toInt())
+            setTextColor(if (active) 0xFF07070B.toInt() else 0xFFFFA0B8.toInt())
             setPadding(dp(18), dp(10), dp(18), dp(10))
             background = GradientDrawable().apply {
-                setColor(if (active) 0xFF3DDC97.toInt() else 0xFF121A18.toInt())
+                setColor(if (active) 0xFFFF4D8D.toInt() else 0xFF17171F.toInt())
                 cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), 0x553DDC97)
+                setStroke(dp(1), 0x55FF4D8D)
             }
             layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(10) }
             isClickable = true
@@ -211,11 +211,11 @@ class MusicFragment : Fragment() {
     private fun styleTabs() {
         fun paint(tab: TextView, active: Boolean) {
             tab.setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
-            tab.setTextColor(if (active) 0xFF070B0A.toInt() else 0xFFA8FFCE.toInt())
+            tab.setTextColor(if (active) 0xFF07070B.toInt() else 0xFFFFA0B8.toInt())
             tab.background = GradientDrawable().apply {
-                setColor(if (active) 0xFF3DDC97.toInt() else 0xFF121A18.toInt())
+                setColor(if (active) 0xFFFF4D8D.toInt() else 0xFF17171F.toInt())
                 cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), 0x553DDC97)
+                setStroke(dp(1), 0x55FF4D8D)
             }
         }
         paint(tabAll, !showFavouritesOnly)
@@ -229,7 +229,7 @@ class MusicFragment : Fragment() {
             textSize = 11f
             setPadding(dp(13), dp(12), dp(13), dp(12))
             background = GradientDrawable().apply {
-                setColor(0xFF15201C.toInt())
+                setColor(0xFF191922.toInt())
                 cornerRadius = dp(12).toFloat()
             }
             isClickable = true
@@ -387,16 +387,16 @@ class MusicFragment : Fragment() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(12), dp(10), dp(12), dp(10))
                 background = GradientDrawable().apply {
-                    setColor(0xFF121A18.toInt())
+                    setColor(0xFF17171F.toInt())
                     cornerRadius = dp(16).toFloat()
-                    setStroke(dp(1), 0x22A8FFCE)
+                    setStroke(dp(1), 0x22FFFFFF)
                 }
             }
             val art = ImageView(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(52), dp(52))
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 background = GradientDrawable().apply {
-                    setColor(0xFF1A2622.toInt())
+                    setColor(0xFF25202D.toInt())
                     cornerRadius = dp(12).toFloat()
                 }
                 clipToOutline = true
@@ -414,7 +414,7 @@ class MusicFragment : Fragment() {
                 maxLines = 1
             }
             val detail = TextView(requireContext()).apply {
-                setTextColor(0xFF8AA399.toInt())
+                setTextColor(0xFF9693A1.toInt())
                 textSize = 12f
                 setPadding(0, dp(3), 0, 0)
                 maxLines = 1
@@ -431,7 +431,7 @@ class MusicFragment : Fragment() {
             row.addView(favMark)
             row.addView(TextView(requireContext()).apply {
                 text = "▶"
-                setTextColor(0xFF3DDC97.toInt())
+                setTextColor(0xFFFF4D8D.toInt())
                 textSize = 16f
                 setPadding(dp(6), dp(8), dp(4), dp(8))
             })

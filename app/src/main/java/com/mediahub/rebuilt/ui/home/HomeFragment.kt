@@ -18,6 +18,7 @@ import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
+import com.mediahub.rebuilt.arcade.MediaHubArcadeActivity
 import com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity
 import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
@@ -41,7 +42,7 @@ class HomeFragment : Fragment() {
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
         val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
-        val bg = if (prefs.getString("theme", "midnight") == "amoled") 0xFF000000.toInt() else 0xFF0A0714.toInt()
+        val bg = if (prefs.getString("theme", "midnight") == "amoled") 0xFF000000.toInt() else 0xFF08080D.toInt()
 
         val scroll = ScrollView(requireContext()).apply {
             setBackgroundColor(bg)
@@ -60,7 +61,7 @@ class HomeFragment : Fragment() {
             gravity = Gravity.CENTER_VERTICAL
             setPadding(dp(16), dp(14), dp(16), dp(14))
             background = GradientDrawable().apply {
-                setColor(0xCC14101F.toInt())
+                setColor(0xCC17171F.toInt())
                 cornerRadius = dp(24).toFloat()
                 setStroke(dp(1), 0x40FFFFFF)
             }
@@ -72,13 +73,13 @@ class HomeFragment : Fragment() {
             }
             addView(TextView(requireContext()).apply {
                 text = "⌕"
-                setTextColor(0xFF9A8BB0.toInt())
+                setTextColor(0xFF9693A1.toInt())
                 textSize = 18f
                 setPadding(0, 0, dp(12), 0)
             })
             addView(TextView(requireContext()).apply {
                 text = "Search music, videos, photos"
-                setTextColor(0xFF9A8BB0.toInt())
+                setTextColor(0xFF9693A1.toInt())
                 textSize = 15f
                 layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
             })
@@ -177,7 +178,7 @@ class HomeFragment : Fragment() {
 
         root.addView(TextView(requireContext()).apply {
             text = "© Grimy. All rights reserved."
-            setTextColor(0xFF6B5A80.toInt())
+            setTextColor(0xFF777381.toInt())
             textSize = 11f
             gravity = Gravity.CENTER
             setPadding(0, dp(28), 0, dp(8))
@@ -218,6 +219,14 @@ class HomeFragment : Fragment() {
                 startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java))
             }
         ))
+        commandGrid.addView(toolRow(
+            toolCard("🎮", "Arcade", "Offline mini-games") {
+                startActivity(Intent(requireContext(), MediaHubArcadeActivity::class.java))
+            },
+            toolCard("✨", "Discover", "Explore your toolkit") {
+                Toast.makeText(requireContext(), "Explore Studio, Vault, Remote and Intelligence above.", Toast.LENGTH_SHORT).show()
+            }
+        ))
 
         viewLifecycleOwner.lifecycleScope.launch {
             val ctx = requireContext()
@@ -231,7 +240,7 @@ class HomeFragment : Fragment() {
             if (latest.isEmpty()) {
                 recent.addView(TextView(ctx).apply {
                     text = "No recent media yet"
-                    setTextColor(0xFF9A8BB0.toInt())
+                    setTextColor(0xFF9693A1.toInt())
                     textSize = 14f
                     setPadding(dp(4), dp(8), dp(4), dp(8))
                 })
@@ -247,20 +256,20 @@ class HomeFragment : Fragment() {
             }
             categoryGrid.addView(rowOf(
                 catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()) { openTab(R.id.navMusic) },
-                catCard("▶", "Videos", "${videos.size} files", 0xFF9B6DFF.toInt()) { openTab(R.id.navVideos) }
+                catCard("▶", "Videos", "${videos.size} files", 0xFFFF806F.toInt()) { openTab(R.id.navVideos) }
             ))
             categoryGrid.addView(rowOf(
-                catCard("▣", "Images", "${photos.size} photos", 0xFF5CE1FF.toInt()) { openTab(R.id.navPhotos) },
-                catCard("★", "Favourites", "Saved tracks", 0xFFFFC107.toInt()) {
+                catCard("▣", "Images", "${photos.size} photos", 0xFFFFA0B8.toInt()) { openTab(R.id.navPhotos) },
+                catCard("★", "Favourites", "Saved tracks", 0xFFFFB1A5.toInt()) {
                     openTab(R.id.navMusic)
                     Toast.makeText(ctx, "Open a song · long-press ★ in Music to favourite", Toast.LENGTH_LONG).show()
                 }
             ))
             categoryGrid.addView(rowOf(
-                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFA78BFA.toInt()) {
+                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFB59BFF.toInt()) {
                     openTab(R.id.navSettings)
                 },
-                catCard("⚡", "Performance", "${snap.availableRamMb} MB RAM", 0xFF5EEAD4.toInt()) {
+                catCard("⚡", "Performance", "${snap.availableRamMb} MB RAM", 0xFFFF8EAD.toInt()) {
                     openTab(R.id.navSettings)
                 }
             ))
@@ -309,7 +318,7 @@ class HomeFragment : Fragment() {
         })
         card.addView(TextView(requireContext()).apply {
             text = subtitle
-            setTextColor(0xFF9A8BB0.toInt())
+            setTextColor(0xFF9693A1.toInt())
             textSize = 11f
             setPadding(0, dp(2), 0, 0)
         })
@@ -337,7 +346,7 @@ class HomeFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             scaleType = ImageView.ScaleType.CENTER_CROP
             background = GradientDrawable().apply {
-                setColor(0xFF22153A.toInt())
+                setColor(0xFF25202D.toInt())
                 cornerRadius = dp(12).toFloat()
             }
             clipToOutline = true
@@ -365,7 +374,7 @@ class HomeFragment : Fragment() {
                 MediaItem.Kind.VIDEO -> "Video"
                 MediaItem.Kind.IMAGE -> "Photo"
             }
-            setTextColor(0xFF9A8BB0.toInt())
+            setTextColor(0xFF9693A1.toInt())
             textSize = 12f
             setPadding(0, dp(2), 0, 0)
         })
@@ -399,7 +408,7 @@ class HomeFragment : Fragment() {
         })
         card.addView(TextView(requireContext()).apply {
             text = subtitle
-            setTextColor(0xFF9A8BB0.toInt())
+            setTextColor(0xFF9693A1.toInt())
             textSize = 12f
             setPadding(0, dp(4), 0, 0)
         })
@@ -407,7 +416,7 @@ class HomeFragment : Fragment() {
     }
 
     private fun glassCard() = GradientDrawable().apply {
-        setColor(0xFF16122A.toInt())
+        setColor(0xFF15151D.toInt())
         cornerRadius = dp(20).toFloat()
         setStroke(dp(1), 0x33FFFFFF)
     }
