@@ -29,6 +29,7 @@ import com.mediahub.rebuilt.performance.DevicePerformance
 import com.mediahub.rebuilt.remote.MediaHubRemoteActivity
 import com.mediahub.rebuilt.studio.MediaHubStudioActivity
 import com.mediahub.rebuilt.transfer.MediaHubTransferActivity
+import com.mediahub.rebuilt.toolkit.MediaHubToolkitActivity
 import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
 import com.mediahub.rebuilt.vault.PrivateVaultActivity
@@ -233,8 +234,8 @@ class HomeFragment : Fragment() {
             toolCard("📚", "Learn", "Offline media guides") {
                 startActivity(Intent(requireContext(), MediaHubLearnActivity::class.java))
             },
-            toolCard("✨", "Discover", "Explore your toolkit") {
-                Toast.makeText(requireContext(), "Explore Studio, Vault, Remote, Recorder and Learn.", Toast.LENGTH_SHORT).show()
+            toolCard("🧰", "20 Tools", "Calculators & media guides") {
+                startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java))
             }
         ))
 
