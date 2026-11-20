@@ -22,7 +22,7 @@
         <item name="backgroundTint">@android:color/transparent</item>
         <item name="colorSurface">@color/mh_surface</item>
         <item name="colorOnSurface">@color/mh_text_primary</item>
-        <item name="colorPrimary">@color/mh_green</item>
+        <item name="colorPrimary">@color/mh_accent</item>
         <item name="buttonBarPositiveButtonStyle">@style/MhGlassDialogButton</item>
         <item name="buttonBarNegativeButtonStyle">@style/MhGlassDialogButton</item>
         <item name="buttonBarNeutralButtonStyle">@style/MhGlassDialogButton</item>
@@ -31,8 +31,8 @@
     </style>
 
     <style name="MhGlassDialogButton" parent="Widget.Material3.Button.TextButton.Dialog">
-        <item name="android:textColor">@color/mh_green_soft</item>
-        <item name="rippleColor">@color/mh_green_muted</item>
+        <item name="android:textColor">@color/mh_accent_soft</item>
+        <item name="rippleColor">@color/mh_accent_deep</item>
     </style>
 
     <style name="MhWindowAnimation">
