@@ -20,6 +20,8 @@ import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
 import com.mediahub.rebuilt.arcade.MediaHubArcadeActivity
 import com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity
+import com.mediahub.rebuilt.learn.MediaHubLearnActivity
+import com.mediahub.rebuilt.recorder.MediaHubRecorderActivity
 import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.media.MediaThumbnails
@@ -223,8 +225,16 @@ class HomeFragment : Fragment() {
             toolCard("🎮", "Arcade", "Offline mini-games") {
                 startActivity(Intent(requireContext(), MediaHubArcadeActivity::class.java))
             },
+            toolCard("🎙", "Recorder", "Private voice notes") {
+                startActivity(Intent(requireContext(), MediaHubRecorderActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("📚", "Learn", "Offline media guides") {
+                startActivity(Intent(requireContext(), MediaHubLearnActivity::class.java))
+            },
             toolCard("✨", "Discover", "Explore your toolkit") {
-                Toast.makeText(requireContext(), "Explore Studio, Vault, Remote and Intelligence above.", Toast.LENGTH_SHORT).show()
+                Toast.makeText(requireContext(), "Explore Studio, Vault, Remote, Recorder and Learn.", Toast.LENGTH_SHORT).show()
             }
         ))
 
