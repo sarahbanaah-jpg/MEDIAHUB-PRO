@@ -28,9 +28,9 @@ import java.util.zip.ZipInputStream
 class MediaHubContentLibraryActivity : AppCompatActivity() {
     private data class Pack(val id: String, val title: String, val detail: String, val size: String, val file: String)
     private val packs = listOf(
-        Pack("wallpapers", "Ultra HD Wallpaper Collection", "100 original 2160 × 3840 abstract wallpapers, phone-ready portrait artwork and lock-screen backgrounds.", "~250 MB", "mediahub-wallpapers.zip"),
-        Pack("audio", "Original Audio & Game Sound Pack", "Original ambient loops, focus soundscapes and short game sound effects for offline use.", "~25 MB", "mediahub-audio.zip"),
-        Pack("motion", "Motion Visuals & Game Art Pack", "Animated video backgrounds and original game artwork for creative projects.", "~35 MB", "mediahub-motion-games.zip")
+        Pack("wallpapers", "Ultra HD Wallpaper Collection", "100 original 2160 × 3840 abstract wallpapers, phone-ready portrait artwork and lock-screen backgrounds.", "~291 MB", "mediahub-wallpapers.zip"),
+        Pack("audio", "Original Audio & Game Sound Pack", "Original ambient loops, focus soundscapes and short game sound effects for offline use.", "~21 MB", "mediahub-audio.zip"),
+        Pack("motion", "Motion Visuals & Game Art Pack", "Animated video backgrounds and original game artwork for creative projects.", "~39 MB", "mediahub-motion-games.zip")
     )
     private val bg = 0xFF08080D.toInt()
     private val panel = 0xFF171720.toInt()
@@ -88,7 +88,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             setPadding(0, 0, 0, dp(14))
         })
         val total = TextView(this).apply {
-            text = "COLLECTION SIZE  ·  APPROXIMATELY 300 MB"
+            text = "COLLECTION SIZE  ·  APPROXIMATELY 351 MB"
             textSize = 12f; setTextColor(pink); typeface = Typeface.DEFAULT_BOLD
             setPadding(dp(14), dp(14), dp(14), dp(14)); background = card()
         }
