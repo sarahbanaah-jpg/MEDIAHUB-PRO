@@ -15,6 +15,7 @@ import android.view.ViewGroup
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.core.content.ContextCompat
 import androidx.fragment.app.Fragment
@@ -27,6 +28,7 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediahub.rebuilt.media.DefaultAlbumArt
+import com.mediahub.rebuilt.media.Favourites
 import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.service.PlaybackService
@@ -34,13 +36,22 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/**
+ * Music library — structure inspired by classic All Songs / Favorites player sample,
+ * with full phone+SD scan and Media3 queue playback.
+ */
 class MusicFragment : Fragment() {
-    private var songs: List<MediaItem> = emptyList()
+    private var allSongs: List<MediaItem> = emptyList()
+    private var visibleSongs: List<MediaItem> = emptyList()
+    private var showFavouritesOnly = false
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
     private var pendingIndex: Int? = null
     private lateinit var status: TextView
     private lateinit var songList: RecyclerView
+    private lateinit var tabAll: TextView
+    private lateinit var tabFav: TextView
+
     private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) refreshLibrary() else if (isAdded) status.text = "Allow Music and audio access in Android settings to show your full music library."
     }
@@ -57,12 +68,9 @@ class MusicFragment : Fragment() {
     }
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        // Keep the library RecyclerView as the screen's primary scrolling surface.
-        // A RecyclerView nested inside a ScrollView can be measured to a partial height
-        // on some Android/OEM builds, making later songs appear to be missing.
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setBackgroundColor(0xFF0B0618.toInt())
+            setBackgroundColor(0xFF070B0A.toInt())
             setPadding(dp(18), dp(24), dp(18), dp(12))
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
@@ -79,65 +87,58 @@ class MusicFragment : Fragment() {
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         }
         greetCol.addView(TextView(requireContext()).apply {
-            text = "Hi, Grimy"
+            text = "Music"
             setTextColor(0xFFFFFFFF.toInt())
-            textSize = 22f
+            textSize = 24f
             setTypeface(null, Typeface.BOLD)
         })
         greetCol.addView(TextView(requireContext()).apply {
-            text = "Listen and enjoy your music"
-            setTextColor(0xFFD4C4E8.toInt())
+            text = "Phone · SD card · Favourites"
+            setTextColor(0xFFA8FFCE.toInt())
             textSize = 13f
             setPadding(0, dp(4), 0, 0)
         })
         header.addView(greetCol)
         root.addView(header)
 
-        val trendHeader = LinearLayout(requireContext()).apply {
+        // Tabs: All Songs | Favourites (from reference player)
+        val tabs = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
-            gravity = Gravity.CENTER_VERTICAL
-            setPadding(0, dp(22), 0, dp(12))
+            setPadding(0, dp(16), 0, dp(8))
         }
-        trendHeader.addView(TextView(requireContext()).apply {
-            text = "All music · A–Z"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 18f
-            setTypeface(null, Typeface.BOLD)
-            layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
-        })
-        root.addView(trendHeader)
+        tabAll = tabChip("All Songs", true) {
+            showFavouritesOnly = false
+            applyFilter()
+            styleTabs()
+        }
+        tabFav = tabChip("Favourites", false) {
+            showFavouritesOnly = true
+            applyFilter()
+            styleTabs()
+        }
+        tabs.addView(tabAll)
+        tabs.addView(tabFav)
+        root.addView(tabs)
 
         status = TextView(requireContext()).apply {
             text = "Scanning phone + SD card…"
-            setTextColor(0xFFFF6BB5.toInt())
+            setTextColor(0xFF3DDC97.toInt())
             textSize = 12f
             setPadding(0, 0, 0, dp(8))
         }
         root.addView(status)
 
         val libraryActions = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL }
-        libraryActions.addView(TextView(requireContext()).apply {
-            text = "＋ ADD MUSIC FOLDER"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 11f
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = GradientDrawable().apply { setColor(0xFF241632.toInt()); cornerRadius = dp(12).toFloat() }
-            isClickable = true
-            setOnClickListener { folderPicker.launch(null) }
-            layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) }
+        libraryActions.addView(actionBtn("＋ ADD FOLDER", 1f) { folderPicker.launch(null) }.apply {
+            (layoutParams as LinearLayout.LayoutParams).marginEnd = dp(8)
         })
-        libraryActions.addView(TextView(requireContext()).apply {
-            text = "↻ RESCAN"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 11f
-            setPadding(dp(13), dp(12), dp(13), dp(12))
-            background = GradientDrawable().apply { setColor(0xFF241632.toInt()); cornerRadius = dp(12).toFloat() }
-            isClickable = true
-            setOnClickListener { refreshLibrary() }
-        })
+        libraryActions.addView(actionBtn("↻ RESCAN", 0f) { refreshLibrary() })
         root.addView(libraryActions)
 
-        val row = LinearLayout(requireContext()).apply { orientation = LinearLayout.HORIZONTAL }
+        val row = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.HORIZONTAL
+            setPadding(0, dp(10), 0, 0)
+        }
         row.addView(TextView(requireContext()).apply {
             text = "▶  PLAY ALL"
             setTextColor(0xFFFFFFFF.toInt())
@@ -150,7 +151,7 @@ class MusicFragment : Fragment() {
             }
             isClickable = true
             isFocusable = true
-            setOnClickListener { if (songs.isNotEmpty()) playAt(0) }
+            setOnClickListener { if (visibleSongs.isNotEmpty()) playAt(0) }
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f).apply { marginEnd = dp(8) }
         })
         row.addView(TextView(requireContext()).apply {
@@ -160,9 +161,9 @@ class MusicFragment : Fragment() {
             setTypeface(null, Typeface.BOLD)
             setPadding(dp(16), dp(14), dp(16), dp(14))
             background = GradientDrawable().apply {
-                setColor(0xFF16121F.toInt())
+                setColor(0xFF121A18.toInt())
                 cornerRadius = dp(15).toFloat()
-                setStroke(dp(1), 0x33FF2D95)
+                setStroke(dp(1), 0x33A8FFCE)
             }
             isClickable = true
             isFocusable = true
@@ -189,35 +190,116 @@ class MusicFragment : Fragment() {
         return root
     }
 
+    private fun tabChip(label: String, active: Boolean, onClick: () -> Unit): TextView {
+        return TextView(requireContext()).apply {
+            text = label
+            textSize = 13f
+            setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
+            setTextColor(if (active) 0xFF070B0A.toInt() else 0xFFA8FFCE.toInt())
+            setPadding(dp(18), dp(10), dp(18), dp(10))
+            background = GradientDrawable().apply {
+                setColor(if (active) 0xFF3DDC97.toInt() else 0xFF121A18.toInt())
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0x553DDC97)
+            }
+            layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(10) }
+            isClickable = true
+            setOnClickListener { onClick() }
+        }
+    }
+
+    private fun styleTabs() {
+        fun paint(tab: TextView, active: Boolean) {
+            tab.setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
+            tab.setTextColor(if (active) 0xFF070B0A.toInt() else 0xFFA8FFCE.toInt())
+            tab.background = GradientDrawable().apply {
+                setColor(if (active) 0xFF3DDC97.toInt() else 0xFF121A18.toInt())
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0x553DDC97)
+            }
+        }
+        paint(tabAll, !showFavouritesOnly)
+        paint(tabFav, showFavouritesOnly)
+    }
+
+    private fun actionBtn(label: String, weight: Float, click: () -> Unit): TextView {
+        return TextView(requireContext()).apply {
+            text = label
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 11f
+            setPadding(dp(13), dp(12), dp(13), dp(12))
+            background = GradientDrawable().apply {
+                setColor(0xFF15201C.toInt())
+                cornerRadius = dp(12).toFloat()
+            }
+            isClickable = true
+            setOnClickListener { click() }
+            layoutParams = if (weight > 0f)
+                LinearLayout.LayoutParams(0, -2, weight)
+            else
+                LinearLayout.LayoutParams(-2, -2)
+        }
+    }
+
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
         if (hasAudioPermission()) refreshLibrary() else audioPermission.launch(requiredAudioPermission())
     }
 
     override fun onResume() {
         super.onResume()
-        if (isAdded && hasAudioPermission() && songs.isEmpty()) refreshLibrary()
+        if (isAdded && hasAudioPermission() && allSongs.isEmpty()) refreshLibrary()
+        else if (isAdded) applyFilter()
     }
 
-    private fun requiredAudioPermission(): String = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO else Manifest.permission.READ_EXTERNAL_STORAGE
+    private fun requiredAudioPermission(): String =
+        if (Build.VERSION.SDK_INT >= 33) Manifest.permission.READ_MEDIA_AUDIO
+        else Manifest.permission.READ_EXTERNAL_STORAGE
 
-    private fun hasAudioPermission(): Boolean = ContextCompat.checkSelfPermission(requireContext(), requiredAudioPermission()) == PackageManager.PERMISSION_GRANTED
+    private fun hasAudioPermission(): Boolean =
+        ContextCompat.checkSelfPermission(requireContext(), requiredAudioPermission()) == PackageManager.PERMISSION_GRANTED
 
     private fun refreshLibrary() {
         if (!isAdded || !hasAudioPermission()) return
         status.text = "Scanning all phone, SD card and added music folders…"
         viewLifecycleOwner.lifecycleScope.launch {
             try {
-                songs = MediaRepository.loadMusic(requireContext()).sortedWith(
-                    compareBy<MediaItem, String>(String.CASE_INSENSITIVE_ORDER) { song -> song.title.trim() }
-                        .thenBy(String.CASE_INSENSITIVE_ORDER) { song -> song.artist.trim() }
+                allSongs = MediaRepository.loadMusic(requireContext()).sortedWith(
+                    compareBy<MediaItem, String>(String.CASE_INSENSITIVE_ORDER) { it.title.trim() }
+                        .thenBy(String.CASE_INSENSITIVE_ORDER) { it.artist.trim() }
                 )
                 if (!isAdded) return@launch
-                status.text = if (songs.isEmpty()) "No audio indexed yet. Add your Music folder to include files Android has not indexed." else "${songs.size} audio files found · phone, SD card and added folders"
-                songList.adapter = SongAdapter(songs) { playAt(it) }
+                applyFilter()
             } catch (error: Exception) {
                 if (isAdded) status.text = "Music scan failed: ${error.localizedMessage ?: "unknown error"}"
             }
         }
+    }
+
+    private fun applyFilter() {
+        visibleSongs = if (showFavouritesOnly) {
+            allSongs.filter { Favourites.isFavourite(requireContext(), it.id) }
+        } else {
+            allSongs
+        }
+        status.text = when {
+            allSongs.isEmpty() -> "No audio indexed yet. Add your Music folder to include files Android has not indexed."
+            showFavouritesOnly && visibleSongs.isEmpty() -> "No favourites yet. Long-press a song to add it."
+            showFavouritesOnly -> "${visibleSongs.size} favourites"
+            else -> "${visibleSongs.size} audio files · phone, SD card and folders"
+        }
+        songList.adapter = SongAdapter(visibleSongs,
+            onSongClick = { playAt(it) },
+            onSongLongClick = { song ->
+                val now = Favourites.toggle(requireContext(), song.id)
+                Toast.makeText(
+                    requireContext(),
+                    if (now) "Added to Favourites" else "Removed from Favourites",
+                    Toast.LENGTH_SHORT
+                ).show()
+                if (showFavouritesOnly) applyFilter()
+                else songList.adapter?.notifyDataSetChanged()
+            }
+        )
     }
 
     override fun onStart() {
@@ -241,7 +323,7 @@ class MusicFragment : Fragment() {
     }
 
     private fun playAt(index: Int) {
-        if (index !in songs.indices) return
+        if (index !in visibleSongs.indices) return
         val player = controller
         if (player == null) {
             pendingIndex = index
@@ -250,9 +332,9 @@ class MusicFragment : Fragment() {
         }
         requireContext().getSharedPreferences("mediahub_settings", 0).edit()
             .putString("island_mode", "music")
-            .putString("island_title", songs[index].title)
+            .putString("island_title", visibleSongs[index].title)
             .apply()
-        val queue = songs.map { song ->
+        val queue = visibleSongs.map { song ->
             Media3Item.Builder()
                 .setUri(song.uri)
                 .setMediaId(song.id.toString())
@@ -268,7 +350,7 @@ class MusicFragment : Fragment() {
         player.setMediaItems(queue, index, 0L)
         player.prepare()
         player.play()
-        status.text = "Playing · ${songs[index].title}"
+        status.text = "Playing · ${visibleSongs[index].title}"
         startActivity(Intent(requireContext(), NowPlayingActivity::class.java))
     }
 
@@ -288,13 +370,15 @@ class MusicFragment : Fragment() {
 
     private inner class SongAdapter(
         private val items: List<MediaItem>,
-        private val onSongClick: (Int) -> Unit
+        private val onSongClick: (Int) -> Unit,
+        private val onSongLongClick: (MediaItem) -> Unit
     ) : RecyclerView.Adapter<SongAdapter.SongHolder>() {
         inner class SongHolder(
             val row: LinearLayout,
             val art: ImageView,
             val title: TextView,
-            val detail: TextView
+            val detail: TextView,
+            val favMark: TextView
         ) : RecyclerView.ViewHolder(row)
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): SongHolder {
@@ -303,16 +387,16 @@ class MusicFragment : Fragment() {
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(12), dp(10), dp(12), dp(10))
                 background = GradientDrawable().apply {
-                    setColor(0xFF160E28.toInt())
+                    setColor(0xFF121A18.toInt())
                     cornerRadius = dp(16).toFloat()
-                    setStroke(dp(1), 0x22FFFFFF)
+                    setStroke(dp(1), 0x22A8FFCE)
                 }
             }
             val art = ImageView(requireContext()).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(52), dp(52))
                 scaleType = ImageView.ScaleType.CENTER_CROP
                 background = GradientDrawable().apply {
-                    setColor(0xFF22153A.toInt())
+                    setColor(0xFF1A2622.toInt())
                     cornerRadius = dp(12).toFloat()
                 }
                 clipToOutline = true
@@ -330,7 +414,7 @@ class MusicFragment : Fragment() {
                 maxLines = 1
             }
             val detail = TextView(requireContext()).apply {
-                setTextColor(0xFF9A8BB0.toInt())
+                setTextColor(0xFF8AA399.toInt())
                 textSize = 12f
                 setPadding(0, dp(3), 0, 0)
                 maxLines = 1
@@ -338,13 +422,20 @@ class MusicFragment : Fragment() {
             col.addView(title)
             col.addView(detail)
             row.addView(col)
-            row.addView(TextView(requireContext()).apply {
-                text = "▶"
+            val favMark = TextView(requireContext()).apply {
+                text = "♡"
                 setTextColor(0xFFFF2D95.toInt())
                 textSize = 16f
-                setPadding(dp(8), dp(8), dp(4), dp(8))
+                setPadding(dp(6), dp(6), dp(4), dp(6))
+            }
+            row.addView(favMark)
+            row.addView(TextView(requireContext()).apply {
+                text = "▶"
+                setTextColor(0xFF3DDC97.toInt())
+                textSize = 16f
+                setPadding(dp(6), dp(8), dp(4), dp(8))
             })
-            return SongHolder(row, art, title, detail)
+            return SongHolder(row, art, title, detail, favMark)
         }
 
         override fun onBindViewHolder(holder: SongHolder, position: Int) {
@@ -354,7 +445,14 @@ class MusicFragment : Fragment() {
                 song.artist.ifBlank { "Unknown" },
                 duration(song.durationMs)
             ).joinToString(" · ")
+            val fav = Favourites.isFavourite(requireContext(), song.id)
+            holder.favMark.text = if (fav) "♥" else "♡"
             holder.row.setOnClickListener { onSongClick(holder.bindingAdapterPosition) }
+            holder.row.setOnLongClickListener {
+                onSongLongClick(song)
+                true
+            }
+            holder.favMark.setOnClickListener { onSongLongClick(song) }
             holder.row.layoutParams = RecyclerView.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
             holder.art.setImageBitmap(null)
             holder.art.tag = song.uri.toString()
