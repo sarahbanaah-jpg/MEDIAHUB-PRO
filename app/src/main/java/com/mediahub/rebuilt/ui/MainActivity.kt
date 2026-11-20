@@ -1,6 +1,7 @@
 package com.mediahub.rebuilt.ui
 
 import android.Manifest
+import android.content.ComponentName
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.graphics.Outline
@@ -23,9 +24,15 @@ import androidx.core.view.ViewCompat
 import androidx.core.view.WindowCompat
 import androidx.core.view.WindowInsetsCompat
 import androidx.fragment.app.Fragment
+import androidx.media3.common.Player
+import androidx.media3.session.MediaController
+import androidx.media3.session.SessionToken
+import com.google.common.util.concurrent.ListenableFuture
 import com.mediahub.rebuilt.R
+import com.mediahub.rebuilt.service.PlaybackService
 import com.mediahub.rebuilt.ui.home.HomeFragment
 import com.mediahub.rebuilt.ui.music.MusicFragment
+import com.mediahub.rebuilt.ui.music.NowPlayingActivity
 import com.mediahub.rebuilt.ui.photos.PhotosFragment
 import com.mediahub.rebuilt.ui.settings.SettingsFragment
 import com.mediahub.rebuilt.ui.videos.VideosFragment
@@ -35,13 +42,27 @@ class MainActivity : AppCompatActivity() {
 
     private lateinit var contentContainer: FrameLayout
     private lateinit var bottomNav: LinearLayout
+    private lateinit var miniPlayer: LinearLayout
+    private lateinit var miniPlayerLabel: TextView
+    private lateinit var miniPlayerPlay: TextView
     private var mandatoryUpdate = false
     private var dynamicIsland: DynamicIslandOverlay? = null
+    private var controller: MediaController? = null
+    private var controllerFuture: ListenableFuture<MediaController>? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
     ) {
         if (hasMediaPermissions()) showMainUi() else showPermissionDenied()
+    }
+
+    private val playerListener = object : Player.Listener {
+        override fun onIsPlayingChanged(isPlaying: Boolean) = refreshMiniPlayer()
+        override fun onMediaItemTransition(
+            mediaItem: androidx.media3.common.MediaItem?,
+            reason: Int
+        ) = refreshMiniPlayer()
+        override fun onPlaybackStateChanged(playbackState: Int) = refreshMiniPlayer()
     }
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -60,6 +81,9 @@ class MainActivity : AppCompatActivity() {
 
         contentContainer = findViewById(R.id.contentContainer)
         bottomNav = findViewById(R.id.bottomNav)
+        miniPlayer = findViewById(R.id.miniPlayer)
+        miniPlayerLabel = findViewById(R.id.miniPlayerLabel)
+        miniPlayerPlay = findViewById(R.id.miniPlayerPlay)
         dynamicIsland = DynamicIslandOverlay(this, findViewById(android.R.id.content))
 
         ViewCompat.setOnApplyWindowInsetsListener(bottomNav) { v, insets ->
@@ -67,10 +91,19 @@ class MainActivity : AppCompatActivity() {
             val lp = v.layoutParams as FrameLayout.LayoutParams
             lp.bottomMargin = bars.bottom + dp(12)
             v.layoutParams = lp
+            val miniLp = miniPlayer.layoutParams as FrameLayout.LayoutParams
+            miniLp.bottomMargin = bars.bottom + dp(84)
+            miniPlayer.layoutParams = miniLp
             insets
         }
 
-        // No TTS / computer voice on launch — clean silent open.
+        miniPlayer.setOnClickListener {
+            startActivity(Intent(this, NowPlayingActivity::class.java))
+        }
+        miniPlayerPlay.setOnClickListener {
+            val p = controller ?: return@setOnClickListener
+            if (p.isPlaying) p.pause() else p.play()
+        }
 
         UpdateChecker.check(this, notify = true) { info ->
             if (info != null && !isFinishing) {
@@ -90,10 +123,16 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    override fun onStart() {
+        super.onStart()
+        connectPlayer()
+    }
+
     override fun onResume() {
         super.onResume()
         dynamicIsland?.refresh()
         dynamicIsland?.start()
+        refreshMiniPlayer()
         if (mandatoryUpdate) {
             UpdateChecker.check(this, notify = false) { info ->
                 if (info != null && info.mandatory && !isFinishing) {
@@ -107,10 +146,42 @@ class MainActivity : AppCompatActivity() {
 
     override fun onStop() {
         dynamicIsland?.stop()
+        controller?.removeListener(playerListener)
+        controller = null
+        controllerFuture?.let { MediaController.releaseFuture(it) }
+        controllerFuture = null
         super.onStop()
     }
 
     fun refreshDynamicIsland() { dynamicIsland?.refresh() }
+
+    private fun connectPlayer() {
+        if (controllerFuture != null) return
+        val token = SessionToken(this, ComponentName(this, PlaybackService::class.java))
+        val future = MediaController.Builder(this, token).buildAsync()
+        controllerFuture = future
+        future.addListener({
+            try {
+                controller = future.get()
+                controller?.addListener(playerListener)
+                refreshMiniPlayer()
+            } catch (_: Exception) { }
+        }, ContextCompat.getMainExecutor(this))
+    }
+
+    private fun refreshMiniPlayer() {
+        val p = controller
+        val item = p?.currentMediaItem
+        if (p == null || item == null) {
+            miniPlayer.visibility = View.GONE
+            return
+        }
+        miniPlayer.visibility = View.VISIBLE
+        val title = item.mediaMetadata.title?.toString()?.takeIf { it.isNotBlank() } ?: "Now Playing"
+        val artist = item.mediaMetadata.artist?.toString()?.takeIf { it.isNotBlank() }
+        miniPlayerLabel.text = if (artist != null) "$title · $artist" else title
+        miniPlayerPlay.text = if (p.isPlaying) "Ⅱ" else "▶"
+    }
 
     private fun hasMediaPermissions(): Boolean {
         if (Build.VERSION.SDK_INT < 33) {
@@ -156,24 +227,32 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMainUi() {
         bottomNav.visibility = View.VISIBLE
-        applyRealLiquidGlass(bottomNav)
+        applyHeavyLiquidGlass(bottomNav)
+        applyHeavyLiquidGlass(miniPlayer)
         setupBottomNav()
         switchTo(HomeFragment(), R.id.navHome)
     }
 
-    private fun applyRealLiquidGlass(bar: View) {
+    /**
+     * Heavy liquid glass — closest native match to CSS:
+     * backdrop-filter: blur(18px) saturate(160%) + specular lighting.
+     * True SVG feDisplacementMap is not available on Android Views;
+     * we combine translucent glass layers + RenderEffect blur on API 31+.
+     */
+    private fun applyHeavyLiquidGlass(bar: View) {
         bar.clipToOutline = true
         bar.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), dp(32).toFloat())
+                outline.setRoundRect(0, 0, view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), dp(24).toFloat())
             }
         }
         bar.post {
             bar.invalidateOutline()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
+                    // Soft frosted polish — stronger than before for "heavy" liquid glass
                     bar.setRenderEffect(
-                        RenderEffect.createBlurEffect(1.5f, 1.5f, Shader.TileMode.CLAMP)
+                        RenderEffect.createBlurEffect(2.5f, 2.5f, Shader.TileMode.CLAMP)
                     )
                 } catch (_: Throwable) { }
             }
