@@ -36,7 +36,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
     private val panel = 0xFF171720.toInt()
     private val pink = 0xFFFF6B9F.toInt()
     private val prefs by lazy { getSharedPreferences("mediahub_content_packs", MODE_PRIVATE) }
-    private val manager by lazy { getSystemService(DOWNLOAD_SERVICE) as DownloadManager }
+    private val manager by lazy { getSystemService(DOWNLOAD_SERVICE) as DownloadManager }\n    private val statusViews = mutableMapOf<String, TextView>()
     private lateinit var root: LinearLayout
     private val receiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context, intent: Intent) {
@@ -118,7 +118,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             text = packStatus(pack); textSize = 12f; setTextColor(pink); setPadding(0, 0, 0, dp(10))
             tag = "status_${pack.id}"
         }
-        box.addView(status)
+        statusViews[pack.id] = status\n        box.addView(status)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(Button(this).apply {
             text = "Download pack"
