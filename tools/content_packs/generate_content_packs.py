@@ -164,21 +164,26 @@ def main():
         raise SystemExit("ffmpeg is required to create the original audio and motion collections")
     ensure_dirs()
     wallpapers = []
-    print("Creating 90 original ultra-high-resolution wallpapers…", flush=True)
-    for i in range(90):
+    print("Creating 100 original ultra-high-resolution wallpapers…", flush=True)
+    for i in range(100):
         wallpapers.append(make_wallpaper(i))
-        if (i+1) % 10 == 0: print(f"  {i+1}/90 wallpapers", flush=True)
+        if (i+1) % 10 == 0: print(f"  {i+1}/100 wallpapers", flush=True)
     print("Creating 16 original 60-second ambient tracks and 32 game sound effects…", flush=True)
     for i in range(16): make_audio(i, ffmpeg)
     for i in range(32): make_sfx(i)
     print("Creating 24 original game-art textures…", flush=True)
     for i in range(24): make_game_art(i)
     print("Creating 8 animated phone backgrounds…", flush=True)
-    for i in range(8): make_motion(i, wallpapers[i*9], ffmpeg)
+    for i in range(8): make_motion(i, wallpapers[i*12], ffmpeg)
 
-    (RAW / "wallpapers" / "ABOUT.txt").write_text("90 original MediaHub Pro abstract artworks. 2160 x 3840 JPEG, high-quality portrait wallpapers. Created specifically for offline use.\n")
+    (RAW / "wallpapers" / "ABOUT.txt").write_text("100 original MediaHub Pro abstract artworks. 2160 x 3840 JPEG, high-quality portrait wallpapers. Created specifically for offline use.\n")
     (RAW / "audio" / "ABOUT.txt").write_text("16 original 60-second ambient soundscapes (MP3) plus 32 short original game sound effects (WAV). All generated for MediaHub Pro.\n")
     (RAW / "motion" / "ABOUT.txt").write_text("8 original six-second animated portrait backgrounds (MP4), plus 24 high-resolution game-art texture images (PNG).\n")
+    art_dir = RAW / "motion" / "game-art"
+    art_dir.mkdir(parents=True, exist_ok=True)
+    for art in (RAW / "game-art").glob("*.png"):
+        shutil.copy2(art, art_dir / art.name)
+    shutil.copy2(RAW / "game-art" / "ABOUT.txt", art_dir / "ABOUT.txt")
     groups = [
         ("mediahub-wallpapers.zip", RAW / "wallpapers"),
         ("mediahub-audio.zip", RAW / "audio"),
@@ -201,7 +206,7 @@ def main():
     }
     (OUT / "mediahub-content-manifest.json").write_text(json.dumps(manifest, indent=2) + "\n")
     print(f"TOTAL CONTENT PACK SIZE: {total:,} bytes ({total/1_000_000:.1f} MB)", flush=True)
-    if total < 250_000_000:
-        raise SystemExit(f"Content pack collection is only {total/1_000_000:.1f} MB; expected at least 250 MB. Increase genuine asset quality/count, do not add filler.")
+    if total < 300_000_000:
+        raise SystemExit(f"Content pack collection is only {total/1_000_000:.1f} MB; expected at least 300 MB. Increase genuine asset quality/count, do not add filler.")
 if __name__ == "__main__":
     main()
