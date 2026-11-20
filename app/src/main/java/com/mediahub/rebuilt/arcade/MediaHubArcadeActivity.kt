@@ -201,7 +201,8 @@ class MediaHubArcadeActivity : AppCompatActivity() {
         var moves = 0
         val status = TextView(this).apply { textSize = 16f; setTextColor(Color.WHITE); setPadding(0, 0, 0, dp(12)) }
         val grid = GridLayout(this).apply { columnCount = 3; rowCount = 4 }
-        val buttons = Array(12) { index ->
+        lateinit var buttons: Array<Button>
+        buttons = Array(12) { index ->
             Button(this).apply {
                 text = "?"; textSize = 24f; isAllCaps = false
                 setOnClickListener {
