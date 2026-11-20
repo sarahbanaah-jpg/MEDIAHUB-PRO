@@ -269,8 +269,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
     }
 
     private fun updateStatus(pack: Pack, value: String) {
-        val label = root.findViewWithTag<TextView>("status_${pack.id}")
-        label?.text = value
+        statusViews[pack.id]?.text = value
     }
 
     private fun countFiles(dir: File): Int = dir.walkTopDown().count { it.isFile }
