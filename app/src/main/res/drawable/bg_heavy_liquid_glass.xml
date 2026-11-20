@@ -1,64 +1,85 @@
 <?xml version="1.0" encoding="utf-8"?>
 <!--
-  Android approximation of:
-  backdrop-filter: blur(18px) saturate(160%);
-  background: rgba(255,255,255,0.12);
-  border: 1px solid rgba(255,255,255,0.35);
-  + specular highlight (feSpecularLighting-like top light)
+  Port of 2026-07-23 liquid-glass-distortion-card (CSS + SVG):
+  - frost ~10% dark glass body
+  - multi inset edge lights (white 35% / 15%)
+  - soft inner depth shadows
+  - full pill radius
+  - top specular sheen (approximates feSpecularLighting)
+  Note: true SVG feDisplacementMap + RGB channel split is web-only;
+  Android uses layered translucency + RenderEffect blur on API 31+.
 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- Soft outer glow rim -->
+    <!-- Outer soft white rim (~ inset 0 0 2px 1px #ffffff59) -->
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#28FFFFFF" />
-            <corners android:radius="24dp" />
+            <solid android:color="#33FFFFFF" />
+            <corners android:radius="999dp" />
         </shape>
     </item>
-    <!-- Frosted body ~12% white over dark glass -->
+
+    <!-- Main frosted body: hsl(0 0% 0% / 0.1) over dark -->
     <item
-        android:left="1dp"
-        android:top="1dp"
-        android:right="1dp"
-        android:bottom="1dp">
+        android:left="1.5dp"
+        android:top="1.5dp"
+        android:right="1.5dp"
+        android:bottom="1.5dp">
         <shape android:shape="rectangle">
-            <solid android:color="#99141A22" />
-            <corners android:radius="23dp" />
+            <solid android:color="#9910181A" />
+            <corners android:radius="999dp" />
             <stroke
                 android:width="1dp"
                 android:color="#59FFFFFF" />
         </shape>
     </item>
-    <!-- Specular highlight (point light from upper-left) -->
+
+    <!-- inset 0 0 10px 4px white 15% glow -->
     <item
-        android:left="10dp"
-        android:top="1.5dp"
-        android:right="10dp"
-        android:bottom="28dp">
+        android:left="4dp"
+        android:top="3dp"
+        android:right="4dp"
+        android:bottom="3dp">
         <shape android:shape="rectangle">
-            <gradient
-                android:angle="135"
-                android:startColor="#66FFFFFF"
-                android:centerColor="#22FFFFFF"
-                android:endColor="#00FFFFFF" />
-            <corners
-                android:topLeftRadius="22dp"
-                android:topRightRadius="22dp" />
+            <stroke
+                android:width="3dp"
+                android:color="#26FFFFFF" />
+            <corners android:radius="999dp" />
+            <solid android:color="#00000000" />
         </shape>
     </item>
-    <!-- Lower refraction tint -->
+
+    <!-- Top specular / light refraction highlight -->
     <item
-        android:left="8dp"
-        android:top="36dp"
-        android:right="8dp"
+        android:left="14dp"
+        android:top="2dp"
+        android:right="14dp"
+        android:bottom="36dp">
+        <shape android:shape="rectangle">
+            <gradient
+                android:angle="270"
+                android:startColor="#55FFFFFF"
+                android:centerColor="#18FFFFFF"
+                android:endColor="#00FFFFFF" />
+            <corners
+                android:topLeftRadius="999dp"
+                android:topRightRadius="999dp" />
+        </shape>
+    </item>
+
+    <!-- Lower cool refraction tint (subtle green/cyan glass) -->
+    <item
+        android:left="12dp"
+        android:top="32dp"
+        android:right="12dp"
         android:bottom="2dp">
         <shape android:shape="rectangle">
             <gradient
                 android:angle="90"
-                android:startColor="#1800FFAA"
+                android:startColor="#1800E8A8"
                 android:endColor="#00000000" />
             <corners
-                android:bottomLeftRadius="22dp"
-                android:bottomRightRadius="22dp" />
+                android:bottomLeftRadius="999dp"
+                android:bottomRightRadius="999dp" />
         </shape>
     </item>
 </layer-list>

@@ -71,9 +71,10 @@ class MainActivity : AppCompatActivity() {
         window.statusBarColor = 0x00000000
         window.navigationBarColor = 0x00000000
 
+        // Stronger system backdrop blur where OEM supports it (liquid glass depth)
         if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
             try {
-                window.setBackgroundBlurRadius(40)
+                window.setBackgroundBlurRadius(48)
             } catch (_: Throwable) { }
         }
 
@@ -227,32 +228,37 @@ class MainActivity : AppCompatActivity() {
 
     private fun showMainUi() {
         bottomNav.visibility = View.VISIBLE
-        applyHeavyLiquidGlass(bottomNav)
-        applyHeavyLiquidGlass(miniPlayer)
+        applyLiquidGlassDistortion(bottomNav)
+        applyLiquidGlassDistortion(miniPlayer)
         setupBottomNav()
         switchTo(HomeFragment(), R.id.navHome)
     }
 
     /**
-     * Heavy liquid glass — closest native match to CSS:
-     * backdrop-filter: blur(18px) saturate(160%) + specular lighting.
-     * True SVG feDisplacementMap is not available on Android Views;
-     * we combine translucent glass layers + RenderEffect blur on API 31+.
+     * Applies the liquid-glass distortion card look from the CSS/SVG reference:
+     * frosted translucent fill, white edge lights, specular top, soft blur.
+     * True displacement-map refraction is web-only (SVG feDisplacementMap).
      */
-    private fun applyHeavyLiquidGlass(bar: View) {
+    private fun applyLiquidGlassDistortion(bar: View) {
         bar.clipToOutline = true
         bar.outlineProvider = object : ViewOutlineProvider() {
             override fun getOutline(view: View, outline: Outline) {
-                outline.setRoundRect(0, 0, view.width.coerceAtLeast(1), view.height.coerceAtLeast(1), dp(24).toFloat())
+                // Full pill like border-radius: 9999px
+                outline.setRoundRect(
+                    0, 0,
+                    view.width.coerceAtLeast(1),
+                    view.height.coerceAtLeast(1),
+                    view.height.coerceAtLeast(1) / 2f
+                )
             }
         }
         bar.post {
             bar.invalidateOutline()
             if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
                 try {
-                    // Soft frosted polish — stronger than before for "heavy" liquid glass
+                    // Approximates backdrop-filter blur + saturate polish
                     bar.setRenderEffect(
-                        RenderEffect.createBlurEffect(2.5f, 2.5f, Shader.TileMode.CLAMP)
+                        RenderEffect.createBlurEffect(3f, 3f, Shader.TileMode.CLAMP)
                     )
                 } catch (_: Throwable) { }
             }
