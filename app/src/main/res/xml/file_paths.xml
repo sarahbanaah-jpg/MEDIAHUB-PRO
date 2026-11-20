@@ -1,7 +1,9 @@
 <?xml version="1.0" encoding="utf-8"?>
 <paths xmlns:android="http://schemas.android.com/apk/res/android">
     <cache-path name="diagnostics" path="diagnostics/" />
-    <cache-path name="updates" path="updates/" />\n    <cache-path name="vault_previews" path="vault/" />
+    <cache-path name="updates" path="updates/" />
+    <cache-path name="vault_previews" path="vault/" />
     <files-path name="updates_files" path="updates/" />
     <external-files-path name="studio_exports" path="Movies/" />
-    <external-files-path name="content_packs" path="content-packs/" />\n</paths>
+    <external-files-path name="content_packs" path="content-packs/" />
+</paths>
