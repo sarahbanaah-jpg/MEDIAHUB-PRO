@@ -6,6 +6,8 @@ import android.content.pm.ApplicationInfo
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.os.Build
 import android.os.Bundle
 import android.os.Environment
@@ -170,9 +172,16 @@ class MediaHubTransferActivity : AppCompatActivity() {
             Toast.makeText(this, "Choose files first.", Toast.LENGTH_SHORT).show()
             return
         }
+        val connectivity = getSystemService(CONNECTIVITY_SERVICE) as ConnectivityManager
+        val active = connectivity.activeNetwork
+        val capabilities = active?.let { connectivity.getNetworkCapabilities(it) }
+        if (capabilities?.hasTransport(NetworkCapabilities.TRANSPORT_WIFI) != true) {
+            status.text = "Connect both phones to the same Wi-Fi network first. Internet access is not required; a local Wi-Fi connection is enough."
+            return
+        }
         val ip = localIpv4()
         if (ip == null) {
-            status.text = "No local Wi-Fi address found. Connect both phones to the same Wi-Fi network (internet is not required) and retry."
+            status.text = "No local Wi-Fi address found. Reconnect both phones to the same Wi-Fi network and retry."
             return
         }
         try {
