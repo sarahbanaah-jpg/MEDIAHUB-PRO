@@ -261,9 +261,16 @@ class MediaHubRemoteActivity : AppCompatActivity() {
 
     private fun localIpv4(): String? {
         return try {
-            NetworkInterface.getNetworkInterfaces().toList().flatMap { it.inetAddresses.toList() }
+            NetworkInterface.getNetworkInterfaces().toList()
+                .filter { it.isUp && !it.isLoopback && (it.name.lowercase().startsWith("wlan") || it.name.lowercase().startsWith("ap") || it.name.lowercase().contains("wifi")) }
+                .flatMap { it.inetAddresses.toList() }
                 .filterIsInstance<Inet4Address>()
                 .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
+                ?: NetworkInterface.getNetworkInterfaces().toList()
+                    .filter { it.isUp && !it.isLoopback }
+                    .flatMap { it.inetAddresses.toList() }
+                    .filterIsInstance<Inet4Address>()
+                    .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
         } catch (_: Exception) { null }
     }
 
