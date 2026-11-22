@@ -33,7 +33,8 @@ import com.mediahub.rebuilt.transfer.MediaHubTransferActivity
 import com.mediahub.rebuilt.toolkit.MediaHubToolkitActivity
 import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
-import com.mediahub.rebuilt.vault.PrivateVaultActivity\nimport com.mediahub.rebuilt.whatsnew.MediaHubWhatsNewActivity
+import com.mediahub.rebuilt.vault.PrivateVaultActivity
+import com.mediahub.rebuilt.whatsnew.MediaHubWhatsNewActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
