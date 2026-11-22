@@ -8,10 +8,13 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.Gravity
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
+import android.widget.EditText
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
@@ -51,6 +54,8 @@ class MusicFragment : Fragment() {
     private lateinit var songList: RecyclerView
     private lateinit var tabAll: TextView
     private lateinit var tabFav: TextView
+    private lateinit var searchField: EditText
+    private var searchQuery = ""
 
     private val audioPermission = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
         if (granted) refreshLibrary() else if (isAdded) status.text = "Allow Music and audio access in Android settings to show your full music library."
@@ -119,6 +124,39 @@ class MusicFragment : Fragment() {
         tabs.addView(tabAll)
         tabs.addView(tabFav)
         root.addView(tabs)
+
+        val searchBox = LinearLayout(requireContext()).apply {
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(14), dp(3), dp(14), dp(3))
+            background = GradientDrawable().apply {
+                setColor(0xFF17151E.toInt())
+                cornerRadius = dp(16).toFloat()
+                setStroke(dp(1), 0x33FFFFFF)
+            }
+        }
+        searchField = EditText(requireContext()).apply {
+            hint = "Search songs, artists and albums"
+            setHintTextColor(0xFF827D8A.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 14f
+            setSingleLine(true)
+            background = null
+            layoutParams = LinearLayout.LayoutParams(0, dp(46), 1f)
+        }
+        searchBox.addView(TextView(requireContext()).apply {
+            text = "⌕"; textSize = 22f; setTextColor(0xFFFF79A8.toInt())
+            setPadding(0, 0, dp(8), 0)
+        })
+        searchBox.addView(searchField)
+        root.addView(searchBox)
+        searchField.addTextChangedListener(object : TextWatcher {
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {
+                searchQuery = s?.toString()?.trim().orEmpty()
+                applyFilter()
+            }
+            override fun afterTextChanged(s: Editable?) {}
+        })
 
         status = TextView(requireContext()).apply {
             text = "Scanning phone + SD card…"
@@ -276,16 +314,25 @@ class MusicFragment : Fragment() {
     }
 
     private fun applyFilter() {
-        visibleSongs = if (showFavouritesOnly) {
+        val base = if (showFavouritesOnly) {
             allSongs.filter { Favourites.isFavourite(requireContext(), it.id) }
         } else {
             allSongs
         }
+        visibleSongs = base.filter { song ->
+            searchQuery.isBlank() ||
+                song.title.contains(searchQuery, true) ||
+                song.artist.contains(searchQuery, true) ||
+                song.album.contains(searchQuery, true)
+        }.sortedWith(
+            compareBy<MediaItem, String>(String.CASE_INSENSITIVE_ORDER) { it.title.trim() }
+                .thenBy(String.CASE_INSENSITIVE_ORDER) { it.artist.trim() }
+        )
         status.text = when {
             allSongs.isEmpty() -> "No audio indexed yet. Add your Music folder to include files Android has not indexed."
             showFavouritesOnly && visibleSongs.isEmpty() -> "No favourites yet. Long-press a song to add it."
             showFavouritesOnly -> "${visibleSongs.size} favourites"
-            else -> "${visibleSongs.size} audio files · phone, SD card and folders"
+            else -> "${visibleSongs.size} of ${allSongs.size} audio files · sorted A–Z"
         }
         songList.adapter = SongAdapter(visibleSongs,
             onSongClick = { playAt(it) },
