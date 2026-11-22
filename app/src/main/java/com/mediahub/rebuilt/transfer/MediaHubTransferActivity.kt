@@ -88,20 +88,31 @@ class MediaHubTransferActivity : AppCompatActivity() {
 
     private fun shareApk(app: android.content.pm.ApplicationInfo, label: String) {
         try {
-            val source = File(app.sourceDir)
-            if (!source.isFile || !source.canRead()) throw IllegalStateException("Android denied access to this APK")
+            val sourceFiles = (listOf(app.sourceDir) + app.splitSourceDirs.orEmpty()).map(::File)
+            if (sourceFiles.any { !it.isFile || !it.canRead() }) {
+                throw IllegalStateException("Android denied access to one or more APK files")
+            }
             val directory = File(cacheDir, "apk-share").apply { mkdirs() }
             val safe = label.replace(Regex("[^A-Za-z0-9._-]"), "_").take(64)
-            val destination = File(directory, "$safe.apk")
-            source.inputStream().use { input -> destination.outputStream().use { output -> input.copyTo(output) } }
-            val uri = FileProvider.getUriForFile(this, "$packageName.files", destination)
-            val send = Intent(Intent.ACTION_SEND).apply {
-                type = "application/vnd.android.package-archive"
-                putExtra(Intent.EXTRA_STREAM, uri)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            val uris = ArrayList<Uri>()
+            sourceFiles.forEachIndexed { index, source ->
+                val suffix = if (index == 0) "base" else "split-$index"
+                val destination = File(directory, "$safe-$suffix.apk")
+                source.inputStream().use { input ->
+                    destination.outputStream().use { output -> input.copyTo(output) }
+                }
+                uris += FileProvider.getUriForFile(this, "$packageName.files", destination)
             }
-            startActivity(Intent.createChooser(send, "Share $label APK"))
-            status.text = "Sharing $label APK. The receiving device may need to allow app installation."
+            val send = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
+                type = "application/vnd.android.package-archive"
+                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                clipData = android.content.ClipData.newUri(contentResolver, "$label APK package", uris.first()).also { clip ->
+                    uris.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
+                }
+            }
+            startActivity(Intent.createChooser(send, "Share complete $label APK package"))
+            status.text = "Sharing $label as ${uris.size} APK part(s). Split apps may require an installer that supports split APK packages."
         } catch (error: Exception) {
             status.text = "Could not share this app: ${error.localizedMessage ?: "APK access denied"}"
         }
