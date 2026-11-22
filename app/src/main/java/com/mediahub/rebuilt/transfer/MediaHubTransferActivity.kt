@@ -138,7 +138,7 @@ class MediaHubTransferActivity : AppCompatActivity() {
         layoutParams = LinearLayout.LayoutParams(-1, dp(50)).apply { bottomMargin = dp(9) }
     }
 
-    private fun readShareFile(uri: Uri): ShareFile {
+    private fun readShareFile(uri: Uri, requireKnownSize: Boolean = true): ShareFile {
         var name = "Shared-file"
         var size = -1L
         contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
@@ -149,7 +149,7 @@ class MediaHubTransferActivity : AppCompatActivity() {
                 if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
             }
         }
-        if (size < 0L) throw IllegalStateException("$name does not provide a readable file size")
+        if (size < 0L && requireKnownSize) throw IllegalStateException("$name does not provide a readable file size required for QR transfer")
         return ShareFile(uri, name, contentResolver.getType(uri) ?: "application/octet-stream", size)
     }
 
@@ -318,7 +318,7 @@ class MediaHubTransferActivity : AppCompatActivity() {
         }
     }
 
-    private fun saveIncomingStream(input: InputStream, name: String, mime: String, size: Long) {
+    private fun saveIncomingStream(input: InputStream, name: String, mime: String, size: Long?) {
         if (Build.VERSION.SDK_INT >= 29) {
             val values = ContentValues().apply {
                 put(MediaStore.MediaColumns.DISPLAY_NAME, "${System.currentTimeMillis()}-$name")
@@ -329,7 +329,7 @@ class MediaHubTransferActivity : AppCompatActivity() {
                 ?: throw IllegalStateException("Could not create destination file")
             try {
                 val output = contentResolver.openOutputStream(uri) ?: throw IllegalStateException("Could not open destination file")
-                output.use { copyExactly(input, it, size) }
+                output.use { if (size != null && size >= 0L) copyExactly(input, it, size) else input.copyTo(it) }
             } catch (error: Exception) {
                 contentResolver.delete(uri, null, null)
                 throw error
@@ -338,7 +338,7 @@ class MediaHubTransferActivity : AppCompatActivity() {
             val folder = getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir
             folder.mkdirs()
             val destination = File(folder, "${System.currentTimeMillis()}-$name")
-            destination.outputStream().use { copyExactly(input, it, size) }
+            destination.outputStream().use { if (size != null && size >= 0L) copyExactly(input, it, size) else input.copyTo(it) }
         }
     }
 
