@@ -148,7 +148,7 @@ class MediaHubRemoteActivity : AppCompatActivity() {
                         if (Build.VERSION.SDK_INT >= 30) {
                             val config = reservation.softApConfiguration
                             ssid = config.ssid
-                            password = config.passphrase
+                            password = config.passphrase ?: ""
                         } else {
                             ssid = legacy?.SSID?.trim('"') ?: "MediaHub"
                             password = legacy?.preSharedKey?.trim('"') ?: ""
