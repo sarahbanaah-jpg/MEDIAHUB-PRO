@@ -55,7 +55,7 @@ class MediaHubRemoteActivity : AppCompatActivity() {
             setTextColor(Color.WHITE)
         })
         root.addView(TextView(this).apply {
-            text = "Scan this QR code with another device connected to the same trusted Wi-Fi network. Use the controls in its browser to control playback on this phone."
+            text = "Scan this QR code from another device on the same Wi-Fi network or a phone hotspot. No internet connection is required; both devices only need to be on the same local network. Use the browser controls to control playback on this phone."
             textSize = 14f
             setTextColor(0xFFB9A9C9.toInt())
             setPadding(0, dp(12), 0, dp(18))
@@ -73,7 +73,7 @@ class MediaHubRemoteActivity : AppCompatActivity() {
         }
         root.addView(status)
         root.addView(TextView(this).apply {
-            text = "Security: a new random pairing token is generated each time. Stop sharing by leaving this screen. Only pair on a trusted private network."
+            text = "Security: a new random pairing token is generated each time. Stop sharing by leaving this screen. Only pair on a trusted private network or your own hotspot. Internet access is not required."
             textSize = 12f
             setTextColor(0xFF9A8BB0.toInt())
             setPadding(0, dp(18), 0, 0)
@@ -82,7 +82,7 @@ class MediaHubRemoteActivity : AppCompatActivity() {
 
         val ip = localIpv4()
         if (ip == null) {
-            status.text = "Connect this phone to Wi-Fi or a local hotspot, then reopen Remote."
+            status.text = "Connect both devices to the same Wi-Fi network or turn on a phone hotspot. Internet access is not required."
             return
         }
         val remoteUrl = "http://$ip:$port/?token=$token"
