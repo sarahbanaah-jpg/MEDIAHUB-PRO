@@ -148,6 +148,8 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
     }
 
     private fun startDownload(pack: Pack, allowMobile: Boolean) {
+        val previousId = prefs.getLong("download_${pack.id}", -1L)
+        if (previousId > 0L) manager.remove(previousId)
         val url = "https://github.com/sarahbanaah-jpg/MEDIAHUB-PRO/releases/download/content-packs-v1.0/${pack.file}"
         try {
             val request = DownloadManager.Request(Uri.parse(url))
@@ -159,6 +161,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
                 .setVisibleInDownloadsUi(true)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setAllowedOverRoaming(false)
+                .setAllowedOverMetered(allowMobile)
                 .setAllowedNetworkTypes(
                     if (allowMobile) DownloadManager.Request.NETWORK_WIFI or DownloadManager.Request.NETWORK_MOBILE
                     else DownloadManager.Request.NETWORK_WIFI
