@@ -259,7 +259,7 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("📡", "Remote", "Wi‑Fi control") {
+            toolCard("📡", "Remote", "Offline QR control") {
                 startActivity(Intent(requireContext(), MediaHubRemoteActivity::class.java))
             },
             toolCard("🌙", "Ambient", "Charging clock") {
@@ -270,7 +270,7 @@ class HomeFragment : Fragment() {
             toolCard("🧠", "Intelligence", "Library tips") {
                 startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java))
             },
-            toolCard("⇄", "Transfer", "Share files") {
+            toolCard("⇄", "Transfer", "QR · APK · Xender") {
                 startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java))
             }
         ))
