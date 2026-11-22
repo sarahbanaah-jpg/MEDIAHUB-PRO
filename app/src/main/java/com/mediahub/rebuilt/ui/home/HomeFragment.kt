@@ -33,7 +33,7 @@ import com.mediahub.rebuilt.transfer.MediaHubTransferActivity
 import com.mediahub.rebuilt.toolkit.MediaHubToolkitActivity
 import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
-import com.mediahub.rebuilt.vault.PrivateVaultActivity
+import com.mediahub.rebuilt.vault.PrivateVaultActivity\nimport com.mediahub.rebuilt.whatsnew.MediaHubWhatsNewActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,7 +98,7 @@ class HomeFragment : Fragment() {
             setPadding(0, dp(20), 0, dp(4))
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Listen and enjoy your media"
+            text = "Your media. Your world."
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 24f
             setTypeface(null, Typeface.BOLD)
