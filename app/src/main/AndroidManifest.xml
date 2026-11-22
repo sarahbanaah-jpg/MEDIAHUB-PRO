@@ -113,6 +113,11 @@
             android:theme="@style/Theme.MediaHubPro" />
 
         <activity
+            android:name=".whatsnew.MediaHubWhatsNewActivity"
+            android:exported="false"
+            android:theme="@style/Theme.MediaHubPro" />
+
+        <activity
             android:name=".updates.UpdateActivity"
             android:exported="false"
             android:theme="@style/Theme.MediaHubPro" />
