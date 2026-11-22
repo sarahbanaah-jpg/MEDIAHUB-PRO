@@ -34,7 +34,7 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /**
- * Luxury Now Playing — gold frame, dark theme, real library queue.
+ * Premium Now Playing — midnight glass frame, coral accents and real library queue.
  * When the current track ends, Media3 advances to the next item in the queue automatically.
  */
 class NowPlayingActivity : AppCompatActivity() {
@@ -98,7 +98,7 @@ class NowPlayingActivity : AppCompatActivity() {
         top.addView(goldCircleBtn("‹") { finish() })
         top.addView(TextView(this).apply {
             text = "NOW PLAYING"
-            setTextColor(0xFFE8C872.toInt())
+            setTextColor(0xFFFF6B9F.toInt())
             textSize = 14f
             letterSpacing = 0.18f
             setTypeface(null, Typeface.BOLD)
@@ -117,15 +117,15 @@ class NowPlayingActivity : AppCompatActivity() {
         })
         root.addView(top)
 
-        // Gold ornate frame around album art
+        // Premium glass frame around album art
         val frame = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER
             setPadding(dp(10), dp(10), dp(10), dp(10))
             background = GradientDrawable().apply {
-                setColor(0xFF1A1508.toInt())
+                setColor(0xFF221522.toInt())
                 cornerRadius = dp(18).toFloat()
-                setStroke(dp(3), 0xFFE8C872.toInt())
+                setStroke(dp(3), 0xFFFF6B9F.toInt())
             }
             layoutParams = LinearLayout.LayoutParams(dp(300), dp(300)).apply {
                 topMargin = dp(28)
@@ -157,7 +157,7 @@ class NowPlayingActivity : AppCompatActivity() {
         root.addView(titleView)
         artistView = TextView(this).apply {
             text = "Choose a song from your library"
-            setTextColor(0xFFE8C872.toInt())
+            setTextColor(0xFFFF6B9F.toInt())
             textSize = 15f
             gravity = Gravity.CENTER
         }
@@ -166,7 +166,7 @@ class NowPlayingActivity : AppCompatActivity() {
         // Progress
         seekBar = SeekBar(this).apply {
             max = 1000
-            progressTintList = android.content.res.ColorStateList.valueOf(0xFFE8C872.toInt())
+            progressTintList = android.content.res.ColorStateList.valueOf(0xFFFF6B9F.toInt())
             thumbTintList = android.content.res.ColorStateList.valueOf(0xFFFF2D95.toInt())
             progressBackgroundTintList = android.content.res.ColorStateList.valueOf(0xFF3A3A3A.toInt())
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(22) }
@@ -194,7 +194,7 @@ class NowPlayingActivity : AppCompatActivity() {
         }
         times.addView(positionView); times.addView(durationView); root.addView(times)
 
-        // Glass control bar with gold play
+        // Glass control bar with coral play
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
@@ -202,7 +202,7 @@ class NowPlayingActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 setColor(0xEE1A1A1A.toInt())
                 cornerRadius = dp(28).toFloat()
-                setStroke(dp(1), 0x44E8C872.toInt())
+                setStroke(dp(1), 0x44FF6B9F.toInt())
             }
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(16) }
             elevation = dp(8).toFloat()
@@ -214,10 +214,10 @@ class NowPlayingActivity : AppCompatActivity() {
             text = "▶"
             gravity = Gravity.CENTER
             textSize = 22f
-            setTextColor(0xFF1A1200.toInt())
+            setTextColor(0xFF180A12.toInt())
             background = GradientDrawable().apply {
                 shape = GradientDrawable.OVAL
-                colors = intArrayOf(0xFFF5D78E.toInt(), 0xFFC9A227.toInt())
+                colors = intArrayOf(0xFFFFA0BE.toInt(), 0xFFE83E87.toInt())
             }
             layoutParams = LinearLayout.LayoutParams(dp(58), dp(58)).apply {
                 marginStart = dp(10); marginEnd = dp(10)
@@ -241,7 +241,7 @@ class NowPlayingActivity : AppCompatActivity() {
         actions.addView(chip("Sleep timer") { showSleepTimer() })
         root.addView(actions)
         sleepLabel = TextView(this).apply {
-            text = ""; setTextColor(0xFFE8C872.toInt()); textSize = 12f
+            text = ""; setTextColor(0xFFFF6B9F.toInt()); textSize = 12f
             gravity = Gravity.CENTER; setPadding(0, dp(6), 0, 0)
         }
         root.addView(sleepLabel)
@@ -254,7 +254,7 @@ class NowPlayingActivity : AppCompatActivity() {
         }
         trendHeader.addView(TextView(this).apply {
             text = "FROM YOUR LIBRARY"
-            setTextColor(0xFFE8C872.toInt())
+            setTextColor(0xFFFF6B9F.toInt())
             textSize = 13f
             setTypeface(null, Typeface.BOLD)
             letterSpacing = 0.08f
@@ -281,11 +281,11 @@ class NowPlayingActivity : AppCompatActivity() {
         listOf("All music" to true, "Favourites" to false, "Recent" to false).forEach { (label, active) ->
             chips.addView(TextView(this).apply {
                 text = label
-                setTextColor(if (active) 0xFF1A1200.toInt() else 0xFFFF2D95.toInt())
+                setTextColor(if (active) 0xFF180A12.toInt() else 0xFFFF2D95.toInt())
                 textSize = 12f
                 setPadding(dp(14), dp(10), dp(14), dp(10))
                 background = GradientDrawable().apply {
-                    setColor(if (active) 0xFFE8C872.toInt() else 0xFF1A1A1A.toInt())
+                    setColor(if (active) 0xFFFF6B9F.toInt() else 0xFF1A1A1A.toInt())
                     cornerRadius = dp(20).toFloat()
                     setStroke(dp(1), 0xFFFF2D95.toInt())
                 }
@@ -303,7 +303,7 @@ class NowPlayingActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 setColor(0xEE141414.toInt())
                 cornerRadius = dp(28).toFloat()
-                setStroke(dp(1), 0x44E8C872.toInt())
+                setStroke(dp(1), 0x44FF6B9F.toInt())
             }
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(22) }
         }
@@ -536,7 +536,7 @@ class NowPlayingActivity : AppCompatActivity() {
     }
 
     private fun goldCircleBtn(label: String, click: () -> Unit) = TextView(this).apply {
-        text = label; gravity = Gravity.CENTER; textSize = 22f; setTextColor(0xFFE8C872.toInt())
+        text = label; gravity = Gravity.CENTER; textSize = 22f; setTextColor(0xFFFF6B9F.toInt())
         background = GradientDrawable().apply {
             shape = GradientDrawable.OVAL
             setColor(0xFF1A1A1A.toInt())
@@ -557,7 +557,7 @@ class NowPlayingActivity : AppCompatActivity() {
         setTextColor(0xFFFFFFFF.toInt()); setPadding(dp(14), dp(10), dp(14), dp(10))
         background = GradientDrawable().apply {
             setColor(0xFF1A1A1A.toInt()); cornerRadius = dp(18).toFloat()
-            setStroke(dp(1), 0x44E8C872.toInt())
+            setStroke(dp(1), 0x44FF6B9F.toInt())
         }
         layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(4); marginEnd = dp(4) }
         setOnClickListener { click() }
@@ -567,7 +567,7 @@ class NowPlayingActivity : AppCompatActivity() {
         orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER
         layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         addView(TextView(this@NowPlayingActivity).apply {
-            text = icon; textSize = 18f; gravity = Gravity.CENTER; setTextColor(0xFFE8C872.toInt())
+            text = icon; textSize = 18f; gravity = Gravity.CENTER; setTextColor(0xFFFF6B9F.toInt())
         })
         addView(TextView(this@NowPlayingActivity).apply {
             text = label; textSize = 10f; gravity = Gravity.CENTER; setTextColor(0xFFAAAAAA.toInt())
