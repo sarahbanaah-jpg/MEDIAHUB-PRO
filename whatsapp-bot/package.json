@@ -1,0 +1,23 @@
+{
+  "name": "mediahub-whatsapp-bot",
+  "version": "1.0.0",
+  "description": "Production WhatsApp bot backend for MediaHub Pro (Baileys)",
+  "main": "src/index.js",
+  "type": "module",
+  "scripts": {
+    "start": "node src/index.js",
+    "dev": "node --watch src/index.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "dependencies": {
+    "@whiskeysockets/baileys": "^6.7.16",
+    "cors": "^2.8.5",
+    "express": "^4.21.2",
+    "express-rate-limit": "^7.5.0",
+    "pino": "^9.6.0",
+    "qrcode": "^1.5.4",
+    "socket.io": "^4.8.1"
+  }
+}
