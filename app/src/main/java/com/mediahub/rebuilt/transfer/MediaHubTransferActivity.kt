@@ -139,18 +139,21 @@ class MediaHubTransferActivity : AppCompatActivity() {
     }
 
     private fun readShareFile(uri: Uri, requireKnownSize: Boolean = true): ShareFile {
-        var name = "Shared-file"
+        var name = uri.lastPathSegment?.substringAfterLast('/') ?: "Shared-file"
         var size = -1L
-        contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
-            if (cursor.moveToFirst()) {
-                val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
-                val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
-                if (nameIndex >= 0) name = cursor.getString(nameIndex) ?: name
-                if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
+        try {
+            contentResolver.query(uri, arrayOf(OpenableColumns.DISPLAY_NAME, OpenableColumns.SIZE), null, null, null)?.use { cursor ->
+                if (cursor.moveToFirst()) {
+                    val nameIndex = cursor.getColumnIndex(OpenableColumns.DISPLAY_NAME)
+                    val sizeIndex = cursor.getColumnIndex(OpenableColumns.SIZE)
+                    if (nameIndex >= 0) name = cursor.getString(nameIndex) ?: name
+                    if (sizeIndex >= 0 && !cursor.isNull(sizeIndex)) size = cursor.getLong(sizeIndex)
+                }
             }
-        }
+        } catch (_: Exception) { }
         if (size < 0L && requireKnownSize) throw IllegalStateException("$name does not provide a readable file size required for QR transfer")
-        return ShareFile(uri, name, contentResolver.getType(uri) ?: "application/octet-stream", size)
+        val mime = try { contentResolver.getType(uri) } catch (_: Exception) { null }
+        return ShareFile(uri, name, mime ?: "application/octet-stream", size)
     }
 
     private fun shareSelectedFiles() {
