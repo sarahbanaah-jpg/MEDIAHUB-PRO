@@ -61,116 +61,38 @@
             </intent-filter>
         </activity>
 
-        <activity
-            android:name=".arcade.MediaHubGameCenterActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".arcade.MediaHubGameCenterActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".arcade.MediaHubArcadeActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".recorder.MediaHubRecorderActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".learn.MediaHubLearnActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".content.MediaHubContentLibraryActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".toolkit.MediaHubToolkitActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".studio.MediaHubStudioActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".remote.MediaHubRemoteActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".intelligence.MediaHubIntelligenceActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".ambient.AmbientDisplayActivity" android:exported="false" android:screenOrientation="unspecified" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".vault.PrivateVaultActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".whatsnew.MediaHubWhatsNewActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".whatsapp.WhatsAppBotActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".updates.UpdateActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".ui.music.NowPlayingActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".ui.photos.PhotoGalleryActivity" android:exported="false" android:screenOrientation="unspecified" />
+        <activity android:name=".ui.player.VideoPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout" android:supportsPictureInPicture="true" android:resizeableActivity="true" />
 
-        <activity
-            android:name=".arcade.MediaHubArcadeActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".recorder.MediaHubRecorderActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".learn.MediaHubLearnActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".content.MediaHubContentLibraryActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".toolkit.MediaHubToolkitActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".studio.MediaHubStudioActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".remote.MediaHubRemoteActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".intelligence.MediaHubIntelligenceActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".ambient.AmbientDisplayActivity"
-            android:exported="false"
-            android:screenOrientation="unspecified"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".vault.PrivateVaultActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".whatsnew.MediaHubWhatsNewActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".updates.UpdateActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".ui.music.NowPlayingActivity"
-            android:exported="false"
-            android:theme="@style/Theme.MediaHubPro" />
-
-        <activity
-            android:name=".ui.photos.PhotoGalleryActivity"
-            android:exported="false"
-            android:screenOrientation="unspecified" />
-
-        <activity
-            android:name=".ui.player.VideoPlayerActivity"
-            android:exported="false"
-            android:configChanges="orientation|screenSize|keyboardHidden|screenLayout"
-            android:supportsPictureInPicture="true"
-            android:resizeableActivity="true" />
-
-        <service
-            android:name=".service.MediaHubNotificationListener"
-            android:label="MediaHub Pro notification display"
-            android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE"
-            android:exported="true">
+        <service android:name=".service.MediaHubNotificationListener" android:label="MediaHub Pro notification display" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
 
-        <service
-            android:name=".service.PlaybackService"
-            android:exported="false"
-            android:foregroundServiceType="mediaPlayback">
+        <service android:name=".service.PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback">
             <intent-filter>
                 <action android:name="androidx.media3.session.MediaSessionService" />
             </intent-filter>
         </service>
 
-        <provider
-            android:name="androidx.core.content.FileProvider"
-            android:authorities="${applicationId}.files"
-            android:exported="false"
-            android:grantUriPermissions="true">
-            <meta-data
-                android:name="android.support.FILE_PROVIDER_PATHS"
-                android:resource="@xml/file_paths" />
+        <provider android:name="androidx.core.content.FileProvider" android:authorities="${applicationId}.files" android:exported="false" android:grantUriPermissions="true">
+            <meta-data android:name="android.support.FILE_PROVIDER_PATHS" android:resource="@xml/file_paths" />
         </provider>
     </application>
     <queries>
