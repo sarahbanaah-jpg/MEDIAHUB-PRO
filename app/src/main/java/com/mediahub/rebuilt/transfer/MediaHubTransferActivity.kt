@@ -403,18 +403,15 @@ class MediaHubTransferActivity : AppCompatActivity() {
                 source.inputStream().use { input -> destination.outputStream().use { output -> input.copyTo(output) } }
                 uris += FileProvider.getUriForFile(this, "$packageName.files", destination)
             }
-            val send = Intent(Intent.ACTION_SEND_MULTIPLE).apply {
-                type = "application/vnd.android.package-archive"
-                putParcelableArrayListExtra(Intent.EXTRA_STREAM, uris)
-                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
-                clipData = android.content.ClipData.newUri(contentResolver, "$label APK package", uris.first()).also { clip ->
-                    uris.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
+            selectedFiles = uris.map { readShareFile(it) }
+            selectedLabel.text = "$label · ${selectedFiles.size} APK part(s) · ${formatBytes(selectedFiles.sumOf { it.size })}"
+            AlertDialog.Builder(this).setTitle("Share $label")
+                .setItems(arrayOf("Send to another MediaHub Pro with QR", "Share with Xender / Quick Share / another app")) { _, which ->
+                    if (which == 0) startQrSession() else shareSelectedFiles()
                 }
-            }
-            startActivity(Intent.createChooser(send, "Share complete $label APK package"))
-            status.text = "Sharing $label as ${uris.size} APK part(s). Split apps need a compatible installer."
+                .setNegativeButton("Cancel", null).show()
         } catch (error: Exception) {
-            status.text = "Could not share this app: ${error.localizedMessage ?: "APK access denied"}"
+            status.text = "Could not prepare this app: ${error.localizedMessage ?: "APK access denied"}"
         }
     }
 
