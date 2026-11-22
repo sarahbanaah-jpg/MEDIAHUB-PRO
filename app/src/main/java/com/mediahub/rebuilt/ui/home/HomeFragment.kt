@@ -98,7 +98,7 @@ class HomeFragment : Fragment() {
             setPadding(0, dp(20), 0, dp(4))
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Listen and enjoy your media"
+            text = "Your media. One universe."
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 24f
             setTypeface(null, Typeface.BOLD)
@@ -208,7 +208,7 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("📡", "Remote", "Wi‑Fi control") {
+            toolCard("📡", "Remote", "Local network control") {
                 startActivity(Intent(requireContext(), MediaHubRemoteActivity::class.java))
             },
             toolCard("🌙", "Ambient", "Charging clock") {
@@ -219,7 +219,7 @@ class HomeFragment : Fragment() {
             toolCard("🧠", "Intelligence", "Library tips") {
                 startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java))
             },
-            toolCard("⇄", "Transfer", "Share files") {
+            toolCard("⇄", "Share anything", "Xender & nearby apps") {
                 startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java))
             }
         ))
@@ -240,7 +240,7 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("✨", "Content Library", "300 MB offline packs") {
+            toolCard("✨", "Content Library", "351 MB optional offline packs") {
                 startActivity(Intent(requireContext(), MediaHubContentLibraryActivity::class.java))
             },
             toolCard("🗂", "Storage Planner", "Manage media space") {

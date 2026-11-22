@@ -154,6 +154,10 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
                 .setTitle("MediaHub · ${pack.title}")
                 .setDescription("Downloading optional offline content")
                 .setMimeType("application/zip")
+                // GitHub release assets redirect to signed object-storage URLs; identify the app
+                // and request the binary explicitly so DownloadManager handles the redirect.
+                .addRequestHeader("User-Agent", "MediaHub-Pro-Android/4.2.0")
+                .addRequestHeader("Accept", "application/octet-stream")
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setAllowedOverRoaming(false)
                 .setAllowedNetworkTypes(
@@ -176,7 +180,10 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             if (!it.moveToFirst()) return
             when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
                 DownloadManager.STATUS_SUCCESSFUL -> finishDownload(pack, id)
-                DownloadManager.STATUS_FAILED -> updateStatus(pack, "Download failed · tap Download pack to retry")
+                DownloadManager.STATUS_FAILED -> {
+                    val reason = it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+                    updateStatus(pack, "Download failed (code $reason) · check connection/storage and retry")
+                }
                 DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> updateStatus(pack, "Download in progress · see Android notifications")
             }
         }
@@ -184,17 +191,21 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
 
     private fun finishDownload(pack: Pack, id: Long) {
         val statusCursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: return
-        val successful = statusCursor.use {
-            it.moveToFirst() && it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL
+        val result = statusCursor.use { cursor ->
+            if (!cursor.moveToFirst()) return
+            val state = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+            state to reason
         }
-        if (!successful) {
-            updateStatus(pack, "Download failed · tap Download pack to retry")
+        if (result.first != DownloadManager.STATUS_SUCCESSFUL) {
+            updateStatus(pack, "Download failed (code ${result.second}) · check connection/storage and retry")
             return
         }
         try {
             val uri = manager.getUriForDownloadedFile(id) ?: throw IllegalStateException("Downloaded file is unavailable")
             val base = File(getExternalFilesDir(null), "content-packs")
             val destination = File(base, pack.id)
+            if (destination.exists()) destination.deleteRecursively()
             destination.mkdirs()
             var extracted = 0L
             ZipInputStream(contentResolver.openInputStream(uri) ?: throw IllegalStateException("Cannot open downloaded pack")).use { zip ->
@@ -222,7 +233,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
                 }
             }
             manager.remove(id)
-            prefs.edit().putBoolean("installed_${pack.id}", true).apply()
+            prefs.edit().putBoolean("installed_${pack.id}", true).putLong("download_${pack.id}", -1L).apply()
             updateStatus(pack, "Ready offline · ${countFiles(destination)} files installed")
             Toast.makeText(this, "${pack.title} is ready offline", Toast.LENGTH_LONG).show()
         } catch (e: Exception) {
