@@ -76,7 +76,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             setPadding(0, dp(20), 0, dp(6))
         })
         root.addView(TextView(this).apply {
-            text = "Download original wallpapers, audio, motion visuals and game art. Downloads resume only when you retry; each archive is checked against its published byte size before extraction."
+            text = "Download original wallpapers, audio, motion visuals and game art. Failed downloads can be retried; each archive is checked against its published byte size before extraction."
             textSize = 14f; setTextColor(0xFFB9B6C3.toInt()); setLineSpacing(dp(3).toFloat(), 1f)
             setPadding(0, 0, 0, dp(14))
         })
