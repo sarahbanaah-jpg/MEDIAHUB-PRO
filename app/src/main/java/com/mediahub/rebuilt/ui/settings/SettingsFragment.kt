@@ -31,7 +31,7 @@ import kotlinx.coroutines.withContext
 
 class SettingsFragment : Fragment() {
     override fun onCreateView(inflater: android.view.LayoutInflater, container: android.view.ViewGroup?, savedInstanceState: Bundle?): android.view.View {
-        val scroll = ScrollView(requireContext()).apply { setBackgroundColor(0xFF0B0618.toInt()) }
+        val scroll = ScrollView(requireContext()).apply { setBackgroundColor(0xFF08080D.toInt()) }
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(20), dp(34), dp(20), dp(112))
@@ -49,6 +49,21 @@ class SettingsFragment : Fragment() {
             setTextColor(0xFFD4C4E8.toInt())
             textSize = 14f
             setPadding(0, dp(8), 0, dp(18))
+        })
+
+        section(root, "APPEARANCE & EXPERIENCE")
+        root.addView(action("Toggle pure-black AMOLED background") {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val amoled = prefs.getString("theme", "midnight") != "amoled"
+            prefs.edit().putString("theme", if (amoled) "amoled" else "midnight").apply()
+            scroll.setBackgroundColor(if (amoled) 0xFF000000.toInt() else 0xFF08080D.toInt())
+            it.text = if (amoled) "AMOLED black enabled · tap to switch back" else "Midnight theme enabled · tap for AMOLED"
+        })
+        root.addView(action("Read the complete What's New guide") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.whatsnew.MediaHubWhatsNewActivity::class.java))
+        })
+        root.addView(action("Open the offline Content Library") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.content.MediaHubContentLibraryActivity::class.java))
         })
 
         section(root, "UPDATES")

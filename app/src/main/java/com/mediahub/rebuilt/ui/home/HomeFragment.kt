@@ -34,6 +34,7 @@ import com.mediahub.rebuilt.toolkit.MediaHubToolkitActivity
 import com.mediahub.rebuilt.ui.MainActivity
 import com.mediahub.rebuilt.updates.UpdateChecker
 import com.mediahub.rebuilt.vault.PrivateVaultActivity
+import com.mediahub.rebuilt.whatsnew.MediaHubWhatsNewActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -98,12 +99,62 @@ class HomeFragment : Fragment() {
             setPadding(0, dp(20), 0, dp(4))
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Listen and enjoy your media"
+            text = "Your media. Your world."
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 24f
             setTypeface(null, Typeface.BOLD)
             setPadding(0, 0, 0, dp(16))
         })
+
+        val hero = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(20), dp(20), dp(20), dp(20))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF49213C.toInt(), 0xFF211B2D.toInt(), 0xFF15151D.toInt())
+            ).apply {
+                cornerRadius = dp(24).toFloat()
+                setStroke(dp(1), 0x44FFFFFF)
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(8) }
+        }
+        hero.addView(TextView(requireContext()).apply {
+            text = "YOUR PERSONAL MEDIA SPACE"
+            setTextColor(0xFFFFA0BE.toInt())
+            textSize = 10f
+            letterSpacing = 0.16f
+            setTypeface(null, Typeface.BOLD)
+        })
+        hero.addView(TextView(requireContext()).apply {
+            text = "Everything you love.\nAll in one place."
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 25f
+            setTypeface(null, Typeface.BOLD)
+            setLineSpacing(dp(2).toFloat(), 1f)
+            setPadding(0, dp(10), 0, dp(6))
+        })
+        hero.addView(TextView(requireContext()).apply {
+            text = "Play music, explore videos and photos, create, share and enjoy your offline world."
+            setTextColor(0xFFD9D1DC.toInt())
+            textSize = 13f
+            setLineSpacing(dp(2).toFloat(), 1f)
+        })
+        hero.addView(TextView(requireContext()).apply {
+            text = "EXPLORE YOUR MUSIC  →"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(dp(14), dp(12), dp(14), dp(12))
+            background = GradientDrawable().apply {
+                setColor(0xFFFF5D96.toInt())
+                cornerRadius = dp(14).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(-2, -2).apply { topMargin = dp(16) }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener { openTab(R.id.navMusic) }
+        })
+        root.addView(hero)
 
         // Command Centre
         root.addView(TextView(requireContext()).apply {
@@ -208,7 +259,7 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("📡", "Remote", "Wi‑Fi control") {
+            toolCard("📡", "Remote", "Offline QR control") {
                 startActivity(Intent(requireContext(), MediaHubRemoteActivity::class.java))
             },
             toolCard("🌙", "Ambient", "Charging clock") {
@@ -219,7 +270,7 @@ class HomeFragment : Fragment() {
             toolCard("🧠", "Intelligence", "Library tips") {
                 startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java))
             },
-            toolCard("⇄", "Transfer", "Share files") {
+            toolCard("⇄", "Transfer", "QR · APK · Xender") {
                 startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java))
             }
         ))
@@ -240,11 +291,19 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("✨", "Content Library", "300 MB offline packs") {
+            toolCard("✨", "Content Library", "351 MB offline packs") {
                 startActivity(Intent(requireContext(), MediaHubContentLibraryActivity::class.java))
             },
             toolCard("🗂", "Storage Planner", "Manage media space") {
                 startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("✦", "What's New", "Read every feature") {
+                startActivity(Intent(requireContext(), MediaHubWhatsNewActivity::class.java))
+            },
+            toolCard("▣", "Media Library", "Your local collection") {
+                openTab(R.id.navPhotos)
             }
         ))
 

@@ -1,14 +1,21 @@
 package com.mediahub.rebuilt.remote
 
+import android.Manifest
 import android.content.ComponentName
+import android.content.pm.PackageManager
 import android.graphics.Bitmap
 import android.graphics.Color
 import android.net.Uri
+import android.net.wifi.WifiManager
+import android.os.Build
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
 import android.view.Gravity
 import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.TextView
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.ContextCompat
 import androidx.media3.session.MediaController
@@ -22,16 +29,12 @@ import java.io.InputStreamReader
 import java.net.Inet4Address
 import java.net.NetworkInterface
 import java.net.ServerSocket
-import java.net.URLDecoder
 import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
 import java.security.SecureRandom
 import java.util.concurrent.Executors
 
-/**
- * Same-Wi-Fi browser remote for this phone's Media3 playback session.
- * A fresh random pairing token is required for every session.
- */
+/** QR-paired playback remote. Uses existing Wi-Fi or creates a temporary internet-free hotspot. */
 class MediaHubRemoteActivity : AppCompatActivity() {
     private val port = 8765
     private val token = ByteArray(24).also { SecureRandom().nextBytes(it) }.joinToString("") { "%02x".format(it) }
@@ -39,75 +42,169 @@ class MediaHubRemoteActivity : AppCompatActivity() {
     @Volatile private var server: ServerSocket? = null
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var hotspotReservation: WifiManager.LocalOnlyHotspotReservation? = null
     private lateinit var status: TextView
+    private lateinit var wifiQr: ImageView
+    private lateinit var remoteQr: ImageView
+    private lateinit var wifiDetails: TextView
+    private val permissionRequest = registerForActivityResult(ActivityResultContracts.RequestPermission()) { granted ->
+        if (granted) startOfflineHotspot()
+        else status.text = "Nearby Wi-Fi permission is needed to create an offline remote connection."
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         val root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(22), dp(32), dp(22), dp(28))
-            setBackgroundColor(0xFF0B0618.toInt())
+            setPadding(dp(20), dp(30), dp(20), dp(28))
+            setBackgroundColor(0xFF08080D.toInt())
         }
         root.addView(TextView(this).apply {
-            text = "MediaHub Remote"
-            textSize = 27f
-            setTextColor(Color.WHITE)
+            text = "MediaHub Remote"; textSize = 28f; setTextColor(Color.WHITE)
         })
         root.addView(TextView(this).apply {
-            text = "Scan this QR code with another device connected to the same trusted Wi-Fi network. Use the controls in its browser to control playback on this phone."
-            textSize = 14f
-            setTextColor(0xFFB9A9C9.toInt())
-            setPadding(0, dp(12), 0, dp(18))
+            text = "Control playback from another phone. No internet connection is needed."
+            textSize = 14f; setTextColor(0xFFB9B6C3.toInt()); setPadding(0, dp(10), 0, dp(12))
         })
-        val qr = ImageView(this).apply {
-            layoutParams = LinearLayout.LayoutParams(dp(230), dp(230)).apply { bottomMargin = dp(16) }
-            setBackgroundColor(Color.WHITE)
-            setPadding(dp(8), dp(8), dp(8), dp(8))
+        wifiDetails = TextView(this).apply {
+            text = "Checking local network…"; textSize = 12f; setTextColor(0xFFFFB1C8.toInt())
+            gravity = Gravity.CENTER; setPadding(0, 0, 0, dp(8))
         }
-        root.addView(qr)
+        root.addView(wifiDetails)
+        wifiQr = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(150), dp(150)).apply { bottomMargin = dp(6) }
+            setBackgroundColor(Color.WHITE); setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+        root.addView(wifiQr)
+        root.addView(TextView(this).apply {
+            text = "1 · Scan to join the temporary MediaHub Wi-Fi (only shown when no Wi-Fi is available)"
+            textSize = 11f; setTextColor(0xFFB9B6C3.toInt()); gravity = Gravity.CENTER
+            setPadding(0, 0, 0, dp(12))
+        })
+        remoteQr = ImageView(this).apply {
+            layoutParams = LinearLayout.LayoutParams(dp(190), dp(190)).apply { bottomMargin = dp(6) }
+            setBackgroundColor(Color.WHITE); setPadding(dp(5), dp(5), dp(5), dp(5))
+        }
+        root.addView(remoteQr)
+        root.addView(TextView(this).apply {
+            text = "2 · After joining the network, scan this code to open the remote controls"
+            textSize = 11f; setTextColor(0xFFB9B6C3.toInt()); gravity = Gravity.CENTER
+        })
         status = TextView(this).apply {
-            textSize = 13f
-            gravity = Gravity.CENTER
-            setTextColor(0xFFFF79B8.toInt())
+            textSize = 13f; gravity = Gravity.CENTER; setTextColor(0xFFFF79B8.toInt())
+            setPadding(0, dp(14), 0, 0)
         }
         root.addView(status)
         root.addView(TextView(this).apply {
-            text = "Security: a new random pairing token is generated each time. Stop sharing by leaving this screen. Only pair on a trusted private network."
-            textSize = 12f
-            setTextColor(0xFF9A8BB0.toInt())
-            setPadding(0, dp(18), 0, 0)
+            text = "Security: a random pairing token protects this session. Keep the QR codes private. Leaving this screen stops the remote and temporary hotspot."
+            textSize = 11f; setTextColor(0xFF8F8999.toInt()); setPadding(0, dp(14), 0, 0)
         })
         setContentView(root)
-
-        val ip = localIpv4()
-        if (ip == null) {
-            status.text = "Connect this phone to Wi-Fi or a local hotspot, then reopen Remote."
-            return
-        }
-        val remoteUrl = "http://$ip:$port/?token=$token"
-        try {
-            val matrix = QRCodeWriter().encode(remoteUrl, BarcodeFormat.QR_CODE, 480, 480)
-            val bitmap = Bitmap.createBitmap(480, 480, Bitmap.Config.RGB_565)
-            for (y in 0 until 480) for (x in 0 until 480) {
-                bitmap.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
-            }
-            qr.setImageBitmap(bitmap)
-            status.text = "Open in browser: $ip:$port\nWaiting for a paired device…"
-        } catch (error: Exception) {
-            status.text = "Could not create pairing QR code: ${error.localizedMessage}"
-            return
-        }
 
         val tokenSession = SessionToken(this, ComponentName(this, PlaybackService::class.java))
         val future = MediaController.Builder(this, tokenSession).buildAsync()
         controllerFuture = future
         future.addListener({
             try { controller = future.get() }
-            catch (_: Exception) { runOnUiThread { status.text = "Player service is unavailable. Start playback first, then reopen Remote." } }
+            catch (_: Exception) { runOnUiThread { status.text = "Player service unavailable. Start playback, then reopen Remote." } }
         }, ContextCompat.getMainExecutor(this))
 
-        executor.execute { runServer() }
+        val ip = localIpv4()
+        if (ip != null) {
+            wifiQr.visibility = android.view.View.GONE
+            wifiDetails.visibility = android.view.View.GONE
+            remoteQr.layoutParams = (remoteQr.layoutParams as LinearLayout.LayoutParams).apply {
+                width = dp(230); height = dp(230)
+            }
+            startRemote(ip)
+        } else {
+            requestHotspotPermission()
+        }
+    }
+
+    private fun requestHotspotPermission() {
+        val permission = if (Build.VERSION.SDK_INT >= 33) Manifest.permission.NEARBY_WIFI_DEVICES
+            else Manifest.permission.ACCESS_FINE_LOCATION
+        if (ContextCompat.checkSelfPermission(this, permission) == PackageManager.PERMISSION_GRANTED) {
+            startOfflineHotspot()
+        } else {
+            permissionRequest.launch(permission)
+        }
+    }
+
+    private fun startOfflineHotspot() {
+        try {
+            val wifi = applicationContext.getSystemService(WIFI_SERVICE) as WifiManager
+            wifiDetails.text = "Starting a temporary local-only Wi-Fi network…"
+            wifi.startLocalOnlyHotspot(object : WifiManager.LocalOnlyHotspotCallback() {
+                override fun onStarted(reservation: WifiManager.LocalOnlyHotspotReservation) {
+                    hotspotReservation = reservation
+                    try {
+                        val ssid: String
+                        val password: String
+                        if (Build.VERSION.SDK_INT >= 30) {
+                            val config = reservation.softApConfiguration
+                            ssid = config.ssid?.takeIf { it.isNotBlank() } ?: "MediaHub"
+                            password = config.passphrase ?: ""
+                        } else {
+                            @Suppress("DEPRECATION")
+                            val legacy = reservation.wifiConfiguration
+                            ssid = legacy?.SSID?.trim('"') ?: "MediaHub"
+                            password = legacy?.preSharedKey?.trim('"') ?: ""
+                        }
+                        wifiDetails.text = "Network: $ssid\nPassword: $password"
+                        renderQr(wifiQr, "WIFI:T:WPA;S:$ssid;P:$password;;", 300)
+                        wifiQr.visibility = android.view.View.VISIBLE
+                        wifiDetails.visibility = android.view.View.VISIBLE
+                        Handler(Looper.getMainLooper()).postDelayed({ resolveHotspotAddress(0) }, 500)
+                    } catch (error: Exception) {
+                        status.text = "Hotspot started, but pairing details could not be read: ${error.localizedMessage}"
+                    }
+                }
+
+                override fun onStopped() {
+                    runOnUiThread { status.text = "Temporary hotspot stopped by Android." }
+                }
+
+                override fun onFailed(reason: Int) {
+                    runOnUiThread { status.text = "Could not create offline hotspot (system reason $reason). Try enabling Wi-Fi and retry." }
+                }
+            }, Handler(Looper.getMainLooper()))
+        } catch (error: Exception) {
+            status.text = "Offline hotspot unavailable: ${error.localizedMessage ?: "system restriction"}"
+        }
+    }
+
+    private fun resolveHotspotAddress(attempt: Int) {
+        val ip = localIpv4()
+        if (ip != null) {
+            startRemote(ip)
+        } else if (attempt < 12 && !isFinishing) {
+            Handler(Looper.getMainLooper()).postDelayed({ resolveHotspotAddress(attempt + 1) }, 500)
+        } else {
+            status.text = "The temporary network is active, but Android has not exposed its local address. Stop and retry the remote session."
+        }
+    }
+
+    private fun startRemote(ip: String) {
+        val url = "http://$ip:$port/?token=$token"
+        try {
+            renderQr(remoteQr, url, 480)
+            status.text = "Remote ready · $ip:$port\nPair only with a device you trust."
+            executor.execute { runServer() }
+        } catch (error: Exception) {
+            status.text = "Could not create pairing QR: ${error.localizedMessage}"
+        }
+    }
+
+    private fun renderQr(view: ImageView, value: String, size: Int) {
+        val matrix = QRCodeWriter().encode(value, BarcodeFormat.QR_CODE, size, size)
+        val bitmap = Bitmap.createBitmap(size, size, Bitmap.Config.RGB_565)
+        for (y in 0 until size) for (x in 0 until size) {
+            bitmap.setPixel(x, y, if (matrix[x, y]) Color.BLACK else Color.WHITE)
+        }
+        view.setImageBitmap(bitmap)
     }
 
     private fun runServer() {
@@ -159,19 +256,27 @@ class MediaHubRemoteActivity : AppCompatActivity() {
 
     private fun controlPage(): String {
         val base = "/control?token=$token&cmd="
-        return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>MediaHub Remote</title><style>body{background:#0b0618;color:#fff;font-family:system-ui;text-align:center;padding:24px}h1{color:#ff6bb5}button{background:#211632;color:white;border:1px solid #64436e;border-radius:16px;padding:18px;margin:7px;font-size:18px;min-width:110px}button:active{background:#a52b76}.row{margin:18px}</style></head><body><h1>MEDIAHUB PRO</h1><p>Playback remote</p><div class="row"><button onclick="send('previous')">⏮ Previous</button><button onclick="send('toggle')">▶ / ❚❚</button><button onclick="send('next')">Next ⏭</button></div><div class="row"><button onclick="send('volume_down')">Volume −</button><button onclick="send('volume_up')">Volume +</button></div><p id="status">Connected to this phone's local remote.</p><script>function send(c){fetch('$base'+c).then(r=>document.getElementById('status').textContent=r.ok?'Command sent':'Remote authorization failed').catch(()=>document.getElementById('status').textContent='Connection lost')}</script></body></html>"""
+        return """<!doctype html><html><head><meta name="viewport" content="width=device-width,initial-scale=1"><title>MediaHub Remote</title><style>body{background:#08080d;color:#fff;font-family:system-ui;text-align:center;padding:24px}h1{color:#ff6b9f}button{background:#191922;color:white;border:1px solid #64436e;border-radius:16px;padding:18px;margin:7px;font-size:18px;min-width:110px}button:active{background:#a52b76}.row{margin:18px}</style></head><body><h1>MEDIAHUB PRO</h1><p>Playback remote · offline local connection</p><div class="row"><button onclick="send('previous')">⏮ Previous</button><button onclick="send('toggle')">▶ / ❚❚</button><button onclick="send('next')">Next ⏭</button></div><div class="row"><button onclick="send('volume_down')">Volume −</button><button onclick="send('volume_up')">Volume +</button></div><p id="status">Paired securely.</p><script>function send(c){fetch('$base'+c).then(r=>document.getElementById('status').textContent=r.ok?'Command sent':'Authorization failed').catch(()=>document.getElementById('status').textContent='Connection lost')}</script></body></html>"""
     }
 
     private fun localIpv4(): String? {
         return try {
-            NetworkInterface.getNetworkInterfaces().toList().flatMap { it.inetAddresses.toList() }
+            NetworkInterface.getNetworkInterfaces().toList()
+                .filter { it.isUp && !it.isLoopback && (it.name.lowercase().startsWith("wlan") || it.name.lowercase().startsWith("ap") || it.name.lowercase().contains("wifi")) }
+                .flatMap { it.inetAddresses.toList() }
                 .filterIsInstance<Inet4Address>()
                 .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
+                ?: NetworkInterface.getNetworkInterfaces().toList()
+                    .filter { it.isUp && !it.isLoopback }
+                    .flatMap { it.inetAddresses.toList() }
+                    .filterIsInstance<Inet4Address>()
+                    .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
         } catch (_: Exception) { null }
     }
 
     override fun onDestroy() {
         try { server?.close() } catch (_: Exception) { }
+        try { hotspotReservation?.close() } catch (_: Exception) { }
         controllerFuture?.let { MediaController.releaseFuture(it) }
         controller = null
         executor.shutdownNow()
