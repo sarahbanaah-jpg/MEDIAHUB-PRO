@@ -191,14 +191,14 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
 
     private fun finishDownload(pack: Pack, id: Long) {
         val statusCursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: return
-        val successful = statusCursor.use {
-            it.moveToFirst() && it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL
+        val result = statusCursor.use { cursor ->
+            if (!cursor.moveToFirst()) return
+            val state = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))
+            val reason = cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))
+            state to reason
         }
-        if (!successful) {
-            val reason = statusCursor.use { cursor ->
-                if (cursor.moveToFirst()) cursor.getInt(cursor.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON)) else -1
-            }
-            updateStatus(pack, "Download failed (code $reason) · check connection/storage and retry")
+        if (result.first != DownloadManager.STATUS_SUCCESSFUL) {
+            updateStatus(pack, "Download failed (code ${result.second}) · check connection/storage and retry")
             return
         }
         try {
