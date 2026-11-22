@@ -370,11 +370,15 @@ class MediaHubTransferActivity : AppCompatActivity() {
     }
 
     private fun localIpv4(): String? = try {
-        NetworkInterface.getNetworkInterfaces().toList()
-            .filter { it.isUp && !it.isLoopback }
+        val interfaces = NetworkInterface.getNetworkInterfaces().toList()
+        interfaces.filter { it.isUp && !it.isLoopback && (it.name.lowercase().startsWith("wlan") || it.name.lowercase().startsWith("ap") || it.name.lowercase().contains("wifi")) }
             .flatMap { it.inetAddresses.toList() }
             .filterIsInstance<Inet4Address>()
             .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
+            ?: interfaces.filter { it.isUp && !it.isLoopback }
+                .flatMap { it.inetAddresses.toList() }
+                .filterIsInstance<Inet4Address>()
+                .firstOrNull { !it.isLoopbackAddress && it.isSiteLocalAddress }?.hostAddress
     } catch (_: Exception) { null }
 
     private fun showInstalledApps() {
