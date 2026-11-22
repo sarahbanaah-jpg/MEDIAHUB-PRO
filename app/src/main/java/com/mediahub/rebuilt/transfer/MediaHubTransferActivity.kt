@@ -34,7 +34,7 @@ class MediaHubTransferActivity : AppCompatActivity() {
                 uris.drop(1).forEach { clip.addItem(android.content.ClipData.Item(it)) }
             }
         }
-        startActivity(Intent.createChooser(send, "Send media with Quick Share or another nearby app"))
+        startActivity(Intent.createChooser(send, "Send with Xender, Quick Share or another app"))
         status.text = "${uris.size} file(s) ready to share. Choose Quick Share for nearby offline transfer."
     }
 
@@ -47,22 +47,22 @@ class MediaHubTransferActivity : AppCompatActivity() {
             setBackgroundColor(0xFF0B0618.toInt())
         }
         root.addView(TextView(this).apply {
-            text = "Offline Media Transfer"
+            text = "MEDIAHUB SHARE"
             textSize = 27f
             setTextColor(0xFFFFFFFF.toInt())
         })
         root.addView(TextView(this).apply {
-            text = "Send music, videos, photos and documents to nearby devices using Android Quick Share. No MediaHub account or cloud upload is required. You can also receive files shared from other apps."
+            text = "Send any file type — photos, videos, music, documents, ZIP archives and APK app installers. Share directly with another app using Android Sharesheet (including Xender when installed), or receive files shared from Xender and other apps. Nearby sharing works offline when your chosen sharing app supports local transfer. MediaHub saves received files in Downloads/MediaHub."
             textSize = 14f
             setTextColor(0xFFB9A9C9.toInt())
             setPadding(0, dp(12), 0, dp(18))
         })
         root.addView(Button(this).apply {
-            text = "Choose files to send"
+            text = "Choose files, including APK apps"
             setOnClickListener { picker.launch(arrayOf("*/*")) }
         })
         status = TextView(this).apply {
-            text = "Choose files to begin, or receive a file from another app using Share."
+            text = "Choose files (including APKs) to share, or use Share in Xender to send files into MediaHub."
             textSize = 13f
             setTextColor(0xFFFF79B8.toInt())
             setPadding(0, dp(18), 0, 0)
