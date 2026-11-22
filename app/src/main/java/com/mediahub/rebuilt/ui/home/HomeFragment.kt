@@ -240,11 +240,19 @@ class HomeFragment : Fragment() {
             }
         ))
         commandGrid.addView(toolRow(
-            toolCard("✨", "Content Library", "300 MB offline packs") {
+            toolCard("✨", "Content Library", "351 MB offline packs") {
                 startActivity(Intent(requireContext(), MediaHubContentLibraryActivity::class.java))
             },
             toolCard("🗂", "Storage Planner", "Manage media space") {
                 startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java))
+            }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("✦", "What's New", "Read every feature") {
+                startActivity(Intent(requireContext(), MediaHubWhatsNewActivity::class.java))
+            },
+            toolCard("▣", "Media Library", "Your local collection") {
+                openTab(R.id.navPhotos)
             }
         ))
 
