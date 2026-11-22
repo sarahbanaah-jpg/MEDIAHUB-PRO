@@ -141,8 +141,6 @@ class MediaHubRemoteActivity : AppCompatActivity() {
                 override fun onStarted(reservation: WifiManager.LocalOnlyHotspotReservation) {
                     hotspotReservation = reservation
                     try {
-                        @Suppress("DEPRECATION")
-                        val legacy = reservation.wifiConfiguration
                         val ssid: String
                         val password: String
                         if (Build.VERSION.SDK_INT >= 30) {
@@ -150,6 +148,8 @@ class MediaHubRemoteActivity : AppCompatActivity() {
                             ssid = config.ssid
                             password = config.passphrase ?: ""
                         } else {
+                            @Suppress("DEPRECATION")
+                            val legacy = reservation.wifiConfiguration
                             ssid = legacy?.SSID?.trim('"') ?: "MediaHub"
                             password = legacy?.preSharedKey?.trim('"') ?: ""
                         }
@@ -157,11 +157,7 @@ class MediaHubRemoteActivity : AppCompatActivity() {
                         renderQr(wifiQr, "WIFI:T:WPA;S:$ssid;P:$password;;", 300)
                         wifiQr.visibility = android.view.View.VISIBLE
                         wifiDetails.visibility = android.view.View.VISIBLE
-                        Handler(Looper.getMainLooper()).postDelayed({
-                            val ip = localIpv4()
-                            if (ip == null) status.text = "Hotspot is ready. If the remote QR does not appear, reconnect and reopen Remote."
-                            else startRemote(ip)
-                        }, 700)
+                        Handler(Looper.getMainLooper()).postDelayed({ resolveHotspotAddress(0) }, 500)
                     } catch (error: Exception) {
                         status.text = "Hotspot started, but pairing details could not be read: ${error.localizedMessage}"
                     }
@@ -177,6 +173,17 @@ class MediaHubRemoteActivity : AppCompatActivity() {
             }, Handler(Looper.getMainLooper()))
         } catch (error: Exception) {
             status.text = "Offline hotspot unavailable: ${error.localizedMessage ?: "system restriction"}"
+        }
+    }
+
+    private fun resolveHotspotAddress(attempt: Int) {
+        val ip = localIpv4()
+        if (ip != null) {
+            startRemote(ip)
+        } else if (attempt < 12 && !isFinishing) {
+            Handler(Looper.getMainLooper()).postDelayed({ resolveHotspotAddress(attempt + 1) }, 500)
+        } else {
+            status.text = "The temporary network is active, but Android has not exposed its local address. Stop and retry the remote session."
         }
     }
 
