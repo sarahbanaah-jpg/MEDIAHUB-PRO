@@ -154,6 +154,9 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
                 .setTitle("MediaHub · ${pack.title}")
                 .setDescription("Downloading optional offline content")
                 .setMimeType("application/zip")
+                .addRequestHeader("User-Agent", "MediaHubPro-Android")
+                .addRequestHeader("Accept", "application/octet-stream")
+                .setVisibleInDownloadsUi(true)
                 .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
                 .setAllowedOverRoaming(false)
                 .setAllowedNetworkTypes(
@@ -176,19 +179,19 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             if (!it.moveToFirst()) return
             when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
                 DownloadManager.STATUS_SUCCESSFUL -> finishDownload(pack, id)
-                DownloadManager.STATUS_FAILED -> updateStatus(pack, "Download failed · tap Download pack to retry")
+                DownloadManager.STATUS_FAILED -> updateStatus(pack, "Download failed: ${downloadFailureReason(id)} · check connection and retry")
                 DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> updateStatus(pack, "Download in progress · see Android notifications")
             }
         }
     }
 
-    private fun finishDownload(pack: Pack, id: Long) {
+    private fun downloadFailureReason(id: Long): String {\n        val cursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: return "download service unavailable"\n        return cursor.use {\n            if (!it.moveToFirst()) return@use "download record missing"\n            when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))) {\n                DownloadManager.ERROR_CANNOT_RESUME -> "server could not resume the download"\n                DownloadManager.ERROR_DEVICE_NOT_FOUND -> "storage device unavailable"\n                DownloadManager.ERROR_FILE_ALREADY_EXISTS -> "file already exists"\n                DownloadManager.ERROR_FILE_ERROR -> "storage write failed"\n                DownloadManager.ERROR_HTTP_DATA_ERROR -> "server response was interrupted"\n                DownloadManager.ERROR_INSUFFICIENT_SPACE -> "not enough free storage"\n                DownloadManager.ERROR_TOO_MANY_REDIRECTS -> "too many download redirects"\n                DownloadManager.ERROR_UNHANDLED_HTTP_CODE -> "server rejected the request"\n                DownloadManager.ERROR_UNKNOWN -> "unknown network or server error"\n                DownloadManager.PAUSED_QUEUED_FOR_WIFI -> "waiting for Wi-Fi; allow mobile data to continue"\n                DownloadManager.PAUSED_WAITING_FOR_NETWORK -> "waiting for an internet connection"\n                else -> "download service error ${it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_REASON))}"\n            }\n        }\n    }\n\n    private fun finishDownload(pack: Pack, id: Long) {
         val statusCursor = manager.query(DownloadManager.Query().setFilterById(id)) ?: return
         val successful = statusCursor.use {
             it.moveToFirst() && it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS)) == DownloadManager.STATUS_SUCCESSFUL
         }
         if (!successful) {
-            updateStatus(pack, "Download failed · tap Download pack to retry")
+            updateStatus(pack, "Download failed: ${downloadFailureReason(id)} · check connection and retry")
             return
         }
         try {
