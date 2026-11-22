@@ -180,7 +180,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             when (it.getInt(it.getColumnIndexOrThrow(DownloadManager.COLUMN_STATUS))) {
                 DownloadManager.STATUS_SUCCESSFUL -> finishDownload(pack, id)
                 DownloadManager.STATUS_FAILED -> updateStatus(pack, "Download failed: ${downloadFailureReason(id)} · check connection and retry")
-                DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> updateStatus(pack, "Download in progress · see Android notifications")
+                DownloadManager.STATUS_RUNNING, DownloadManager.STATUS_PENDING -> updateStatus(pack, "Download in progress · see Android notifications")\n                DownloadManager.STATUS_PAUSED -> updateStatus(pack, "Download paused: ${downloadFailureReason(id)}")
             }
         }
     }
