@@ -422,8 +422,9 @@ class MediaHubTransferActivity : AppCompatActivity() {
     @Suppress("DEPRECATION")
     private fun receiveSharedFiles(incoming: Intent) {
         val uris = when (incoming.action) {
-            Intent.ACTION_SEND -> listOfNotNull(incoming.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) ?: incoming.data)
-            Intent.ACTION_SEND_MULTIPLE -> incoming.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM).orEmpty()
+            Intent.ACTION_SEND -> listOfNotNull(incoming.getParcelableExtra<Uri>(Intent.EXTRA_STREAM) ?: incoming.data ?: incoming.clipData?.getItemAt(0)?.uri)
+            Intent.ACTION_SEND_MULTIPLE -> incoming.getParcelableArrayListExtra<Uri>(Intent.EXTRA_STREAM)
+                ?: incoming.clipData?.let { clip -> (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri } }.orEmpty()
             else -> emptyList()
         }
         if (uris.isEmpty()) return
@@ -432,9 +433,9 @@ class MediaHubTransferActivity : AppCompatActivity() {
             var saved = 0
             uris.forEach { uri ->
                 try {
-                    val file = readShareFile(uri)
+                    val file = readShareFile(uri, requireKnownSize = false)
                     contentResolver.openInputStream(uri)?.use { input ->
-                        saveIncomingStream(input, file.name.replace(Regex("[^A-Za-z0-9._-]"), "_"), file.mime, file.size)
+                        saveIncomingStream(input, file.name.replace(Regex("[^A-Za-z0-9._-]"), "_"), file.mime, file.size.takeIf { it >= 0L })
                     }
                     saved++
                 } catch (_: Exception) { }
