@@ -11,8 +11,8 @@ android {
         applicationId = "com.mediahub.rebuilt"
         minSdk = 26
         targetSdk = 34
-        versionCode = 67
-        versionName = "4.3.5"
+        versionCode = 66
+        versionName = "4.3.4"
     }
 
     compileOptions {
@@ -70,11 +70,6 @@ dependencies {
     implementation("androidx.media3:media3-ui:1.4.1")
     implementation("androidx.media3:media3-session:1.4.1")
     implementation("androidx.media3:media3-common:1.4.1")
-
-    // Open-source streaming extractors ported from the Comet Music feature set.
-    // These dependencies are GPL-3.0-or-later; see LICENSE and THIRD_PARTY_NOTICES.md.
-    implementation("com.github.TeamNewPipe:NewPipeExtractor:v0.26.1")
-    implementation("com.github.maxrave-dev:PipePipeExtractor:f8982ca9e7")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
 }
