@@ -1,6 +1,7 @@
 package com.mediahub.rebuilt.ui.music
 
 import android.content.ComponentName
+import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -36,6 +37,11 @@ import java.net.URL
  */
 class AudiusOnlineMusicActivity : AppCompatActivity() {
     private val tracks = mutableListOf<OnlineTrack>()
+    private var activeSearch: String? = null
+    private var offset = 0
+    private val pageSize = 30
+    private var canLoadMore = false
+    private var loading = false
     private lateinit var list: LinearLayout
     private lateinit var status: TextView
     private var controller: MediaController? = null
@@ -118,25 +124,41 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    private fun loadTrending() {
-        fetch("https://api.audius.co/v1/tracks/trending?limit=30&time=week&app_name=MEDIAHUB_PRO", "Trending tracks")
-    }
+    private fun loadTrending() = fetch(null, reset = true)
 
     private fun search(query: String) {
         if (query.isBlank()) {
             Toast.makeText(this, "Enter a track or artist name", Toast.LENGTH_SHORT).show()
             return
         }
-        val encoded = URLEncoder.encode(query, "UTF-8")
-        fetch("https://api.audius.co/v1/tracks/search?query=$encoded&limit=30&sort_method=relevant&app_name=MEDIAHUB_PRO", "Search results")
+        fetch(query, reset = true)
     }
 
-    private fun fetch(endpoint: String, label: String) {
-        status.text = "Loading $label…"
-        list.removeAllViews()
+    /** Read-only Audius discovery works without a developer key. */
+    private fun fetch(query: String?, reset: Boolean) {
+        if (loading) return
+        if (reset) {
+            activeSearch = query
+            offset = 0
+            canLoadMore = true
+            tracks.clear()
+            list.removeAllViews()
+        }
+        loading = true
+        status.text = if (reset) {
+            if (query == null) "Loading trending music…" else "Searching Audius…"
+        } else "Loading more tracks…"
+
         lifecycleScope.launch {
             try {
-                val found = withContext(Dispatchers.IO) {
+                val page = withContext(Dispatchers.IO) {
+                    val encoded = activeSearch?.let { URLEncoder.encode(it, "UTF-8") }
+                    val path = if (encoded == null) {
+                        "tracks/trending?time=week"
+                    } else {
+                        "tracks/search?query=$encoded&sort_method=relevant"
+                    }
+                    val endpoint = "https://api.audius.co/v1/$path&limit=$pageSize&offset=$offset&app_name=MEDIAHUB_PRO"
                     val connection = URL(endpoint).openConnection() as HttpURLConnection
                     connection.connectTimeout = 15000
                     connection.readTimeout = 20000
@@ -146,7 +168,8 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
                         val body = stream.bufferedReader().use { it.readText() }
                         if (code !in 200..299) throw IllegalStateException("Audius returned HTTP $code")
-                        val data = JSONObject(body).optJSONArray("data") ?: throw IllegalStateException("Unexpected Audius response")
+                        val data = JSONObject(body).optJSONArray("data")
+                            ?: throw IllegalStateException("Unexpected Audius response")
                         buildList {
                             for (i in 0 until data.length()) {
                                 val item = data.optJSONObject(i) ?: continue
@@ -163,23 +186,55 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                                 ))
                             }
                         }
-                    } finally { connection.disconnect() }
+                    } finally {
+                        connection.disconnect()
+                    }
                 }
-                tracks.clear()
-                tracks.addAll(found)
-                list.removeAllViews()
-                found.forEachIndexed { index, track -> addTrackRow(index, track) }
-                status.text = if (found.isEmpty()) "No playable tracks found. Try another search." else "$label · ${found.size} tracks"
+                val known = tracks.mapTo(mutableSetOf()) { it.id }
+                page.filter { known.add(it.id) }.forEach { tracks.add(it) }
+                offset += page.size
+                canLoadMore = page.size == pageSize
+                renderTracks()
+                val label = activeSearch?.let { "Search: $it" } ?: "Trending music"
+                status.text = if (tracks.isEmpty()) "No tracks found. Try another search."
+                    else "$label · ${tracks.size} tracks loaded"
             } catch (error: Exception) {
-                status.text = "Could not load online music: ${error.localizedMessage ?: "Check your connection and try again."}"
-                val retry = TextView(this@AudiusOnlineMusicActivity).apply {
+                status.text = if (tracks.isEmpty()) {
+                    "Could not load online music: ${error.localizedMessage ?: "Check your connection and retry."}"
+                } else {
+                    "Showing ${tracks.size} tracks. Could not load the next page."
+                }
+                if (tracks.isNotEmpty()) renderTracks()
+                else list.addView(TextView(this@AudiusOnlineMusicActivity).apply {
                     text = "TAP TRENDING TO RETRY"
                     setTextColor(0xFFFF4D8D.toInt())
                     setPadding(0, dp(14), 0, dp(14))
                     setOnClickListener { loadTrending() }
-                }
-                list.addView(retry)
+                })
+            } finally {
+                loading = false
             }
+        }
+    }
+
+    private fun renderTracks() {
+        list.removeAllViews()
+        tracks.forEachIndexed { index, track -> addTrackRow(index, track) }
+        if (canLoadMore) {
+            list.addView(TextView(this).apply {
+                text = if (loading) "LOADING MORE…" else "LOAD MORE TRACKS"
+                gravity = Gravity.CENTER
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setTextColor(0xFFFF4D8D.toInt())
+                background = panel()
+                setPadding(dp(16), dp(16), dp(16), dp(16))
+                layoutParams = LinearLayout.LayoutParams(-1, -2).apply {
+                    topMargin = dp(4)
+                    bottomMargin = dp(12)
+                }
+                setOnClickListener { if (!loading) fetch(activeSearch, reset = false) }
+            })
         }
     }
 
@@ -196,9 +251,26 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
         val art = ImageView(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = GradientDrawable().apply { setColor(0xFF292431.toInt()); cornerRadius = dp(10).toFloat() }
+            background = GradientDrawable().apply {
+                setColor(0xFF292431.toInt())
+                cornerRadius = dp(10).toFloat()
+            }
         }
         row.addView(art)
+        if (track.artworkUrl.isNotBlank()) {
+            lifecycleScope.launch {
+                val bitmap = withContext(Dispatchers.IO) {
+                    try {
+                        val connection = URL(track.artworkUrl).openConnection() as HttpURLConnection
+                        connection.connectTimeout = 10000
+                        connection.readTimeout = 10000
+                        try { connection.inputStream.use { BitmapFactory.decodeStream(it) } }
+                        finally { connection.disconnect() }
+                    } catch (_: Exception) { null }
+                }
+                if (!isFinishing && art.parent != null) art.setImageBitmap(bitmap)
+            }
+        }
         val details = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(12), 0, dp(8), 0)
