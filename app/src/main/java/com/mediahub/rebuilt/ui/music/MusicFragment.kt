@@ -104,6 +104,22 @@ class MusicFragment : Fragment() {
             setPadding(0, dp(4), 0, 0)
         })
         header.addView(greetCol)
+        header.addView(TextView(requireContext()).apply {
+            text = "ONLINE"
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFF08070B.toInt())
+            setPadding(dp(14), dp(11), dp(14), dp(11))
+            background = GradientDrawable().apply {
+                setColor(0xFFFF4D8D.toInt())
+                cornerRadius = dp(14).toFloat()
+            }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(requireContext(), AudiusOnlineMusicActivity::class.java))
+            }
+        })
         root.addView(header)
 
         // Tabs: All Songs | Favourites (from reference player)
