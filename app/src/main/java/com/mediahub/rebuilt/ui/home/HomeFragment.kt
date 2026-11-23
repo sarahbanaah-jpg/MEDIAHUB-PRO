@@ -74,6 +74,50 @@ class HomeFragment : Fragment() {
             setTypeface(null, Typeface.BOLD)
             setPadding(0, 0, 0, dp(16))
         })
+        val onlineMusicCard = LinearLayout(requireContext()).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(18), dp(18), dp(18))
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TL_BR,
+                intArrayOf(0xFF4A1738.toInt(), 0xFF211326.toInt(), 0xFF17151E.toInt())
+            ).apply {
+                cornerRadius = dp(20).toFloat()
+                setStroke(dp(1), 0x66FF4D8D)
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) }
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                startActivity(Intent(requireContext(), com.mediahub.rebuilt.ui.music.AudiusOnlineMusicActivity::class.java))
+            }
+        }
+        onlineMusicCard.addView(TextView(requireContext()).apply {
+            text = "♫  ONLINE MUSIC"
+            setTextColor(0xFFFFA0B8.toInt())
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            letterSpacing = 0.12f
+        })
+        onlineMusicCard.addView(TextView(requireContext()).apply {
+            text = "Discover & stream music"
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 20f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(8), 0, dp(3))
+        })
+        onlineMusicCard.addView(TextView(requireContext()).apply {
+            text = "Search artists and tracks · Trending · Latest releases"
+            setTextColor(0xFFE3C8D8.toInt())
+            textSize = 12f
+        })
+        onlineMusicCard.addView(TextView(requireContext()).apply {
+            text = "OPEN ONLINE MUSIC  →"
+            setTextColor(0xFFFF6FAE.toInt())
+            textSize = 12f
+            setTypeface(null, Typeface.BOLD)
+            setPadding(0, dp(14), 0, 0)
+        })
+        root.addView(onlineMusicCard)
         root.addView(TextView(requireContext()).apply {
             text = "Command Centre"
             setTextColor(0xFFFFFFFF.toInt())
