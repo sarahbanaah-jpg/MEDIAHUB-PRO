@@ -117,7 +117,7 @@ class MusicFragment : Fragment() {
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                startActivity(Intent(requireContext(), CometMusicActivity::class.java)
+                startActivity(Intent(requireContext(), CometMusicActivity::class.java))
             }
         })
         root.addView(header)
