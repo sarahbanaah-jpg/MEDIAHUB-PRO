@@ -105,7 +105,7 @@ class MusicFragment : Fragment() {
         })
         header.addView(greetCol)
         header.addView(TextView(requireContext()).apply {
-            text = "ONLINE"
+            text = "COMET MUSIC"
             textSize = 11f
             setTypeface(null, Typeface.BOLD)
             setTextColor(0xFF08070B.toInt())
@@ -117,7 +117,7 @@ class MusicFragment : Fragment() {
             isClickable = true
             isFocusable = true
             setOnClickListener {
-                startActivity(Intent(requireContext(), AudiusOnlineMusicActivity::class.java))
+                startActivity(Intent(requireContext(), CometMusicActivity::class.java)
             }
         })
         root.addView(header)
