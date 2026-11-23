@@ -194,6 +194,7 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                 page.filter { known.add(it.id) }.forEach { tracks.add(it) }
                 offset += page.size
                 canLoadMore = page.size == pageSize
+                loading = false
                 renderTracks()
                 val label = activeSearch?.let { "Search: $it" } ?: "Trending music"
                 status.text = if (tracks.isEmpty()) "No tracks found. Try another search."
@@ -204,7 +205,10 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                 } else {
                     "Showing ${tracks.size} tracks. Could not load the next page."
                 }
-                if (tracks.isNotEmpty()) renderTracks()
+                if (tracks.isNotEmpty()) {
+                    loading = false
+                    renderTracks()
+                }
                 else list.addView(TextView(this@AudiusOnlineMusicActivity).apply {
                     text = "TAP TRENDING TO RETRY"
                     setTextColor(0xFFFF4D8D.toInt())
