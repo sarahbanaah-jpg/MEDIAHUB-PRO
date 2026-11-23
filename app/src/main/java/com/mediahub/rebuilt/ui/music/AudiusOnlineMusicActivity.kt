@@ -38,6 +38,7 @@ import java.net.URL
 class AudiusOnlineMusicActivity : AppCompatActivity() {
     private val tracks = mutableListOf<OnlineTrack>()
     private var activeSearch: String? = null
+    private var activeFeed: String = "trending"
     private var offset = 0
     private val pageSize = 30
     private var canLoadMore = false
@@ -95,6 +96,7 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
             setPadding(0, dp(10), 0, dp(8))
         }
         actions.addView(action("TRENDING", true) { loadTrending() })
+        actions.addView(action("LATEST", false) { loadLatest() })
         actions.addView(action("NEW SEARCH", false) { query.setText("") })
         root.addView(actions)
         status = TextView(this).apply {
@@ -124,13 +126,16 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    private fun loadTrending() = fetch(null, reset = true)
+    private fun loadTrending() { activeFeed = "trending"; fetch(null, reset = true) }
+
+    private fun loadLatest() { activeFeed = "latest"; fetch(null, reset = true) }
 
     private fun search(query: String) {
         if (query.isBlank()) {
             Toast.makeText(this, "Enter a track or artist name", Toast.LENGTH_SHORT).show()
             return
         }
+        activeFeed = "search"
         fetch(query, reset = true)
     }
 
@@ -153,12 +158,12 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
             try {
                 val page = withContext(Dispatchers.IO) {
                     val encoded = activeSearch?.let { URLEncoder.encode(it, "UTF-8") }
-                    val path = if (encoded == null) {
-                        "tracks/trending?time=week"
-                    } else {
-                        "tracks/search?query=$encoded&sort_method=relevant"
+                    val path = when (activeFeed) {
+                        "latest" -> "tracks/latest?limit=$pageSize&offset=$offset"
+                        "search" -> "search/full?query=$encoded&kind=tracks&sort_method=relevant&limit=$pageSize&offset=$offset"
+                        else -> "tracks/trending?time=week&limit=$pageSize&offset=$offset"
                     }
-                    val endpoint = "https://api.audius.co/v1/$path&limit=$pageSize&offset=$offset&app_name=MEDIAHUB_PRO"
+                    val endpoint = "https://api.audius.co/v1/$path&app_name=MEDIAHUB_PRO"
                     val connection = URL(endpoint).openConnection() as HttpURLConnection
                     connection.connectTimeout = 15000
                     connection.readTimeout = 20000
@@ -168,8 +173,13 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                         val stream = if (code in 200..299) connection.inputStream else connection.errorStream
                         val body = stream.bufferedReader().use { it.readText() }
                         if (code !in 200..299) throw IllegalStateException("Audius returned HTTP $code")
-                        val data = JSONObject(body).optJSONArray("data")
-                            ?: throw IllegalStateException("Unexpected Audius response")
+                        val responseData = JSONObject(body).opt("data")
+                        val data = when (responseData) {
+                            is org.json.JSONArray -> responseData
+                            is JSONObject -> responseData.optJSONArray("tracks")
+                                ?: responseData.optJSONArray("data")
+                            else -> null
+                        } ?: throw IllegalStateException("Unexpected Audius response")
                         buildList {
                             for (i in 0 until data.length()) {
                                 val item = data.optJSONObject(i) ?: continue
@@ -196,7 +206,7 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                 canLoadMore = page.size == pageSize
                 loading = false
                 renderTracks()
-                val label = activeSearch?.let { "Search: $it" } ?: "Trending music"
+                val label = activeSearch?.let { "Search: $it" } ?: if (activeFeed == "latest") "Latest releases" else "Trending music"
                 status.text = if (tracks.isEmpty()) "No tracks found. Try another search."
                     else "$label · ${tracks.size} tracks loaded"
             } catch (error: Exception) {
@@ -210,7 +220,7 @@ class AudiusOnlineMusicActivity : AppCompatActivity() {
                     renderTracks()
                 }
                 else list.addView(TextView(this@AudiusOnlineMusicActivity).apply {
-                    text = "TAP TRENDING TO RETRY"
+                    text = "TAP TRENDING OR LATEST TO RETRY"
                     setTextColor(0xFFFF4D8D.toInt())
                     setPadding(0, dp(14), 0, dp(14))
                     setOnClickListener { loadTrending() }
