@@ -77,6 +77,7 @@
         <activity android:name=".updates.UpdateActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".ui.music.NowPlayingActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".ui.music.AudiusOnlineMusicActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".ui.music.CometMusicActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".ui.photos.PhotoGalleryActivity" android:exported="false" android:screenOrientation="unspecified" />
         <activity android:name=".ui.player.VideoPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout" android:supportsPictureInPicture="true" android:resizeableActivity="true" />
 
