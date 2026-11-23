@@ -160,13 +160,23 @@ class CometMusicActivity : AppCompatActivity() {
                 status.text = if (songs.isEmpty()) "No songs found. Try another search."
                     else label + " · " + songs.size + " tracks · tap to play, long-press for lyrics"
             } catch (e: Exception) {
-                status.text = "Music service unavailable: " + (e.localizedMessage ?: "Check your connection.")
-                list.addView(TextView(this@CometMusicActivity).apply {
-                    text = "TAP TO RETRY"
-                    setTextColor(0xFFFF4D8D.toInt())
-                    setPadding(0, dp(18), 0, dp(18))
-                    setOnClickListener { loadTrending() }
-                })
+                val message = e.localizedMessage.orEmpty()
+                val jioDnsFailure = message.contains("jio.shnwaz.dev", ignoreCase = true) ||
+                    message.contains("unable to resolve host", ignoreCase = true) ||
+                    message.contains("UnknownHostException", ignoreCase = true)
+                if (jioDnsFailure && !isFinishing) {
+                    status.text = "JioSaavn server is unreachable. Switching to the Audius music backup…"
+                    list.removeAllViews()
+                    startActivity(android.content.Intent(this@CometMusicActivity, AudiusOnlineMusicActivity::class.java))
+                } else {
+                    status.text = "Music service unavailable: " + (message.ifBlank { "Check your connection." })
+                    list.addView(TextView(this@CometMusicActivity).apply {
+                        text = "TAP TO RETRY"
+                        setTextColor(0xFFFF4D8D.toInt())
+                        setPadding(0, dp(18), 0, dp(18))
+                        setOnClickListener { loadTrending() }
+                    })
+                }
             } finally { loading = false }
         }
     }
