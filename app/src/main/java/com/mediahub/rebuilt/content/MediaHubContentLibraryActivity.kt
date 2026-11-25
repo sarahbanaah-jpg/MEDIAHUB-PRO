@@ -45,6 +45,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
     private val pink = 0xFFFF6B9F.toInt()
     private val prefs by lazy { getSharedPreferences("mediahub_content_packs", MODE_PRIVATE) }
     private val statusViews = mutableMapOf<String, TextView>()
+    private val installButtons = mutableMapOf<String, Button>()
     private val downloadJobs = mutableMapOf<String, Job>()
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -114,16 +115,24 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
         box.addView(status)
         val actions = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL }
         actions.addView(Button(this).apply {
-            text = "Download pack"
+            text = if (archiveFile(pack).exists()) "DOWNLOAD AGAIN" else "DOWNLOAD PACK"
             setOnClickListener { chooseNetworkAndDownload(pack) }
             layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f).apply { marginEnd = dp(8) }
         })
         actions.addView(Button(this).apply {
-            text = "Browse"
+            text = "BROWSE"
             setOnClickListener { browsePack(pack) }
             layoutParams = LinearLayout.LayoutParams(0, dp(48), 1f)
         })
         box.addView(actions)
+        val install = Button(this).apply {
+            text = if (packDirectory(pack).exists() && countFiles(packDirectory(pack)) > 0) "REINSTALL / APPLY" else "INSTALL"
+            isEnabled = archiveFile(pack).exists()
+            setOnClickListener { installDownloadedPack(pack) }
+            layoutParams = LinearLayout.LayoutParams(-1, dp(46)).apply { topMargin = dp(8) }
+        }
+        installButtons[pack.id] = install
+        box.addView(install)
         parent.addView(box)
     }
 
@@ -156,16 +165,45 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
                         updateStatus(pack, "Downloading · ${formatBytes(received)} / ${formatBytes(total)} · $percent%")
                     }
                 } }
-                updateStatus(pack, "Verifying archive…")
-                withContext(Dispatchers.IO) { installArchive(pack, archive) }
-                prefs.edit().putBoolean("installed_${pack.id}", true).apply()
-                updateStatus(pack, "READY OFFLINE · ${countFiles(packDirectory(pack))} files installed")
-                Toast.makeText(this@MediaHubContentLibraryActivity, "${pack.title} is ready offline.", Toast.LENGTH_LONG).show()
+                updateStatus(pack, "DOWNLOAD COMPLETE · verified " + formatBytes(archive.length()) + " · tap INSTALL")
+                installButtons[pack.id]?.isEnabled = true
+                Toast.makeText(this@MediaHubContentLibraryActivity, pack.title + " downloaded. Tap INSTALL to apply it.", Toast.LENGTH_LONG).show()
             } catch (error: kotlinx.coroutines.CancellationException) {
                 updateStatus(pack, "Download cancelled. Tap Download pack to retry.")
                 throw error
             } catch (error: Exception) {
                 updateStatus(pack, "Download/install failed: ${error.message ?: "check connection and storage"}. Tap to retry.")
+            }
+        }
+        downloadJobs[pack.id] = job
+        job.invokeOnCompletion { downloadJobs.remove(pack.id) }
+    }
+
+    private fun archiveFile(pack: Pack): File {
+        val directory = File(getExternalFilesDir(Environment.DIRECTORY_DOWNLOADS) ?: filesDir, "mediahub-packs")
+        return File(directory, pack.file)
+    }
+
+    private fun installDownloadedPack(pack: Pack) {
+        val archive = archiveFile(pack)
+        if (!archive.isFile || archive.length() != pack.expectedBytes) {
+            updateStatus(pack, "Verified download not found. Download this pack again.")
+            installButtons[pack.id]?.isEnabled = false
+            return
+        }
+        if (downloadJobs[pack.id]?.isActive == true) return
+        val job = lifecycleScope.launch {
+            installButtons[pack.id]?.isEnabled = false
+            updateStatus(pack, "Installing pack…")
+            try {
+                withContext(Dispatchers.IO) { installArchive(pack, archive) }
+                prefs.edit().putBoolean("installed_${pack.id}", true).apply()
+                updateStatus(pack, "READY OFFLINE · ${countFiles(packDirectory(pack))} files installed")
+                installButtons[pack.id]?.apply { text = "REINSTALL / APPLY"; isEnabled = true }
+                Toast.makeText(this@MediaHubContentLibraryActivity, pack.title + " installed and ready offline.", Toast.LENGTH_LONG).show()
+            } catch (error: Exception) {
+                updateStatus(pack, "Install failed: " + (error.message ?: "check storage"))
+                installButtons[pack.id]?.isEnabled = archive.isFile
             }
         }
         downloadJobs[pack.id] = job
@@ -267,7 +305,6 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
             if (countFiles(staging) == 0) throw IllegalStateException("Archive contained no files")
             destination.deleteRecursively()
             if (!staging.renameTo(destination)) throw IllegalStateException("Could not install the extracted collection")
-            archive.delete()
         } catch (error: Exception) {
             staging.deleteRecursively()
             throw error
@@ -302,7 +339,7 @@ class MediaHubContentLibraryActivity : AppCompatActivity() {
         }
     }
 
-    private fun packDirectory(pack: Pack) = File(File(getExternalFilesDir(null), "content-packs"), pack.id)
+    private fun packDirectory(pack: Pack) = File(File(getExternalFilesDir(null) ?: filesDir, "content-packs"), pack.id)
 
     private fun packStatus(pack: Pack): String {
         val dir = packDirectory(pack)
