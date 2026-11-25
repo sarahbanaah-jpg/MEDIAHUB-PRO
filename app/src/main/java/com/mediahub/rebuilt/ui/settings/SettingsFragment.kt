@@ -66,6 +66,12 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.content.MediaHubContentLibraryActivity::class.java))
         })
 
+        section(root, "GRIMY BOARD KEYBOARD")
+        root.addView(action("Enable / choose GRIMY BOARD") {
+            startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
+            Toast.makeText(requireContext(), "Enable GRIMY BOARD, then select it from your keyboard switcher.", Toast.LENGTH_LONG).show()
+        })
+
         section(root, "UPDATES")
         root.addView(action(updateNotificationLabel()) {
             val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
