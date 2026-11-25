@@ -93,14 +93,6 @@ object UpdateChecker {
     }
 
     fun installApk(context: Context, apkFile: File) {
-        if (android.os.Build.VERSION.SDK_INT >= 26 && !context.packageManager.canRequestPackageInstalls()) {
-            val permissionIntent = Intent(android.provider.Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES).apply {
-                data = android.net.Uri.parse("package:${context.packageName}")
-                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            }
-            context.startActivity(permissionIntent)
-            throw IllegalStateException("Allow installs from MediaHub Pro, return here, then tap DOWNLOAD & INSTALL NOW again.")
-        }
         val uri = FileProvider.getUriForFile(
             context,
             "${BuildConfig.APPLICATION_ID}.files",
