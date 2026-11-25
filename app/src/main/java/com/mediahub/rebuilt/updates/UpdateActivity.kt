@@ -39,7 +39,8 @@ class UpdateActivity : AppCompatActivity() {
         window.navigationBarColor = 0x00000000
 
         val version = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_VERSION) ?: ""
-        val apkUrl = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_APK_URL)
+        val releaseApkUrl = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_APK_URL)
+        val apkUrl = releaseApkUrl?.takeIf { it.isNotBlank() } ?: "https://github.com/sarahbanaah-jpg/MEDIAHUB-PRO/releases/latest/download/MEDIAHUB-PRO-v$version.apk"
         val notes = intent.getStringExtra(UpdateChecker.EXTRA_UPDATE_NOTES).orEmpty()
         val sizeBytes = intent.getLongExtra(UpdateChecker.EXTRA_UPDATE_SIZE, 0L)
         val mandatory = intent.getBooleanExtra(UpdateChecker.EXTRA_UPDATE_MANDATORY, false)
@@ -112,7 +113,7 @@ class UpdateActivity : AppCompatActivity() {
         root.addView(card)
 
         statusText = TextView(this).apply {
-            text = "Ready to download"
+            text = "Ready to download and install"
             setTextColor(0xFFFF5C8A.toInt())
             textSize = 13f
             setPadding(0, dp(24), 0, dp(8))
@@ -136,7 +137,7 @@ class UpdateActivity : AppCompatActivity() {
         root.addView(progressLabel)
 
         updateButton = TextView(this).apply {
-            text = "UPDATE NOW"
+            text = "DOWNLOAD & INSTALL NOW"
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 15f
             gravity = Gravity.CENTER
@@ -180,7 +181,7 @@ class UpdateActivity : AppCompatActivity() {
         root.addView(laterButton)
 
         root.addView(TextView(this).apply {
-            text = "Updates install over your current app. Settings, playlists and local media stay intact. You never need to visit GitHub."
+            text = "Tap DOWNLOAD & INSTALL NOW. Android will ask you to allow MediaHub Pro to install this update if that permission is not enabled. Your existing app data is preserved."
             setTextColor(0xFF8E7F93.toInt())
             textSize = 12f
             setPadding(0, dp(24), 0, 0)
