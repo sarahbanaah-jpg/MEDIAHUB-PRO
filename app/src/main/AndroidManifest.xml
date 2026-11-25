@@ -82,6 +82,8 @@
         <activity android:name=".ui.player.VideoPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout" android:supportsPictureInPicture="true" android:resizeableActivity="true" />
 
 
+        <activity android:name=".keyboard.GrimyBoardSettingsActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+
         <service android:name=".keyboard.GrimyBoardService"
             android:label="GRIMY BOARD"
             android:permission="android.permission.BIND_INPUT_METHOD"
