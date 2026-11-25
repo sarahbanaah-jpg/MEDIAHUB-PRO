@@ -81,6 +81,15 @@
         <activity android:name=".ui.photos.PhotoGalleryActivity" android:exported="false" android:screenOrientation="unspecified" />
         <activity android:name=".ui.player.VideoPlayerActivity" android:exported="false" android:configChanges="orientation|screenSize|keyboardHidden|screenLayout" android:supportsPictureInPicture="true" android:resizeableActivity="true" />
 
+
+        <service android:name=".keyboard.GrimyBoardService"
+            android:label="GRIMY BOARD"
+            android:permission="android.permission.BIND_INPUT_METHOD"
+            android:exported="true">
+            <intent-filter><action android:name="android.view.InputMethod" /></intent-filter>
+            <meta-data android:name="android.view.im" android:resource="@xml/grimy_board_method" />
+        </service>
+
         <service android:name=".service.MediaHubNotificationListener" android:label="MediaHub Pro notification display" android:permission="android.permission.BIND_NOTIFICATION_LISTENER_SERVICE" android:exported="true">
             <intent-filter>
                 <action android:name="android.service.notification.NotificationListenerService" />
