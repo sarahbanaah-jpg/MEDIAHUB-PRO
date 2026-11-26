@@ -60,6 +60,18 @@ class SettingsFragment : Fragment() {
             scroll.setBackgroundColor(if (amoled) 0xFF000000.toInt() else 0xFF08080D.toInt())
             it.text = if (amoled) "AMOLED black enabled · tap to switch back" else "Midnight theme enabled · tap for AMOLED"
         })
+        root.addView(action(liquidGlassLabel()) {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val enabled = !prefs.getBoolean("liquid_glass_enabled", true)
+            prefs.edit().putBoolean("liquid_glass_enabled", enabled).apply()
+            it.text = liquidGlassLabel()
+            Toast.makeText(
+                requireContext(),
+                if (enabled) "Live Liquid Glass enabled. Reopen the screen to refresh the material."
+                else "Liquid Glass disabled. A solid, high-contrast material is active.",
+                Toast.LENGTH_LONG
+            ).show()
+        })
         root.addView(action("Read the complete What's New guide") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.whatsnew.MediaHubWhatsNewActivity::class.java))
         })
@@ -397,6 +409,12 @@ class SettingsFragment : Fragment() {
             setTypeface(null, Typeface.BOLD)
             setPadding(0, dp(16), 0, dp(9))
         })
+    }
+
+    private fun liquidGlassLabel(): String {
+        val enabled = requireContext().getSharedPreferences("mediahub_settings", 0)
+            .getBoolean("liquid_glass_enabled", true)
+        return "Live Liquid Glass: ${if (enabled) "On" else "Off"}"
     }
 
     private fun updateNotificationLabel(): String {
