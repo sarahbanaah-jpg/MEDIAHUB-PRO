@@ -11,8 +11,8 @@ android {
         applicationId = "com.mediahub.rebuilt"
         minSdk = 26
         targetSdk = 34
-        versionCode = 86
-        versionName = "4.6.3"
+        versionCode = 87
+        versionName = "4.6.4"
     }
 
     compileOptions {
