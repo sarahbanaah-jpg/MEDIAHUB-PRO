@@ -80,6 +80,17 @@ class MainActivity : AppCompatActivity() {
 
         setContentView(R.layout.activity_main)
 
+        FirebaseAuth.getInstance().currentUser?.let { signedIn ->
+            val publicName = signedIn.displayName?.takeIf { it.isNotBlank() }
+                ?: signedIn.email?.substringBefore("@") ?: "MediaHub user"
+            FirebaseFirestore.getInstance().collection("public_profiles").document(signedIn.uid)
+                .set(mapOf(
+                    "uid" to signedIn.uid,
+                    "displayName" to publicName.take(80),
+                    "lastSeen" to com.google.firebase.firestore.FieldValue.serverTimestamp()
+                ), com.google.firebase.firestore.SetOptions.merge())
+        }
+
         contentContainer = findViewById(R.id.contentContainer)
         bottomNav = findViewById(R.id.bottomNav)
         miniPlayer = findViewById(R.id.miniPlayer)
