@@ -4,6 +4,7 @@ import android.graphics.Color
 import android.os.Bundle
 import android.view.Gravity
 import android.view.ViewGroup
+import android.webkit.CookieManager
 import android.webkit.WebChromeClient
 import android.webkit.WebView
 import android.webkit.WebViewClient
@@ -59,8 +60,26 @@ class EmbeddedMusicPlayerActivity : AppCompatActivity() {
             settings.javaScriptEnabled = true
             settings.domStorageEnabled = true
             settings.mediaPlaybackRequiresUserGesture = true
+            settings.loadsImagesAutomatically = true
+            settings.javaScriptCanOpenWindowsAutomatically = false
+            settings.allowFileAccess = false
+            settings.allowContentAccess = false
+            CookieManager.getInstance().setAcceptCookie(true)
+            CookieManager.getInstance().setAcceptThirdPartyCookies(this, true)
             webChromeClient = WebChromeClient()
-            webViewClient = WebViewClient()
+            webViewClient = object : WebViewClient() {
+                override fun shouldOverrideUrlLoading(
+                    view: WebView,
+                    request: android.webkit.WebResourceRequest
+                ): Boolean {
+                    val host = request.url.host.orEmpty().lowercase()
+                    return !(host == "youtube.com" || host.endsWith(".youtube.com") ||
+                        host == "youtube-nocookie.com" || host.endsWith(".youtube-nocookie.com") ||
+                        host == "musicapi.com" || host.endsWith(".musicapi.com") ||
+                        host == "googlevideo.com" || host.endsWith(".googlevideo.com") ||
+                        host == "google.com" || host.endsWith(".google.com"))
+                }
+            }
         }
         playerWebView = web
         root.addView(web)
@@ -89,6 +108,12 @@ class EmbeddedMusicPlayerActivity : AppCompatActivity() {
                 .setAction(EmbeddedPlaybackService.ACTION_START)
         )
         web.loadUrl(embedUrl)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        playerWebView?.onResume()
+        playerWebView?.resumeTimers()
     }
 
     override fun onDestroy() {
