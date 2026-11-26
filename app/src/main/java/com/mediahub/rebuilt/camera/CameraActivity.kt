@@ -9,6 +9,9 @@ import android.os.Bundle
 import android.provider.MediaStore
 import android.view.Gravity
 import android.view.View
+import android.view.MotionEvent
+import android.graphics.Canvas
+import android.graphics.Paint
 import android.widget.Button
 import android.widget.FrameLayout
 import android.widget.LinearLayout
@@ -19,6 +22,7 @@ import androidx.camera.core.Camera
 import androidx.camera.core.CameraSelector
 import androidx.camera.core.ImageCapture
 import androidx.camera.core.ImageCaptureException
+import androidx.camera.core.FocusMeteringAction
 import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.video.MediaStoreOutputOptions
@@ -33,6 +37,7 @@ import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
 import java.text.SimpleDateFormat
 import java.util.Locale
+import java.util.concurrent.TimeUnit
 
 /** CameraX camera experience inspired by modern Pro phone cameras; hardware capabilities are detected at runtime. */
 class CameraActivity : Activity() {
@@ -64,6 +69,17 @@ class CameraActivity : Activity() {
         val frame = FrameLayout(this).apply { setBackgroundColor(0xFF000000.toInt()) }
         previewView = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE; scaleType = PreviewView.ScaleType.FILL_CENTER }
         frame.addView(previewView, FrameLayout.LayoutParams(-1, -1))
+        gridOverlay = CompositionGridView()
+        gridOverlay.visibility = View.GONE
+        frame.addView(gridOverlay, FrameLayout.LayoutParams(-1, -1))
+        previewView.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                val point = previewView.meteringPointFactory.createPoint(event.x, event.y)
+                val action = FocusMeteringAction.Builder(point).setAutoCancelDuration(3, TimeUnit.SECONDS).build()
+                camera?.cameraControl?.startFocusAndMetering(action)
+            }
+            true
+        }
         val controls = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
             setPadding(dp(16), dp(22), dp(16), dp(26)); setBackgroundColor(0xCC08080D.toInt())
@@ -83,6 +99,21 @@ class CameraActivity : Activity() {
             override fun onStopTrackingTouch(bar: SeekBar?) {}
         }) }
         controls.addView(zoom, LinearLayout.LayoutParams(-1, dp(38)))
+        controls.addView(TextView(this).apply { text = "EXPOSURE"; setTextColor(0xFFD8D3E2.toInt()); textSize = 10f; gravity = Gravity.CENTER })
+        exposure = SeekBar(this).apply {
+            max = 100; progress = 50
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser && exposureMax >= exposureMin) {
+                        val index = exposureMin + ((exposureMax - exposureMin) * progress / 100f).toInt()
+                        camera?.cameraControl?.setExposureCompensationIndex(index)
+                    }
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
+        }
+        controls.addView(exposure, LinearLayout.LayoutParams(-1, dp(34)))
         val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
         listOf(0.5f, 1f, 2f, 3f, 5f, 10f).forEach { value ->
             presets.addView(textButton(if (value == 0.5f) ".5×" else "${value.toInt()}×") { setZoomRatio(value) },
@@ -93,7 +124,7 @@ class CameraActivity : Activity() {
         bottom.addView(textButton("↻") { switchCamera() }, LinearLayout.LayoutParams(0, dp(58), 1f))
         shutter = Button(this).apply { text = "●"; textSize = 27f; setTextColor(-1); setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFF2D55.toInt())); setOnClickListener { capture() } }
         bottom.addView(shutter, LinearLayout.LayoutParams(dp(82), dp(58)))
-        bottom.addView(textButton("GRID") { Toast.makeText(this, "Use the framing guides on your device; grid overlay is coming in a later camera update.", Toast.LENGTH_SHORT).show() }, LinearLayout.LayoutParams(0, dp(58), 1f))
+        bottom.addView(textButton("GRID") { gridVisible = !gridVisible; gridOverlay.visibility = if (gridVisible) View.VISIBLE else View.GONE }, LinearLayout.LayoutParams(0, dp(58), 1f))
         controls.addView(bottom)
         val params = FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM)
         frame.addView(controls, params)
@@ -101,6 +132,11 @@ class CameraActivity : Activity() {
     }
 
     private lateinit var flashButton: Button
+    private lateinit var exposure: SeekBar
+    private lateinit var gridOverlay: View
+    private var exposureMin = 0
+    private var exposureMax = 0
+    private var gridVisible = false
     private fun textButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label; textSize = 12f; isAllCaps = false; setTextColor(-1)
         setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF24212B.toInt()))
@@ -129,6 +165,11 @@ class CameraActivity : Activity() {
                 minZoom = state?.minZoomRatio ?: 1f
                 maxZoom = state?.maxZoomRatio ?: 1f
                 currentZoom = 1f.coerceIn(minZoom, maxZoom)
+                val exposureRange = camera?.cameraInfo?.exposureState?.exposureCompensationRange
+                exposureMin = exposureRange?.lower ?: 0
+                exposureMax = exposureRange?.upper ?: 0
+                exposure.progress = 50
+                exposure.isEnabled = exposureMax > exposureMin
                 zoomLabel.text = "1.0× · ${if (maxZoom > 1.05f) "Zoom range ${"%.1f".format(maxZoom)}×" else "No optical zoom reported; digital crop only"}"
                 zoom.progress = 0
                 camera?.cameraControl?.setZoomRatio(currentZoom)
@@ -196,6 +237,22 @@ class CameraActivity : Activity() {
         }
     }
     override fun onDestroy() { recording?.stop(); super.onDestroy() }
+    private inner class CompositionGridView : View(this@CameraActivity) {
+        private val linePaint = Paint(Paint.ANTI_ALIAS_FLAG).apply {
+            color = 0x99FFFFFF.toInt()
+            strokeWidth = dp(1).toFloat()
+            style = Paint.Style.STROKE
+        }
+        override fun onDraw(canvas: Canvas) {
+            super.onDraw(canvas)
+            val thirdW = width / 3f
+            val thirdH = height / 3f
+            canvas.drawLine(thirdW, 0f, thirdW, height.toFloat(), linePaint)
+            canvas.drawLine(thirdW * 2, 0f, thirdW * 2, height.toFloat(), linePaint)
+            canvas.drawLine(0f, thirdH, width.toFloat(), thirdH, linePaint)
+            canvas.drawLine(0f, thirdH * 2, width.toFloat(), thirdH * 2, linePaint)
+        }
+    }
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
     companion object { private const val REQUEST_CAMERA = 7001 }
 }
