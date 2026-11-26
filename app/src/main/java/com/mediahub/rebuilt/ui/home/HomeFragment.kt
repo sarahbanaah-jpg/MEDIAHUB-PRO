@@ -195,7 +195,7 @@ class HomeFragment : Fragment() {
             toolCard("🧠", "Intelligence", "Library tips") { startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
-            toolCard("🧠", "Intelligence", "Library tips") { startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java)) },
+            toolCard("📱", "Device Center", "Compatibility & specs") { startActivity(Intent(requireContext(), com.mediahub.rebuilt.device.DeviceCenterActivity::class.java)) },
             toolCard("⇄", "Transfer", "QR · APK · Xender") { startActivity(Intent(requireContext(), MediaHubTransferActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
