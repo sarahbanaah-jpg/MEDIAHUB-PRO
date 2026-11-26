@@ -7,6 +7,9 @@ import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.CountDownTimer
 import android.view.Gravity
+import android.view.View
+import android.view.ViewOutlineProvider
+import android.graphics.Outline
 import android.widget.FrameLayout
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -26,7 +29,6 @@ import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.mediahub.rebuilt.media.DefaultAlbumArt
 import com.mediahub.rebuilt.media.Favourites
-import com.mediahub.rebuilt.media.MediaItem
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.service.PlaybackService
 import com.mediahub.rebuilt.ui.MainActivity
@@ -110,7 +112,6 @@ class NowPlayingActivity : AppCompatActivity() {
         top.addView(circleBtn("⋯") { showMore() })
         root.addView(top)
 
-        // Circular art with cyan glow rings
         val glowHost = FrameLayout(this).apply {
             layoutParams = LinearLayout.LayoutParams(dp(300), dp(300)).apply { topMargin = dp(28) }
         }
@@ -124,9 +125,9 @@ class NowPlayingActivity : AppCompatActivity() {
                 }
             }
         }
-        glowHost.addView(ring(300, 0x335CE1FF, 2))
-        glowHost.addView(ring(270, 0x555CE1FF, 3))
-        glowHost.addView(ring(242, 0x88A78BFF, 2))
+        glowHost.addView(ring(300, 0x335CE1FF.toInt(), 2))
+        glowHost.addView(ring(270, 0x555CE1FF.toInt(), 3))
+        glowHost.addView(ring(242, 0x88A78BFF.toInt(), 2))
         artView = ImageView(this).apply {
             layoutParams = FrameLayout.LayoutParams(dp(210), dp(210), Gravity.CENTER)
             scaleType = ImageView.ScaleType.CENTER_CROP
@@ -135,8 +136,8 @@ class NowPlayingActivity : AppCompatActivity() {
                 setColor(0xFF221247.toInt())
             }
             clipToOutline = true
-            outlineProvider = object : android.view.ViewOutlineProvider() {
-                override fun getOutline(view: android.view.View, outline: android.graphics.Outline) {
+            outlineProvider = object : ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: Outline) {
                     outline.setOval(0, 0, view.width, view.height)
                 }
             }
@@ -205,7 +206,7 @@ class NowPlayingActivity : AppCompatActivity() {
             background = GradientDrawable().apply {
                 setColor(0xCC1A0F3A.toInt())
                 cornerRadius = dp(28).toFloat()
-                setStroke(dp(1), 0x555CE1FF)
+                setStroke(dp(1), 0x555CE1FF.toInt())
             }
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(14) }
         }
@@ -407,7 +408,9 @@ class NowPlayingActivity : AppCompatActivity() {
     private fun circleBtn(t: String, click: () -> Unit) = TextView(this).apply {
         text = t; gravity = Gravity.CENTER; textSize = 20f; setTextColor(0xFFFFFFFF.toInt())
         background = GradientDrawable().apply {
-            shape = GradientDrawable.OVAL; setColor(0x33221247); setStroke(dp(1), 0x555CE1FF)
+            shape = GradientDrawable.OVAL
+            setColor(0x33221247.toInt())
+            setStroke(dp(1), 0x555CE1FF.toInt())
         }
         layoutParams = LinearLayout.LayoutParams(dp(40), dp(40))
         setOnClickListener { click() }
@@ -423,7 +426,7 @@ class NowPlayingActivity : AppCompatActivity() {
         text = t; textSize = 13f; setTextColor(0xFFFFFFFF.toInt())
         setPadding(dp(16), dp(10), dp(16), dp(10))
         background = GradientDrawable().apply {
-            setColor(0xFF221247.toInt()); cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0x555CE1FF)
+            setColor(0xFF221247.toInt()); cornerRadius = dp(20).toFloat(); setStroke(dp(1), 0x555CE1FF.toInt())
         }
         layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginEnd = dp(8) }
         setOnClickListener { click() }
