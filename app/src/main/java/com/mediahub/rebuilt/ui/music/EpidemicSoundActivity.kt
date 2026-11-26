@@ -176,7 +176,7 @@ class EpidemicSoundActivity : AppCompatActivity() {
             }
             val unique = parsed.distinctBy { it.id }
             Pair(unique, if (unique.isEmpty()) "No tracks are available for this API key."
-                else "\${names.size} collections · \${unique.size} tracks")
+                else "${names.size} collections · ${unique.size} tracks")
         }
     }
 
@@ -192,7 +192,7 @@ class EpidemicSoundActivity : AppCompatActivity() {
                 parsed.add(parseTrack(item))
             }
             val unique = parsed.distinctBy { it.id }
-            Pair(unique, if (unique.isEmpty()) "No matching tracks found." else "Search results · \${unique.size} tracks")
+            Pair(unique, if (unique.isEmpty()) "No matching tracks found." else "Search results · ${unique.size} tracks")
         }
     }
 
@@ -228,7 +228,7 @@ class EpidemicSoundActivity : AppCompatActivity() {
 
     private fun parseTrack(item: JSONObject): EsTrack {
         val artists = item.optJSONArray("mainArtists")
-        val artist = if (artists != null) (0 until artists.length()).mapNotNull { artists.optString(it).takeIf(String::isNotBlank) }.joinToString(", ")
+        val artist = if (artists != null) (0 until artists.length()).mapNotNull { artists.optString(it).takeIf { name -> name.isNotBlank() } }.joinToString(", ")
             else "Unknown artist"
         val images = item.optJSONObject("images")
         val artwork = images?.optString("M")?.takeIf { it.isNotBlank() && it != "null" }
