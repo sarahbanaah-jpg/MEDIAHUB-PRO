@@ -4,6 +4,9 @@ import android.Manifest
 import android.app.Activity
 import android.content.Intent
 import android.graphics.Typeface
+import android.graphics.BitmapFactory
+import android.media.MediaPlayer
+import android.widget.ImageView
 import android.graphics.drawable.GradientDrawable
 import android.media.MediaRecorder
 import android.net.Uri
@@ -27,6 +30,7 @@ import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ListenerRegistration
 import com.google.firebase.storage.FirebaseStorage
+import com.google.firebase.functions.FirebaseFunctions
 import java.io.File
 import java.util.UUID
 
@@ -48,6 +52,7 @@ class ChatActivity : AppCompatActivity() {
     private lateinit var input: EditText
     private lateinit var send: TextView
     private var listener: ListenerRegistration? = null
+    private var chatSettingsListener: ListenerRegistration? = null
     private var recorder: MediaRecorder? = null
     private var recordingFile: File? = null
     private var pendingViewLimit = 0
@@ -83,6 +88,8 @@ class ChatActivity : AppCompatActivity() {
             text = peerName; textSize = 19f; setTextColor(-1); setTypeface(null, Typeface.BOLD)
             layoutParams = LinearLayout.LayoutParams(0, -2, 1f)
         })
+        header.addView(action("✦") { askAi() })
+        header.addView(action("⏱") { chooseDisappearingTime() })
         header.addView(action("☎") { sendCallInvite("voice") })
         header.addView(action("▣") { sendCallInvite("video") })
         root.addView(header)
@@ -109,6 +116,7 @@ class ChatActivity : AppCompatActivity() {
             setPadding(dp(8), dp(8), dp(8), dp(8))
         }
         bar.addView(input, LinearLayout.LayoutParams(0, -2, 1f))
+        bar.addView(action("1×") { chooseViewLimit { pendingViewLimit = it; Toast.makeText(this, if (it == 0) "Normal message" else "Next text will be view-limited: $it", Toast.LENGTH_SHORT).show() } })
         bar.addView(action("🎙") { toggleVoiceRecording() })
         send = action("➤") { sendText() }
         bar.addView(send)
@@ -130,6 +138,10 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun listen() {
+        chatSettingsListener = db.collection("chats").document(chatId).addSnapshotListener { doc, _ ->
+            val seconds = (doc?.getLong("disappearSeconds") ?: 0L).toInt()
+            getSharedPreferences("mediahub_chat", 0).edit().putInt("disappear_seconds_$chatId", seconds).apply()
+        }
         listener = db.collection("chats").document(chatId).collection("messages")
             .orderBy("createdAt").limitToLast(150)
             .addSnapshotListener { snap, error ->
@@ -204,10 +216,10 @@ class ChatActivity : AppCompatActivity() {
     private fun messagePayload(type: String, text: String, url: String?, viewLimit: Int): Map<String, Any?> {
         val now = System.currentTimeMillis()
         val prefs = getSharedPreferences("mediahub_chat", 0)
-        val seconds = prefs.getInt("disappear_seconds", 0)
+        val seconds = prefs.getInt("disappear_seconds_$chatId", 0)
         return hashMapOf(
             "senderId" to myUid, "receiverId" to peerUid, "type" to type,
-            "text" to text, "mediaUrl" to url, "createdAt" to FieldValue.serverTimestamp(),
+            "text" to text, "storagePath" to url, "createdAt" to FieldValue.serverTimestamp(),
             "viewLimit" to viewLimit, "viewCount" to 0,
             "viewedBy" to emptyList<String>(), "deletedFor" to emptyList<String>(),
             "deletedForEveryone" to false,
@@ -236,23 +248,90 @@ class ChatActivity : AppCompatActivity() {
     }
 
     private fun openAttachment(id: String, data: Map<String, Any>, type: String, limit: Int, count: Int) {
-        if (limit > 0 && count >= limit) {
-            Toast.makeText(this, "This view-limited message has already been opened.", Toast.LENGTH_SHORT).show()
+        val mine = data["senderId"] == myUid
+        if (limit > 0 && !mine) {
+            val ref = db.collection("chats").document(chatId).collection("messages").document(id)
+            db.runTransaction { tx ->
+                val snap = tx.get(ref)
+                val current = (snap.getLong("viewCount") ?: 0L).toInt()
+                if (current >= limit) throw IllegalStateException("View limit reached")
+                tx.update(ref, "viewCount", current + 1)
+                tx.update(ref, "viewedBy", FieldValue.arrayUnion(myUid))
+            }.addOnFailureListener {
+                Toast.makeText(this, "This view-limited message has already been opened.", Toast.LENGTH_SHORT).show()
+            }.addOnSuccessListener { loadAttachment(data, type, limit > 0) }
+        } else {
+            loadAttachment(data, type, limit > 0)
+        }
+    }
+
+    private fun loadAttachment(data: Map<String, Any>, type: String, protected: Boolean) {
+        val path = data["storagePath"] as? String ?: return
+        if (protected) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+        val ref = storage.reference.child(path)
+        if (type == "image") {
+            ref.getBytes(MAX_UPLOAD).addOnSuccessListener { bytes ->
+                val bitmap = BitmapFactory.decodeByteArray(bytes, 0, bytes.size)
+                val image = ImageView(this).apply {
+                    setImageBitmap(bitmap); adjustViewBounds = true; scaleType = ImageView.ScaleType.FIT_CENTER
+                    maxHeight = dp(520); maxWidth = dp(340)
+                }
+                AlertDialog.Builder(this).setTitle(if (protected) "View-limited photo" else "Photo")
+                    .setView(image).setPositiveButton("Close", null).show()
+                    .setOnDismissListener { if (protected) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+            }.addOnFailureListener {
+                if (protected) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                Toast.makeText(this, "Could not load photo: ${it.localizedMessage}", Toast.LENGTH_LONG).show()
+            }
+        } else {
+            val file = File(cacheDir, "voice-playback-${UUID.randomUUID()}.m4a")
+            ref.getFile(file).addOnSuccessListener {
+                val player = MediaPlayer()
+                player.setDataSource(file.absolutePath)
+                player.setOnCompletionListener { it.release(); file.delete() }
+                player.prepare(); player.start()
+                AlertDialog.Builder(this).setTitle("Voice message")
+                    .setMessage("Playing voice recording…")
+                    .setPositiveButton("Close") { _, _ -> try { player.stop() } catch (_: Exception) {}; player.release(); file.delete() }
+                    .show().setOnDismissListener { if (protected) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+            }.addOnFailureListener {
+                if (protected) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+                Toast.makeText(this, "Could not load voice message.", Toast.LENGTH_SHORT).show()
+            }
+        }
+    }
+
+    private fun chooseDisappearingTime() {
+        val labels = arrayOf("Off", "1 minute", "1 hour", "1 day", "7 days")
+        val seconds = intArrayOf(0, 60, 3600, 86400, 604800)
+        AlertDialog.Builder(this).setTitle("Disappearing messages")
+            .setItems(labels) { _, which ->
+                db.collection("chats").document(chatId).update("disappearSeconds", seconds[which])
+                    .addOnSuccessListener {
+                        getSharedPreferences("mediahub_chat", 0).edit()
+                            .putInt("disappear_seconds_$chatId", seconds[which]).apply()
+                        Toast.makeText(this, "Disappearing messages: ${labels[which]}", Toast.LENGTH_SHORT).show()
+                    }
+            }.show()
+    }
+
+    private fun askAi() {
+        val prompt = input.text.toString().trim()
+        if (prompt.isBlank()) {
+            Toast.makeText(this, "Type a question for MediaHub AI first.", Toast.LENGTH_SHORT).show()
             return
         }
-        val url = data["mediaUrl"] as? String ?: return
-        if (limit > 0) window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
-        val viewed = (data["viewedBy"] as? List<*>)?.toMutableList() ?: mutableListOf()
-        val nextCount = count + 1
-        viewed.add(myUid)
-        db.collection("chats").document(chatId).collection("messages").document(id)
-            .update(mapOf("viewCount" to nextCount, "viewedBy" to viewed))
-        AlertDialog.Builder(this)
-            .setTitle(if (limit > 0) "View-limited media" else if (type == "image") "Photo" else "Voice message")
-            .setMessage(if (limit > 0) "Protected view enabled. Android blocks normal screenshots and screen recording in this screen." else url)
-            .setPositiveButton("Close", null).show()
-            .setOnDismissListener {
-                if (limit > 0) window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE)
+        addBubble("✦ MediaHub AI is thinking…", true, 0xFFFF69A8.toInt())
+        com.google.firebase.functions.FirebaseFunctions.getInstance()
+            .getHttpsCallable("chatAssistant")
+            .call(mapOf("prompt" to prompt))
+            .addOnSuccessListener { result ->
+                val answer = (result.data as? Map<*, *>)?.get("answer") as? String
+                    ?: "I couldn't create a response."
+                addBubble("✦ MediaHub AI\n$answer", false, -1)
+                input.setText("")
+            }.addOnFailureListener {
+                addBubble("AI unavailable: ${it.localizedMessage}", false, 0xFFFFC66D.toInt())
             }
     }
 
