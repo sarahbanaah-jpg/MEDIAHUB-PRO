@@ -21,6 +21,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem as Media3Item
+import androidx.media3.common.MimeTypes
 import androidx.media3.common.MediaMetadata
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
@@ -347,7 +348,8 @@ class EpidemicSoundActivity : AppCompatActivity() {
                     }
                     streamUrl
                 }
-                val item = Media3Item.Builder().setUri(stream).setMediaId("epidemic:${song.id}")
+                val item = Media3Item.Builder().setUri(stream).setMimeType(MimeTypes.APPLICATION_M3U8)
+                    .setMediaId("epidemic:${song.id}")
                     .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
                         .setArtworkUri(Uri.parse(song.artwork).takeIf { song.artwork.isNotBlank() }).build()).build()
                 player.setMediaItem(item)
@@ -355,7 +357,8 @@ class EpidemicSoundActivity : AppCompatActivity() {
                 player.play()
                 getSharedPreferences("mediahub_settings", MODE_PRIVATE).edit()
                     .putString("island_mode", "music").putString("island_title", song.title).apply()
-                status.text = "Playing Epidemic Sound · ${song.title}"
+                status.text = "Opening player · ${song.title}"
+                startActivity(Intent(this@EpidemicSoundActivity, NowPlayingActivity::class.java))
             } catch (e: Exception) {
                 status.text = "Playback unavailable: ${e.localizedMessage ?: "Could not start stream."}"
                 Toast.makeText(this@EpidemicSoundActivity, status.text, Toast.LENGTH_LONG).show()
