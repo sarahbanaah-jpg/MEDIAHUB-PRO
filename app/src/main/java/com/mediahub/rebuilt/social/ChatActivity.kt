@@ -238,10 +238,8 @@ class ChatActivity : AppCompatActivity() {
         val mime = contentResolver.getType(uri) ?: if (type == "image") "image/jpeg" else "audio/mp4"
         val ref = storage.reference.child("chat_media/$chatId/${UUID.randomUUID()}")
         ref.putFile(uri).addOnSuccessListener {
-            ref.downloadUrl.addOnSuccessListener { url ->
-                db.collection("chats").document(chatId).collection("messages")
-                    .add(messagePayload(type, "", url.toString(), viewLimit))
-            }
+            db.collection("chats").document(chatId).collection("messages")
+                .add(messagePayload(type, "", ref.path, viewLimit))
         }.addOnFailureListener {
             Toast.makeText(this, "Upload failed: ${it.localizedMessage}", Toast.LENGTH_LONG).show()
         }
