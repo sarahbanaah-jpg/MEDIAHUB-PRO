@@ -15,6 +15,7 @@ import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.auth.UserProfileChangeRequest
 import com.mediahub.rebuilt.ui.MainActivity
 
 class LoginActivity : AppCompatActivity() {
@@ -114,9 +115,27 @@ class LoginActivity : AppCompatActivity() {
         val task = if (createMode) auth.createUserWithEmailAndPassword(mail, pass)
             else auth.signInWithEmailAndPassword(mail, pass)
         task.addOnCompleteListener { result ->
-            setBusy(false)
-            if (result.isSuccessful) enterApp()
-            else status.text = result.exception?.localizedMessage ?: "Authentication failed. Please try again."
+            if (!result.isSuccessful) {
+                setBusy(false)
+                status.text = result.exception?.localizedMessage ?: "Authentication failed. Please try again."
+                return@addOnCompleteListener
+            }
+            val user = result.result.user
+            if (createMode && user != null) {
+                val profile = UserProfileChangeRequest.Builder()
+                    .setDisplayName(name.text.toString().trim())
+                    .build()
+                user.updateProfile(profile).addOnCompleteListener {
+                    user.sendEmailVerification().addOnCompleteListener {
+                        setBusy(false)
+                        status.text = if (it.isSuccessful) "Verification email sent. You can continue, but verify your email to enable owner administration." else "Account created. You can resend email verification later."
+                        enterApp()
+                    }
+                }
+            } else {
+                setBusy(false)
+                enterApp()
+            }
         }
     }
 
