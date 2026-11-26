@@ -81,12 +81,21 @@ class SettingsFragment : Fragment() {
         })
         root.addView(action("Check for updates") {
             it.text = "Checking…"
-            UpdateChecker.check(requireContext(), notify = true) { info ->
-                if (!isAdded) return@check
-                it.text = "Check for updates"
-                if (info == null) Toast.makeText(requireContext(), "You are on the latest version.", Toast.LENGTH_LONG).show()
-                else UpdateChecker.openUpdateScreen(requireContext(), info)
-            }
+            UpdateChecker.check(
+                requireContext(),
+                notify = true,
+                callback = { info ->
+                    if (!isAdded) return@check
+                    it.text = "Check for updates"
+                    if (info == null) Toast.makeText(requireContext(), "You are on the latest version (v${BuildConfig.VERSION_NAME}).", Toast.LENGTH_LONG).show()
+                    else UpdateChecker.openUpdateScreen(requireContext(), info)
+                },
+                onError = { message ->
+                    if (!isAdded) return@check
+                    it.text = "Check for updates"
+                    Toast.makeText(requireContext(), "Update check failed: $message", Toast.LENGTH_LONG).show()
+                }
+            )
         })
 
         section(root, "PERMISSIONS")
