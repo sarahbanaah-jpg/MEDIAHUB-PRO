@@ -50,6 +50,18 @@ class AdminActivity : Activity() {
         button("View announcements") { loadAnnouncements() }
         button("Close admin center") { finish() }
         setContentView(scroll)
+        if (auth.currentUser?.isEmailVerified != true) {
+            status.text = "Owner access is waiting for email verification."
+            AlertDialog.Builder(this)
+                .setTitle("Verify owner email")
+                .setMessage("Verify leonelsquare7@gmail.com before using protected admin actions. Send a verification link to this address, open it, then reopen the Admin Control Center.")
+                .setNegativeButton("Later", null)
+                .setPositiveButton("Send verification email") { _, _ ->
+                    auth.currentUser?.sendEmailVerification()
+                        ?.addOnSuccessListener { status.text = "Verification email sent. Check your inbox and reopen this screen after verifying." }
+                        ?.addOnFailureListener { status.text = "Could not send verification email: ${it.localizedMessage}" }
+                }.show()
+        }
         loadDevices()
     }
 
