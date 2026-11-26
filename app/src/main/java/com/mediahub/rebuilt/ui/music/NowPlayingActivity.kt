@@ -24,6 +24,7 @@ import androidx.core.view.WindowCompat
 import androidx.lifecycle.lifecycleScope
 import androidx.media3.common.MediaItem as PlayerMediaItem
 import androidx.media3.common.Player
+import androidx.media3.common.PlaybackException
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
@@ -64,7 +65,19 @@ class NowPlayingActivity : AppCompatActivity() {
             updatePlayButton()
             if (::waveView.isInitialized) waveView.setPlaying(isPlaying)
         }
-        override fun onPlaybackStateChanged(playbackState: Int) { updateProgress() }
+        override fun onPlaybackStateChanged(playbackState: Int) {
+            updateProgress()
+            if (playbackState == Player.STATE_BUFFERING) {
+                artistView.text = "Connecting to audio stream…"
+            } else if (playbackState == Player.STATE_READY && controller?.isPlaying == true) {
+                refreshMetadata(loadArtwork = false)
+            }
+        }
+        override fun onPlayerError(error: PlaybackException) {
+            val detail = error.cause?.localizedMessage ?: error.localizedMessage ?: "Audio stream could not be decoded."
+            artistView.text = "Playback failed: $detail"
+            Toast.makeText(this@NowPlayingActivity, "Epidemic Sound playback failed: $detail", Toast.LENGTH_LONG).show()
+        }
         override fun onShuffleModeEnabledChanged(shuffleModeEnabled: Boolean) { updateModes() }
         override fun onRepeatModeChanged(repeatMode: Int) { updateModes() }
     }
