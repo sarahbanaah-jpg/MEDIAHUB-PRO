@@ -213,13 +213,24 @@ class MusicApiActivity : AppCompatActivity() {
                     webViewClient = WebViewClient()
                     loadUrl(embedUrl)
                 }
-                AlertDialog.Builder(this@MusicApiActivity)
+                val playerDialog = AlertDialog.Builder(this@MusicApiActivity)
                     .setTitle("Now Playing")
-                    .setView(web.apply { layoutParams = android.view.ViewGroup.LayoutParams(-1, dp(230)) })
-                    .setPositiveButton("DONE") { _, _ -> web.destroy() }
-                    .setOnCancelListener { web.destroy() }
-                    .show()
-                status.text = "Embedded player ready."
+                    .setView(web.apply { layoutParams = android.view.ViewGroup.LayoutParams(-1, dp(300)) })
+                    .setPositiveButton("DONE", null)
+                    .create()
+                playerDialog.setOnDismissListener {
+                    web.stopLoading()
+                    web.destroy()
+                    stopService(Intent(this@MusicApiActivity, com.mediahub.rebuilt.service.EmbeddedPlaybackService::class.java)
+                        .setAction(com.mediahub.rebuilt.service.EmbeddedPlaybackService.ACTION_STOP))
+                }
+                playerDialog.show()
+                androidx.core.content.ContextCompat.startForegroundService(
+                    this@MusicApiActivity,
+                    Intent(this@MusicApiActivity, com.mediahub.rebuilt.service.EmbeddedPlaybackService::class.java)
+                        .setAction(com.mediahub.rebuilt.service.EmbeddedPlaybackService.ACTION_START)
+                )
+                status.text = "Embedded player ready · background playback enabled."
             } catch (e: Exception) {
                 status.text = "Embedded player unavailable: ${e.localizedMessage ?: "Use LISTEN to open the service."}"
             }
