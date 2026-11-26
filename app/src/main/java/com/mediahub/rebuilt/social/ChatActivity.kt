@@ -339,7 +339,7 @@ class ChatActivity : AppCompatActivity() {
             val ref = db.collection("chats").document(chatId).collection("messages").document(id)
             if (mine && which == 1) {
                 ref.update(mapOf("deletedForEveryone" to true, "text" to "Message deleted",
-                    "mediaUrl" to null, "deletedAt" to FieldValue.serverTimestamp()))
+                    "storagePath" to null, "deletedAt" to FieldValue.serverTimestamp()))
             } else {
                 ref.update("deletedFor", FieldValue.arrayUnion(myUid))
             }
