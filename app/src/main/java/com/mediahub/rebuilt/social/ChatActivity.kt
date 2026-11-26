@@ -348,7 +348,7 @@ class ChatActivity : AppCompatActivity() {
             .getHttpsCallable("chatAssistant")
             .call(mapOf("prompt" to prompt))
             .addOnSuccessListener { result ->
-                val answer = (result.data as? Map<*, *>)?.get("answer") as? String
+                val answer = (result.getData() as? Map<*, *>)?.get("answer") as? String
                     ?: "I couldn't create a response."
                 addBubble("✦ MediaHub AI\n$answer", false, -1)
                 input.setText("")
@@ -376,7 +376,9 @@ class ChatActivity : AppCompatActivity() {
                 recorder?.stop(); recorder?.release(); recorder = null
                 val file = recordingFile
                 if (file != null && file.exists() && file.length() > 0) {
-                    val limit = pendingViewLimit\n                    pendingViewLimit = 0\n                    upload(Uri.fromFile(file), "voice", limit)
+                    val limit = pendingViewLimit
+                    pendingViewLimit = 0
+                    upload(Uri.fromFile(file), "voice", limit)
                     Toast.makeText(this, "Voice message sent", Toast.LENGTH_SHORT).show()
                 }
             } catch (_: Exception) {
