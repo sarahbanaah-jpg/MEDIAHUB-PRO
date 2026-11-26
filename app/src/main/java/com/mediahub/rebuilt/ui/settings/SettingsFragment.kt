@@ -66,6 +66,11 @@ class SettingsFragment : Fragment() {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.content.MediaHubContentLibraryActivity::class.java))
         })
 
+        section(root, "DEVICE CENTER")
+        root.addView(action("View my device & compatibility") {
+            startActivity(Intent(requireContext(), com.mediahub.rebuilt.device.DeviceCenterActivity::class.java))
+        })
+
         section(root, "GRIMY BOARD KEYBOARD")
         root.addView(action("Enable / choose GRIMY BOARD") {
             startActivity(Intent(Settings.ACTION_INPUT_METHOD_SETTINGS))
