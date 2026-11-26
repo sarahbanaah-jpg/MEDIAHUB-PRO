@@ -24,7 +24,7 @@ Paste the key into the terminal's secure prompt (not into this chat). The key is
 cd functions
 npm install
 cd ..
-firebase deploy --only firestore:rules,storage,functions
+firebase deploy --project mediahub-pro-11393 --only firestore:rules,storage,functions
 ```
 
 Cloud Functions deployment requires the Firebase project to be on the Blaze billing plan and a linked billing account. OpenAI API usage is billed separately by OpenAI. The callable AI endpoint applies a basic limit of 20 requests per user per hour.
