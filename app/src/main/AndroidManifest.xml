@@ -59,6 +59,8 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".social.ChatHubActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".social.ChatActivity" android:exported="false" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".device.DeviceCenterActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".arcade.MediaHubGameCenterActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".arcade.MediaHubArcadeActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
@@ -99,6 +101,11 @@
                 <action android:name="android.service.notification.NotificationListenerService" />
             </intent-filter>
         </service>
+
+        <service android:name=".social.ChatNotificationService" android:exported="false">
+            <intent-filter><action android:name="com.google.firebase.MESSAGING_EVENT" /></intent-filter>
+        </service>
+        <service android:name=".social.ChatNotificationActionService" android:exported="false" />
 
         <service android:name=".service.EmbeddedPlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback" />
         <service android:name=".service.PlaybackService" android:exported="false" android:foregroundServiceType="mediaPlayback">
