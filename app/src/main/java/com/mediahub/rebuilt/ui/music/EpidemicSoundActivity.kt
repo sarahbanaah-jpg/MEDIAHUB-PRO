@@ -1,9 +1,11 @@
 package com.mediahub.rebuilt.ui.music
 
+import android.app.DownloadManager
 import android.graphics.BitmapFactory
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.net.Uri
 import android.security.keystore.KeyGenParameterSpec
 import android.security.keystore.KeyProperties
 import android.util.Base64
@@ -30,6 +32,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.json.JSONArray
 import org.json.JSONObject
+import java.net.CookieHandler
+import java.net.CookieManager
+import java.net.CookiePolicy
+import java.net.HttpCookie
+import java.net.URI
 import java.net.HttpURLConnection
 import java.net.URL
 import java.net.URLEncoder
@@ -256,6 +263,7 @@ class EpidemicSoundActivity : AppCompatActivity() {
                 layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
                 isClickable = true
                 setOnClickListener { playTrack(index) }
+                setOnLongClickListener { downloadTrack(index); true }
             }
             val art = ImageView(this).apply {
                 layoutParams = LinearLayout.LayoutParams(dp(54), dp(54))
@@ -308,16 +316,85 @@ class EpidemicSoundActivity : AppCompatActivity() {
     private fun playTrack(index: Int) {
         if (index !in tracks.indices) return
         val song = tracks[index]
-        // The supplied Epidemic Sound OpenAPI specification exposes catalogue,
-        // collection and metadata endpoints, but no audio stream/download endpoint.
-        // Do not call an undocumented URL or pretend a metadata record is playable.
-        val message = if (song.previewOnly) {
-            "This track is marked preview-only. The supplied API specification does not expose a preview or streaming URL."
-        } else {
-            "Track details are available. The supplied API specification does not include an audio streaming/download endpoint."
+        val player = controller
+        if (player == null) {
+            Toast.makeText(this, "Player is starting. Tap again shortly.", Toast.LENGTH_SHORT).show()
+            return
         }
-        status.text = message
-        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
+        status.text = "Preparing ${song.title}…"
+        lifecycleScope.launch {
+            try {
+                val stream = withContext(Dispatchers.IO) {
+                    val data = requestJson("/v0/tracks/${URLEncoder.encode(song.id, "UTF-8")}/hls")
+                    val streamUrl = data.optString("url")
+                    if (!streamUrl.startsWith("https://")) throw IllegalStateException("No HLS stream URL was returned.")
+                    val cookie = data.optJSONObject("cookie")
+                    if (cookie != null) {
+                        val name = cookie.optString("name")
+                        val value = cookie.optString("value")
+                        val domain = cookie.optString("domain")
+                        val cookiePath = cookie.optString("path", "/")
+                        if (name.isNotBlank() && value.isNotBlank() && domain.isNotBlank()) {
+                            val manager = CookieHandler.getDefault() as? CookieManager
+                                ?: CookieManager(null, CookiePolicy.ACCEPT_ALL).also { CookieHandler.setDefault(it) }
+                            val httpCookie = HttpCookie(name, value).apply {
+                                this.domain = domain
+                                path = cookiePath
+                                isSecure = true
+                            }
+                            manager.cookieStore.add(URI("https://$domain$cookiePath"), httpCookie)
+                        }
+                    }
+                    streamUrl
+                }
+                val item = Media3Item.Builder().setUri(stream).setMediaId("epidemic:${song.id}")
+                    .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
+                        .setArtworkUri(Uri.parse(song.artwork).takeIf { song.artwork.isNotBlank() }).build()).build()
+                player.setMediaItem(item)
+                player.prepare()
+                player.play()
+                getSharedPreferences("mediahub_settings", MODE_PRIVATE).edit()
+                    .putString("island_mode", "music").putString("island_title", song.title).apply()
+                status.text = "Playing Epidemic Sound · ${song.title}"
+            } catch (e: Exception) {
+                status.text = "Playback unavailable: ${e.localizedMessage ?: "Could not start stream."}"
+                Toast.makeText(this@EpidemicSoundActivity, status.text, Toast.LENGTH_LONG).show()
+            }
+        }
+    }
+
+    private fun downloadTrack(index: Int) {
+        if (index !in tracks.indices) return
+        val song = tracks[index]
+        if (song.previewOnly) {
+            Toast.makeText(this, "This track is preview-only. An active subscription is required for premium downloads.", Toast.LENGTH_LONG).show()
+            return
+        }
+        status.text = "Preparing download…"
+        lifecycleScope.launch {
+            try {
+                val downloadUrl = withContext(Dispatchers.IO) {
+                    val data = requestJson("/v0/tracks/${URLEncoder.encode(song.id, "UTF-8")}/download?format=mp3&quality=normal")
+                    data.optString("url").takeIf { it.startsWith("https://") }
+                        ?: throw IllegalStateException("The API did not return a download link.")
+                }
+                val request = DownloadManager.Request(Uri.parse(downloadUrl))
+                    .setTitle(song.title)
+                    .setDescription("Epidemic Sound · MEDIAHUB-PRO")
+                    .setNotificationVisibility(DownloadManager.Request.VISIBILITY_VISIBLE_NOTIFY_COMPLETED)
+                    .setAllowedOverMetered(true)
+                    .setAllowedOverRoaming(false)
+                    .setDestinationInExternalPublicDir(android.os.Environment.DIRECTORY_MUSIC, "MEDIAHUB-PRO/${song.title.replace(Regex("[^A-Za-z0-9._ -]"), "_")}.mp3")
+                val manager = getSystemService(DOWNLOAD_SERVICE) as DownloadManager
+                manager.enqueue(request)
+                status.text = "Download started · ${song.title}"
+            } catch (e: Exception) {
+                status.text = when {
+                    e.message?.contains("HTTP 403") == true -> "Download denied. Premium tracks require an active Epidemic Sound subscription."
+                    else -> "Download unavailable: ${e.localizedMessage ?: "Try again."}"
+                }
+            }
+        }
     }
 
     private fun requestJson(path: String): JSONObject {
