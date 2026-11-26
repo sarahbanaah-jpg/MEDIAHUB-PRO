@@ -215,7 +215,7 @@ class MusicApiActivity : AppCompatActivity() {
                 }
                 AlertDialog.Builder(this@MusicApiActivity)
                     .setTitle("Now Playing")
-                    .setView(web, dp(320), dp(230))
+                    .setView(web.apply { layoutParams = android.view.ViewGroup.LayoutParams(-1, dp(230)) })
                     .setPositiveButton("DONE") { _, _ -> web.destroy() }
                     .setOnCancelListener { web.destroy() }
                     .show()
