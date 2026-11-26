@@ -162,15 +162,20 @@ class ChatActivity : AppCompatActivity() {
                     if (expires != null && expires.toDate().time <= System.currentTimeMillis()) return@forEach
                     val sender = data["senderId"] == myUid
                     val type = data["type"] as? String ?: "text"
-                    val text = when (type) {
-                        "image" -> "▧  Photo · tap to view"
-                        "voice" -> "▶  Voice message"
-                        else -> data["text"] as? String ?: ""
-                    }
                     val limit = (data["viewLimit"] as? Long)?.toInt() ?: 0
                     val count = (data["viewCount"] as? Long)?.toInt() ?: 0
+                    val alreadyViewed = limit > 0 && count >= limit && !sender
+                    val text = when {
+                        alreadyViewed -> "Message opened"
+                        type == "image" -> "▧  Photo · tap to view"
+                        type == "voice" -> "▶  Voice message"
+                        type == "text" && limit > 0 && !sender -> "◉  Tap to view"
+                        else -> data["text"] as? String ?: ""
+                    }
                     val bubble = addBubble(text, sender, if (sender) 0xFFFF69A8.toInt() else -1)
-                    if (type == "image" || type == "voice") {
+                    if (!alreadyViewed && type == "text" && limit > 0 && !sender) {
+                        bubble.setOnClickListener { openEphemeralText(doc.id, data, limit) }
+                    } else if (!alreadyViewed && (type == "image" || type == "voice")) {
                         bubble.setOnClickListener { openAttachment(doc.id, data, type, limit, count) }
                     }
                     bubble.setOnLongClickListener {
@@ -242,6 +247,25 @@ class ChatActivity : AppCompatActivity() {
                 .add(messagePayload(type, "", ref.path, viewLimit))
         }.addOnFailureListener {
             Toast.makeText(this, "Upload failed: ${it.localizedMessage}", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun openEphemeralText(id: String, data: Map<String, Any>, limit: Int) {
+        val ref = db.collection("chats").document(chatId).collection("messages").document(id)
+        db.runTransaction { tx ->
+            val snap = tx.get(ref)
+            val count = (snap.getLong("viewCount") ?: 0L).toInt()
+            if (count >= limit) throw IllegalStateException("View limit reached")
+            tx.update(ref, "viewCount", count + 1)
+            tx.update(ref, "viewedBy", FieldValue.arrayUnion(myUid))
+        }.addOnSuccessListener {
+            window.setFlags(WindowManager.LayoutParams.FLAG_SECURE, WindowManager.LayoutParams.FLAG_SECURE)
+            AlertDialog.Builder(this).setTitle("View-limited message")
+                .setMessage(data["text"] as? String ?: "")
+                .setPositiveButton("Close", null).show()
+                .setOnDismissListener { window.clearFlags(WindowManager.LayoutParams.FLAG_SECURE) }
+        }.addOnFailureListener {
+            Toast.makeText(this, "This message has reached its view limit.", Toast.LENGTH_SHORT).show()
         }
     }
 
