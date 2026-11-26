@@ -40,7 +40,6 @@ class CameraActivity : Activity() {
     private lateinit var zoomLabel: TextView
     private lateinit var zoom: SeekBar
     private lateinit var shutter: Button
-    private lateinit var mode: Button
     private lateinit var flash: Button
     private lateinit var lens: Button
     private var camera: Camera? = null
@@ -73,7 +72,8 @@ class CameraActivity : Activity() {
         top.addView(textButton("×") { finish() }, LinearLayout.LayoutParams(0, dp(44), 1f))
         top.addView(textButton("PHOTO") { setMode(false) }, LinearLayout.LayoutParams(0, dp(44), 1f))
         top.addView(textButton("VIDEO") { setMode(true) }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        top.addView(textButton("⚡ OFF") { toggleFlash() }, LinearLayout.LayoutParams(0, dp(44), 1f).also { flash = topButtonRef })
+        flashButton = textButton("⚡ OFF") { toggleFlash() }
+        top.addView(flashButton, LinearLayout.LayoutParams(0, dp(44), 1f))
         controls.addView(top)
         zoomLabel = TextView(this).apply { text = "1.0× · Detecting camera"; setTextColor(-1); textSize = 13f; gravity = Gravity.CENTER; setPadding(0, dp(10), 0, 0) }
         controls.addView(zoomLabel)
@@ -100,7 +100,7 @@ class CameraActivity : Activity() {
         setContentView(frame)
     }
 
-    private lateinit var topButtonRef: Button
+    private lateinit var flashButton: Button
     private fun textButton(label: String, action: () -> Unit): Button = Button(this).apply {
         text = label; textSize = 12f; isAllCaps = false; setTextColor(-1)
         setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF24212B.toInt()))
@@ -150,12 +150,12 @@ class CameraActivity : Activity() {
     private fun setMode(video: Boolean) {
         if (recording != null) return
         videoMode = video
-        mode.text = if (video) "VIDEO" else "PHOTO"
         shutter.text = if (video) "●" else "◎"
     }
     private fun toggleFlash() {
         flashEnabled = !flashEnabled
         camera?.cameraControl?.enableTorch(flashEnabled)
+        flashButton.text = if (flashEnabled) "⚡ ON" else "⚡ OFF"
         Toast.makeText(this, if (flashEnabled) "Torch on" else "Torch off", Toast.LENGTH_SHORT).show()
     }
     private fun switchCamera() {
