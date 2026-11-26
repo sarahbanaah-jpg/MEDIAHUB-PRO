@@ -1,0 +1,27 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    match /device_directory/{installationId} {
+      // The directory is intentionally readable by all app users.
+      allow read: if true;
+
+      // Each anonymous Firebase installation can only publish or remove its own entry.
+      allow create, update: if request.auth != null
+        && request.auth.uid == installationId
+        && request.resource.data.keys().hasOnly([
+          'manufacturer', 'model', 'androidVersion', 'sdkInt',
+          'appVersion', 'appVersionCode', 'primaryAbi', 'lastSeen'
+        ])
+        && request.resource.data.manufacturer is string
+        && request.resource.data.model is string
+        && request.resource.data.androidVersion is string
+        && request.resource.data.sdkInt is int
+        && request.resource.data.appVersion is string
+        && request.resource.data.appVersionCode is int
+        && request.resource.data.primaryAbi is string
+        && request.resource.data.lastSeen == request.time;
+
+      allow delete: if request.auth != null && request.auth.uid == installationId;
+    }
+  }
+}
