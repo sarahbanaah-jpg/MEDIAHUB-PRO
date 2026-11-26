@@ -1,26 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <!-- MediaHub Pro midnight / coral premium palette -->
-    <color name="mh_background">#FF07070B</color>
-    <color name="mh_surface">#FF101016</color>
-    <color name="mh_surface_elevated">#FF191922</color>
-    <color name="mh_glass">#CC15151D</color>
-    <color name="mh_glass_border">#66FFFFFF</color>
-    <color name="mh_glass_fill">#B3181822</color>
-    <color name="mh_glass_highlight">#44FFFFFF</color>
+    <!-- Aurora purple music UI (reference mockup) -->
+    <color name="mh_background">#FF0B0520</color>
+    <color name="mh_surface">#FF160B35</color>
+    <color name="mh_surface_elevated">#FF221247</color>
+    <color name="mh_glass">#CC1A0F3A</color>
+    <color name="mh_glass_border">#55A78BFF</color>
+    <color name="mh_glass_fill">#B31E1248</color>
+    <color name="mh_glass_highlight">#44E0C3FF</color>
 
-    <color name="mh_accent">#FFFF4D8D</color>
-    <color name="mh_accent_soft">#FFFF8EAD</color>
-    <color name="mh_accent_deep">#FFC92D68</color>
-    <color name="mh_cyan">#FF82DFFF</color>
+    <color name="mh_accent">#FF6EC8FF</color>
+    <color name="mh_accent_soft">#FFA78BFF</color>
+    <color name="mh_accent_deep">#FF5B3FD4</color>
+    <color name="mh_cyan">#FF5CE1FF</color>
     <color name="mh_violet">#FFB59BFF</color>
-    <color name="mh_green">#FFFF806F</color>
-    <color name="mh_green_soft">#FFFFB1A5</color>
-    <color name="mh_green_muted">#FF633A42</color>
+    <color name="mh_green">#FF7C5CFF</color>
+    <color name="mh_green_soft">#FFC4B5FF</color>
+    <color name="mh_green_muted">#FF3A2A6E</color>
 
     <color name="mh_text_primary">#FFFFFFFF</color>
-    <color name="mh_text_secondary">#FFD5D1DA</color>
-    <color name="mh_muted">#FF9693A1</color>
+    <color name="mh_text_secondary">#FFD7CFFF</color>
+    <color name="mh_muted">#FF9B8FBE</color>
 
     <color name="mh_success">#FF70D6A1</color>
     <color name="mh_warning">#FFFFC56E</color>
