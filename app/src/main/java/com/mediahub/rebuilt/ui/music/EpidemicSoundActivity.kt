@@ -340,7 +340,7 @@ class EpidemicSoundActivity : AppCompatActivity() {
                             val httpCookie = HttpCookie(name, value).apply {
                                 this.domain = domain
                                 path = cookiePath
-                                isSecure = true
+                                secure = true
                             }
                             manager.cookieStore.add(URI("https://$domain$cookiePath"), httpCookie)
                         }
