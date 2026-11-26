@@ -38,12 +38,14 @@ class AdminActivity : Activity() {
         button("Refresh dashboard") { loadDashboard() }
         section("USER MANAGEMENT")
         button("View all registered users") { loadUsers() }
+        button("Find user by email") { findUser() }
         button("View banned accounts") { loadBannedUsers() }
         section("DEVICE MANAGEMENT")
         button("Refresh registered devices") { loadDevices() }
         section("ANNOUNCEMENTS")
         button("Publish announcement") { composeAnnouncement() }
         button("View / delete announcements") { loadAnnouncements() }
+        button("View admin audit log") { loadAuditLog() }
         section("ADMIN RECOMMENDATIONS")
         card("Security", "Use bans for policy violations, record a reason, and review bans regularly. Owner access is restricted to this account.")
         card("Operations", "Check the user and device directories after each release. Publish clear maintenance notices before service interruptions.")
@@ -156,6 +158,35 @@ class AdminActivity : Activity() {
                     }
                 }
             }.addOnFailureListener { status.text = "Could not load devices: ${it.localizedMessage}" }
+    }
+
+    private fun findUser() {
+        val input = EditText(this).apply { hint = "Exact user email"; inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_EMAIL_ADDRESS }
+        AlertDialog.Builder(this).setTitle("Find registered user").setView(input)
+            .setNegativeButton("Cancel", null).setPositiveButton("Search") { _, _ ->
+                val email = input.text.toString().trim()
+                if (email.isBlank()) { status.text = "Enter an email address."; return@setPositiveButton }
+                db.collection("users").whereEqualTo("email", email).limit(1).get()
+                    .addOnSuccessListener { result ->
+                        val doc = result.documents.firstOrNull()
+                        if (doc == null) status.text = "No registered user found for $email."
+                        else manageUser(doc.id, email, doc.getString("displayName").orEmpty().ifBlank { "MediaHub user" })
+                    }.addOnFailureListener { status.text = "Search failed: ${it.localizedMessage}" }
+            }.show()
+    }
+
+    private fun loadAuditLog() {
+        status.text = "Loading admin activity…"
+        db.collection("admin_audit").orderBy("createdAt", com.google.firebase.firestore.Query.Direction.DESCENDING).limit(100).get()
+            .addOnSuccessListener { snapshot ->
+                clearDynamicCards()
+                status.text = "Admin activity records: ${snapshot.size()}"
+                snapshot.documents.forEach { doc ->
+                    val title = "${doc.getString("action").orEmpty()} · ${doc.getString("targetEmail").orEmpty()}"
+                    val detail = "${doc.getString("reason").orEmpty()}\n${doc.getTimestamp("createdAt")?.toDate() ?: "Time unavailable"}"
+                    card(title, detail)
+                }
+            }.addOnFailureListener { status.text = "Could not load audit log: ${it.localizedMessage}" }
     }
 
     private fun composeAnnouncement() {
