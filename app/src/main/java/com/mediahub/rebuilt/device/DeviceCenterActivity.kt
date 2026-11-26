@@ -1,6 +1,7 @@
 package com.mediahub.rebuilt.device
 
 import android.app.Activity
+import android.app.AlertDialog
 import android.app.ActivityManager
 import android.content.Context
 import android.graphics.Typeface
@@ -14,9 +15,16 @@ import android.view.WindowManager
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
 import java.util.Locale
 
 class DeviceCenterActivity : Activity() {
+    private val firestore by lazy { FirebaseFirestore.getInstance() }
+    private val firebaseAuth by lazy { FirebaseAuth.getInstance() }
+    private lateinit var directoryStatus: TextView
+    private lateinit var directoryList: LinearLayout
     private val white = 0xFFFFFFFF.toInt()
     private val muted = 0xFFB8ADC9.toInt()
     private val accent = 0xFFFF2D95.toInt()
@@ -111,11 +119,33 @@ class DeviceCenterActivity : Activity() {
             "Microphone-dependent features" to if (pm.hasSystemFeature(android.content.pm.PackageManager.FEATURE_MICROPHONE)) "Hardware available" else "Limited · no microphone detected"
         ))
 
-        card(root, "GLOBAL DEVICE DIRECTORY", listOf(
-            "Cloud registration" to "Not connected",
-            "Shared installation count" to "Unavailable until a shared registry is configured",
-            "Privacy" to "Device details stay on this phone. No device ID or account identity is uploaded."
-        ))
+        section(root, "GLOBAL DEVICE DIRECTORY")
+        root.addView(TextView(this).apply {
+            text = "See MediaHub Pro installations registered by other users. Sharing is optional. Only your manufacturer, model, Android version, app version and primary CPU ABI are published. No serial number, IMEI, location, RAM, storage or account name is shared."
+            setTextColor(muted)
+            textSize = 12f
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(dp(2), 0, dp(2), dp(12))
+        })
+        directoryStatus = TextView(this).apply {
+            text = "Loading the shared device directory…"
+            setTextColor(white)
+            textSize = 13f
+            setPadding(dp(2), dp(8), dp(2), dp(10))
+        }
+        root.addView(directoryStatus)
+        root.addView(directoryButton("SHARE THIS DEVICE") {
+            AlertDialog.Builder(this)
+                .setTitle("Share this device?")
+                .setMessage("Your manufacturer, model, Android version, MediaHub Pro version and primary CPU ABI will be visible to other MediaHub Pro users in the global directory. No unique hardware ID or location is uploaded.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Share device") { _, _ -> registerDevice() }
+                .show()
+        })
+        root.addView(directoryButton("REMOVE MY DEVICE FROM DIRECTORY") { removeDevice() })
+        directoryList = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        root.addView(directoryList)
+        loadDirectory()
         root.addView(TextView(this).apply {
             text = "Compatibility can vary by Android version, manufacturer firmware, permissions and hardware. Optional hardware is reported as available or unavailable; no unique device ID, serial number, IMEI or account identity is collected."
             setTextColor(muted)
@@ -139,6 +169,129 @@ class DeviceCenterActivity : Activity() {
             layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
         })
         setContentView(scroll)
+    }
+
+    private fun section(root: LinearLayout, title: String) {
+        root.addView(TextView(this).apply {
+            text = title
+            setTextColor(accent)
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            letterSpacing = 0.08f
+            setPadding(dp(2), dp(18), dp(2), dp(8))
+        })
+    }
+
+    private fun directoryButton(label: String, click: () -> Unit) = TextView(this).apply {
+        text = label
+        gravity = Gravity.CENTER
+        setTextColor(white)
+        textSize = 12f
+        setTypeface(null, Typeface.BOLD)
+        setPadding(dp(14), dp(14), dp(14), dp(14))
+        background = GradientDrawable().apply {
+            setColor(0xFF24132E.toInt())
+            cornerRadius = dp(14).toFloat()
+            setStroke(dp(1), 0x55FF2D95)
+        }
+        setOnClickListener { click() }
+        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(6); bottomMargin = dp(6) }
+    }
+
+    private fun registerDevice() {
+        directoryStatus.text = "Connecting securely to Firebase…"
+        val publish: (String) -> Unit = { uid ->
+            val device = hashMapOf(
+                "manufacturer" to Build.MANUFACTURER.take(80),
+                "model" to Build.MODEL.take(100),
+                "androidVersion" to Build.VERSION.RELEASE.take(30),
+                "sdkInt" to Build.VERSION.SDK_INT,
+                "appVersion" to com.mediahub.rebuilt.BuildConfig.VERSION_NAME,
+                "appVersionCode" to com.mediahub.rebuilt.BuildConfig.VERSION_CODE,
+                "primaryAbi" to Build.SUPPORTED_ABIS.firstOrNull().orEmpty().take(40),
+                "lastSeen" to FieldValue.serverTimestamp()
+            )
+            firestore.collection("device_directory").document(uid).set(device)
+                .addOnSuccessListener {
+                    directoryStatus.text = "This installation is now listed in the global directory."
+                    loadDirectory()
+                }
+                .addOnFailureListener { error ->
+                    directoryStatus.text = "Could not publish device: ${error.localizedMessage ?: "Firebase error"}"
+                }
+        }
+        val current = firebaseAuth.currentUser
+        if (current != null) publish(current.uid)
+        else firebaseAuth.signInAnonymously()
+            .addOnSuccessListener { result -> result.user?.uid?.let(publish) }
+            .addOnFailureListener { error ->
+                directoryStatus.text = "Firebase sign-in failed. Enable Anonymous authentication in Firebase: ${error.localizedMessage ?: "unknown error"}"
+            }
+    }
+
+    private fun removeDevice() {
+        val remove: (String) -> Unit = { uid ->
+            firestore.collection("device_directory").document(uid).delete()
+                .addOnSuccessListener {
+                    directoryStatus.text = "Your installation has been removed from the directory."
+                    loadDirectory()
+                }
+                .addOnFailureListener { error ->
+                    directoryStatus.text = "Could not remove this installation: ${error.localizedMessage ?: "Firebase error"}"
+                }
+        }
+        val current = firebaseAuth.currentUser
+        if (current != null) remove(current.uid)
+        else firebaseAuth.signInAnonymously()
+            .addOnSuccessListener { result -> result.user?.uid?.let(remove) }
+            .addOnFailureListener { error ->
+                directoryStatus.text = "Firebase sign-in failed: ${error.localizedMessage ?: "unknown error"}"
+            }
+    }
+
+    private fun loadDirectory() {
+        firestore.collection("device_directory")
+            .orderBy("lastSeen", com.google.firebase.firestore.Query.Direction.DESCENDING)
+            .limit(100)
+            .get()
+            .addOnSuccessListener { snapshot ->
+                directoryList.removeAllViews()
+                directoryStatus.text = "Registered installations: ${snapshot.size()} · showing up to 100 recent entries"
+                if (snapshot.isEmpty) {
+                    directoryStatus.text = "No devices have registered yet. Be the first to share yours."
+                }
+                snapshot.documents.forEachIndexed { index, doc ->
+                    val manufacturer = doc.getString("manufacturer").orEmpty()
+                    val model = doc.getString("model").orEmpty()
+                    val android = doc.getString("androidVersion").orEmpty()
+                    val sdk = doc.getLong("sdkInt")?.toString().orEmpty()
+                    val version = doc.getString("appVersion").orEmpty()
+                    val abi = doc.getString("primaryAbi").orEmpty()
+                    val details = listOf(
+                        "${manufacturer} ${model}".trim(),
+                        "Android ${android} (API ${sdk})",
+                        "MediaHub Pro ${version}",
+                        if (abi.isNotBlank()) "CPU: ${abi}" else ""
+                    ).filter { it.isNotBlank() }.joinToString("\n")
+                    val item = TextView(this).apply {
+                        text = "${index + 1}. ${details}"
+                        setTextColor(white)
+                        textSize = 13f
+                        setLineSpacing(dp(3).toFloat(), 1f)
+                        setPadding(dp(14), dp(13), dp(14), dp(13))
+                        background = GradientDrawable().apply {
+                            setColor(0xFF160E28.toInt())
+                            cornerRadius = dp(14).toFloat()
+                            setStroke(dp(1), 0x28FFFFFF)
+                        }
+                        layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(8) }
+                    }
+                    directoryList.addView(item)
+                }
+            }
+            .addOnFailureListener { error ->
+                directoryStatus.text = "Global directory unavailable: ${error.localizedMessage ?: "Check Firebase setup and Firestore rules"}"
+            }
     }
 
     private fun card(root: LinearLayout, title: String, rows: List<Pair<String, String>>) {
