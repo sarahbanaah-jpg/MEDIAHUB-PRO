@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.view.Gravity
 import android.view.View
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.widget.Button
@@ -57,6 +58,8 @@ class CameraActivity : AppCompatActivity() {
     private var maxZoom = 1f
     private var minZoom = 1f
     private var currentZoom = 1f
+    private lateinit var scaleDetector: ScaleGestureDetector
+    private var didPinchGesture = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -66,40 +69,90 @@ class CameraActivity : AppCompatActivity() {
     }
 
     private fun buildUi() {
+        window.statusBarColor = android.graphics.Color.TRANSPARENT
+        window.navigationBarColor = android.graphics.Color.TRANSPARENT
+        @Suppress("DEPRECATION")
+        window.decorView.systemUiVisibility = (View.SYSTEM_UI_FLAG_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_HIDE_NAVIGATION
+            or View.SYSTEM_UI_FLAG_IMMERSIVE_STICKY
+            or View.SYSTEM_UI_FLAG_LAYOUT_STABLE
+            or View.SYSTEM_UI_FLAG_LAYOUT_FULLSCREEN
+            or View.SYSTEM_UI_FLAG_LAYOUT_HIDE_NAVIGATION)
+
         val frame = FrameLayout(this).apply { setBackgroundColor(0xFF000000.toInt()) }
-        previewView = PreviewView(this).apply { implementationMode = PreviewView.ImplementationMode.COMPATIBLE; scaleType = PreviewView.ScaleType.FILL_CENTER }
+        previewView = PreviewView(this).apply {
+            implementationMode = PreviewView.ImplementationMode.COMPATIBLE
+            scaleType = PreviewView.ScaleType.FILL_CENTER
+        }
         frame.addView(previewView, FrameLayout.LayoutParams(-1, -1))
-        gridOverlay = CompositionGridView()
-        gridOverlay.visibility = View.GONE
+
+        gridOverlay = CompositionGridView().apply { visibility = View.GONE }
         frame.addView(gridOverlay, FrameLayout.LayoutParams(-1, -1))
+
+        // Native-feeling camera gestures: pinch to zoom and tap to focus.
+        scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                didPinchGesture = true
+                setZoomRatio(currentZoom * detector.scaleFactor)
+                return true
+            }
+        })
         previewView.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
+            if (event.action == MotionEvent.ACTION_DOWN) didPinchGesture = false
+            scaleDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP && event.pointerCount == 1 && !didPinchGesture) {
                 val point = previewView.meteringPointFactory.createPoint(event.x, event.y)
-                val action = FocusMeteringAction.Builder(point).setAutoCancelDuration(3, TimeUnit.SECONDS).build()
+                val action = FocusMeteringAction.Builder(point)
+                    .setAutoCancelDuration(3, TimeUnit.SECONDS).build()
                 camera?.cameraControl?.startFocusAndMetering(action)
             }
             true
         }
-        val controls = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL; gravity = Gravity.CENTER_HORIZONTAL
-            setPadding(dp(16), dp(22), dp(16), dp(26)); setBackgroundColor(0xCC08080D.toInt())
+
+        val top = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+            setPadding(dp(16), dp(18), dp(16), dp(8))
         }
-        val top = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL }
-        top.addView(textButton("×") { finish() }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        top.addView(textButton("PHOTO") { setMode(false) }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        top.addView(textButton("VIDEO") { setMode(true) }, LinearLayout.LayoutParams(0, dp(44), 1f))
-        flashButton = textButton("⚡ OFF") { toggleFlash() }
-        top.addView(flashButton, LinearLayout.LayoutParams(0, dp(44), 1f))
-        controls.addView(top)
-        zoomLabel = TextView(this).apply { text = "1.0× · Detecting camera"; setTextColor(-1); textSize = 13f; gravity = Gravity.CENTER; setPadding(0, dp(10), 0, 0) }
-        controls.addView(zoomLabel)
-        zoom = SeekBar(this).apply { max = 100; progress = 0; setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
-            override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) { if (fromUser) setZoom(progress) }
-            override fun onStartTrackingTouch(bar: SeekBar?) {}
-            override fun onStopTrackingTouch(bar: SeekBar?) {}
-        }) }
-        controls.addView(zoom, LinearLayout.LayoutParams(-1, dp(38)))
-        controls.addView(TextView(this).apply { text = "EXPOSURE"; setTextColor(0xFFD8D3E2.toInt()); textSize = 10f; gravity = Gravity.CENTER })
+        flashButton = textButton("⚡") { toggleFlash() }
+        top.addView(flashButton, LinearLayout.LayoutParams(dp(48), dp(48)))
+        top.addView(textButton("⌃") {
+            advancedPanel.visibility = if (advancedPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(12) })
+        top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        top.addView(textButton("⋯") {
+            advancedPanel.visibility = if (advancedPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        frame.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
+
+        advancedPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(18), dp(12), dp(18), dp(14))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xD9101015.toInt())
+                cornerRadius = dp(22).toFloat()
+            }
+            visibility = View.GONE
+        }
+        zoomLabel = TextView(this).apply {
+            text = "ZOOM"
+            setTextColor(-1); textSize = 11f; gravity = Gravity.CENTER
+        }
+        advancedPanel.addView(zoomLabel)
+        zoom = SeekBar(this).apply {
+            max = 100; progress = 0
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(bar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    if (fromUser) setZoom(progress)
+                }
+                override fun onStartTrackingTouch(bar: SeekBar?) {}
+                override fun onStopTrackingTouch(bar: SeekBar?) {}
+            })
+        }
+        advancedPanel.addView(zoom, LinearLayout.LayoutParams(-1, dp(34)))
+        advancedPanel.addView(TextView(this).apply {
+            text = "EXPOSURE"; setTextColor(0xFFD8D3E2.toInt()); textSize = 10f; gravity = Gravity.CENTER
+        })
         exposure = SeekBar(this).apply {
             max = 100; progress = 50
             setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -113,33 +166,87 @@ class CameraActivity : AppCompatActivity() {
                 override fun onStopTrackingTouch(bar: SeekBar?) {}
             })
         }
-        controls.addView(exposure, LinearLayout.LayoutParams(-1, dp(34)))
-        val presets = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER }
-        listOf(0.5f, 1f, 2f, 3f, 5f, 10f).forEach { value ->
-            presets.addView(textButton(if (value == 0.5f) ".5×" else "${value.toInt()}×") { setZoomRatio(value) },
-                LinearLayout.LayoutParams(0, dp(42), 1f))
+        advancedPanel.addView(exposure, LinearLayout.LayoutParams(-1, dp(34)))
+        advancedPanel.addView(textButton(if (gridVisible) "GRID ON" else "GRID OFF") {
+            gridVisible = !gridVisible
+            gridOverlay.visibility = if (gridVisible) View.VISIBLE else View.GONE
+        }, LinearLayout.LayoutParams(-1, dp(42)))
+        val advancedParams = FrameLayout.LayoutParams(-1, -2, Gravity.TOP)
+        advancedParams.setMargins(dp(18), dp(76), dp(18), 0)
+        frame.addView(advancedPanel, advancedParams)
+
+        val bottomPanel = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER_HORIZONTAL
+            setPadding(dp(14), dp(16), dp(14), dp(22))
+            background = android.graphics.drawable.GradientDrawable().apply {
+                setColor(0xE609090D.toInt())
+                cornerRadii = floatArrayOf(dp(24).toFloat(), dp(24).toFloat(), dp(24).toFloat(), dp(24).toFloat(), 0f, 0f, 0f, 0f)
+            }
         }
-        controls.addView(presets)
-        val bottom = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(0, dp(14), 0, 0) }
-        bottom.addView(textButton("↻") { switchCamera() }, LinearLayout.LayoutParams(0, dp(58), 1f))
-        shutter = Button(this).apply { text = "●"; textSize = 27f; setTextColor(-1); setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFFFF2D55.toInt())); setOnClickListener { capture() } }
-        bottom.addView(shutter, LinearLayout.LayoutParams(dp(82), dp(58)))
-        bottom.addView(textButton("GRID") { gridVisible = !gridVisible; gridOverlay.visibility = if (gridVisible) View.VISIBLE else View.GONE }, LinearLayout.LayoutParams(0, dp(58), 1f))
-        controls.addView(bottom)
-        val params = FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM)
-        frame.addView(controls, params)
+
+        zoomPresets = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+        }
+        bottomPanel.addView(zoomPresets, LinearLayout.LayoutParams(-1, dp(44)))
+
+        val modes = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(8), 0, dp(12))
+        }
+        modeVideoButton = textButton("VIDEO") { setMode(true) }
+        modePhotoButton = textButton("PHOTO") { setMode(false) }
+        modes.addView(modeVideoButton, LinearLayout.LayoutParams(dp(100), dp(38)))
+        modes.addView(modePhotoButton, LinearLayout.LayoutParams(dp(100), dp(38)).apply { leftMargin = dp(10) })
+        bottomPanel.addView(modes)
+
+        val actions = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER_VERTICAL
+        }
+        actions.addView(View(this), LinearLayout.LayoutParams(dp(72), dp(52)))
+        shutter = Button(this).apply {
+            text = "●"; textSize = 28f; isAllCaps = false
+            setTextColor(0xFF111111.toInt())
+            background = android.graphics.drawable.GradientDrawable().apply {
+                shape = android.graphics.drawable.GradientDrawable.OVAL
+                setColor(0xFFFFFFFF.toInt())
+                setStroke(dp(5), 0xFFBEBEC4.toInt())
+            }
+            setOnClickListener { capture() }
+        }
+        actions.addView(shutter, LinearLayout.LayoutParams(dp(76), dp(76)))
+        actions.addView(textButton("↻") { switchCamera() }, LinearLayout.LayoutParams(dp(52), dp(52)).apply {
+            leftMargin = dp(20)
+        })
+        bottomPanel.addView(actions)
+        frame.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
+
         setContentView(frame)
+        setMode(false)
     }
 
     private lateinit var flashButton: Button
     private lateinit var exposure: SeekBar
+    private lateinit var advancedPanel: LinearLayout
+    private lateinit var zoomPresets: LinearLayout
+    private lateinit var modePhotoButton: Button
+    private lateinit var modeVideoButton: Button
     private lateinit var gridOverlay: View
     private var exposureMin = 0
     private var exposureMax = 0
     private var gridVisible = false
     private fun textButton(label: String, action: () -> Unit): Button = Button(this).apply {
-        text = label; textSize = 12f; isAllCaps = false; setTextColor(-1)
-        setBackgroundTintList(android.content.res.ColorStateList.valueOf(0xFF24212B.toInt()))
+        text = label; textSize = 13f; isAllCaps = false; setTextColor(-1)
+        background = android.graphics.drawable.GradientDrawable().apply {
+            setColor(0xAA202027.toInt())
+            cornerRadius = dp(24).toFloat()
+            setStroke(dp(1), 0x44FFFFFF)
+        }
+        minWidth = 0; minimumWidth = 0
+        setPadding(dp(8), 0, dp(8), 0)
         setOnClickListener { action() }
     }
     private fun hasPermissions() = ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA) == PackageManager.PERMISSION_GRANTED
