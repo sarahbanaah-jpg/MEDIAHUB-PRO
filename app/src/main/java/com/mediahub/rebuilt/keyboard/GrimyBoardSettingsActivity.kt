@@ -32,7 +32,7 @@ class GrimyBoardSettingsActivity : Activity() {
     private fun draw() {
         box.removeAllViews()
         text("GRIMY BOARD", 26f, 0xFFFF3789.toInt(), true)
-        text("Live preview · themes · typing controls", 14f, Color.LTGRAY)
+        text("Gboard-style key bubble · themes · typing", 14f, Color.LTGRAY)
 
         text("THEMES", 12f, 0xFFFF3789.toInt(), true)
         listOf(
@@ -48,8 +48,8 @@ class GrimyBoardSettingsActivity : Activity() {
         }
 
         text("TYPING", 12f, 0xFFFF3789.toInt(), true)
-        choice("Show live typing preview", prefs.getBoolean("preview", true)) {
-            flip("preview", true); draw()
+        choice("Key popup bubble (like Gboard)", prefs.getBoolean("key_popup", true)) {
+            flip("key_popup", true); draw()
         }
         choice("Number row", prefs.getBoolean("numbers", true)) {
             flip("numbers", true); draw()
@@ -74,7 +74,7 @@ class GrimyBoardSettingsActivity : Activity() {
 
         text("HOW TO USE", 12f, 0xFFFF3789.toInt(), true)
         text(
-            "• Live strip shows text around the cursor\n" +
+            "• Touch a letter — a bubble shows that letter\n" +
                 "• Double-tap ⇧ for caps lock\n" +
                 "• Hold ⌫ to delete quickly\n" +
                 "• Long-press letters for accents\n" +
@@ -85,7 +85,7 @@ class GrimyBoardSettingsActivity : Activity() {
 
         text("PRIVACY", 12f, 0xFFFF3789.toInt(), true)
         text(
-            "Typed text is not sent to a server. Clipboard entries are temporary in-memory items and are cleared when the keyboard process closes.",
+            "Typed text is not sent to a server. Clipboard entries stay in memory only.",
             13f,
             Color.LTGRAY
         )
