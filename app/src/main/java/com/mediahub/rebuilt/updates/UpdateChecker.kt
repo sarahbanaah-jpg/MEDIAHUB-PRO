@@ -29,7 +29,7 @@ object UpdateChecker {
     const val EXTRA_UPDATE_SIZE = "mediahub_update_size"
     const val EXTRA_UPDATE_MANDATORY = "mediahub_update_mandatory"
 
-    fun check(context: Context, notify: Boolean = true, callback: ((UpdateInfo?) -> Unit)? = null, onError: ((String) -> Unit)? = null) {
+    fun check(context: Context, notify: Boolean = true, onError: ((String) -> Unit)? = null, callback: ((UpdateInfo?) -> Unit)? = null) {
         val app = context.applicationContext
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
             try {
