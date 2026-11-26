@@ -12,7 +12,7 @@
         android:layout_marginBottom="100dp" />
 
     <!-- Clean mini player -->
-    <LinearLayout
+    <com.mediahub.rebuilt.ui.glass.LiquidGlassLayout
         android:id="@+id/miniPlayer"
         android:layout_width="match_parent"
         android:layout_height="52dp"
@@ -20,7 +20,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="88dp"
-        android:background="@drawable/bg_mini_player_clean"
+        android:background="@android:color/transparent"
         android:elevation="12dp"
         android:gravity="center_vertical"
         android:orientation="horizontal"
@@ -49,10 +49,10 @@
             android:text="▶"
             android:textColor="#FFFF2D95"
             android:textSize="15sp" />
-    </LinearLayout>
+    </com.mediahub.rebuilt.ui.glass.LiquidGlassLayout>
 
-    <!-- Clean premium bottom navigation -->
-    <LinearLayout
+    <!-- Live GPU Liquid Glass bottom navigation -->
+    <com.mediahub.rebuilt.ui.glass.LiquidGlassLayout
         android:id="@+id/bottomNav"
         android:layout_width="match_parent"
         android:layout_height="60dp"
@@ -60,7 +60,7 @@
         android:layout_marginStart="16dp"
         android:layout_marginEnd="16dp"
         android:layout_marginBottom="16dp"
-        android:background="@drawable/bg_bottom_nav_clean"
+        android:background="@android:color/transparent"
         android:elevation="16dp"
         android:gravity="center"
         android:orientation="horizontal"
@@ -208,5 +208,5 @@
                 android:textColor="@color/mh_muted"
                 android:textSize="11sp" />
         </LinearLayout>
-    </LinearLayout>
+    </com.mediahub.rebuilt.ui.glass.LiquidGlassLayout>
 </FrameLayout>
