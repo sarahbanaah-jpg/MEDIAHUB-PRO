@@ -29,12 +29,16 @@ object UpdateChecker {
     const val EXTRA_UPDATE_SIZE = "mediahub_update_size"
     const val EXTRA_UPDATE_MANDATORY = "mediahub_update_mandatory"
 
-    fun check(context: Context, notify: Boolean = true, callback: ((UpdateInfo?) -> Unit)? = null) {
+    fun check(context: Context, notify: Boolean = true, callback: ((UpdateInfo?) -> Unit)? = null, onError: ((String) -> Unit)? = null) {
         val app = context.applicationContext
         CoroutineScope(SupervisorJob() + Dispatchers.Main.immediate).launch {
-            val info = withContext(Dispatchers.IO) { fetchLatest() }
-            if (info != null && notify) postNotification(app, info)
-            callback?.invoke(info)
+            try {
+                val info = withContext(Dispatchers.IO) { fetchLatest() }
+                if (info != null && notify) postNotification(app, info)
+                callback?.invoke(info)
+            } catch (error: Exception) {
+                onError?.invoke(error.message ?: "Could not check for updates. Check your internet connection and try again.")
+            }
         }
     }
 
@@ -121,20 +125,22 @@ object UpdateChecker {
 
     private fun fetchLatest(): UpdateInfo? {
         return try {
-            val connection = (URL("https://api.github.com/repos/sarahbanaah-jpg/MEDIAHUB-PRO/releases/latest")
-                .openConnection() as HttpURLConnection).apply {
+            val endpoint = "https://api.github.com/repos/sarahbanaah-jpg/MEDIAHUB-PRO/releases/latest?cache_bust=${System.currentTimeMillis()}"
+            val connection = (URL(endpoint).openConnection() as HttpURLConnection).apply {
                 connectTimeout = 12_000
                 readTimeout = 12_000
                 requestMethod = "GET"
                 setRequestProperty("Accept", "application/vnd.github+json")
+                setRequestProperty("Cache-Control", "no-cache, no-store")
+                setRequestProperty("Pragma", "no-cache")
                 setRequestProperty("User-Agent", "MediaHub-Pro-Android/${BuildConfig.VERSION_NAME}")
             }
             try {
-                if (connection.responseCode !in 200..299) return null
+                if (connection.responseCode !in 200..299) throw java.io.IOException("GitHub update check failed (HTTP ${connection.responseCode}).")
                 val json = JSONObject(connection.inputStream.bufferedReader().use { it.readText() })
                 val tag = json.optString("tag_name").removePrefix("v")
                 val html = json.optString("html_url")
-                if (tag.isBlank() || !html.startsWith("https://github.com/")) return null
+                if (tag.isBlank() || !html.startsWith("https://github.com/")) throw java.io.IOException("GitHub returned an invalid release record.")
                 if (!isNewer(tag, BuildConfig.VERSION_NAME)) return null
 
                 var apkUrl: String? = null
@@ -169,8 +175,8 @@ object UpdateChecker {
             } finally {
                 connection.disconnect()
             }
-        } catch (_: Exception) {
-            null
+        } catch (error: Exception) {
+            throw error
         }
     }
 
