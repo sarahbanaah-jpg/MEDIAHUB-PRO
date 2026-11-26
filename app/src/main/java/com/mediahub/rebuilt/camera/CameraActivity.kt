@@ -59,6 +59,7 @@ class CameraActivity : AppCompatActivity() {
     private var minZoom = 1f
     private var currentZoom = 1f
     private lateinit var scaleDetector: ScaleGestureDetector
+    private var didPinchGesture = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -91,13 +92,15 @@ class CameraActivity : AppCompatActivity() {
         // Native-feeling camera gestures: pinch to zoom and tap to focus.
         scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
             override fun onScale(detector: ScaleGestureDetector): Boolean {
+                didPinchGesture = true
                 setZoomRatio(currentZoom * detector.scaleFactor)
                 return true
             }
         })
         previewView.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_DOWN) didPinchGesture = false
             scaleDetector.onTouchEvent(event)
-            if (event.action == MotionEvent.ACTION_UP && event.pointerCount == 1 && !scaleDetector.isInProgress) {
+            if (event.action == MotionEvent.ACTION_UP && event.pointerCount == 1 && !didPinchGesture) {
                 val point = previewView.meteringPointFactory.createPoint(event.x, event.y)
                 val action = FocusMeteringAction.Builder(point)
                     .setAutoCancelDuration(3, TimeUnit.SECONDS).build()
@@ -117,7 +120,9 @@ class CameraActivity : AppCompatActivity() {
             advancedPanel.visibility = if (advancedPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
         }, LinearLayout.LayoutParams(dp(48), dp(48)).apply { leftMargin = dp(12) })
         top.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
-        top.addView(textButton("↻") { switchCamera() }, LinearLayout.LayoutParams(dp(48), dp(48)))
+        top.addView(textButton("⋯") {
+            advancedPanel.visibility = if (advancedPanel.visibility == View.VISIBLE) View.GONE else View.VISIBLE
+        }, LinearLayout.LayoutParams(dp(48), dp(48)))
         frame.addView(top, FrameLayout.LayoutParams(-1, -2, Gravity.TOP))
 
         advancedPanel = LinearLayout(this).apply {
@@ -201,7 +206,7 @@ class CameraActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER_VERTICAL
         }
-        actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        actions.addView(View(this), LinearLayout.LayoutParams(dp(72), dp(52)))
         shutter = Button(this).apply {
             text = "●"; textSize = 28f; isAllCaps = false
             setTextColor(0xFF111111.toInt())
@@ -216,7 +221,7 @@ class CameraActivity : AppCompatActivity() {
         actions.addView(textButton("↻") { switchCamera() }, LinearLayout.LayoutParams(dp(52), dp(52)).apply {
             leftMargin = dp(20)
         })
-        actions.addView(View(this), LinearLayout.LayoutParams(0, 1, 1f))
+        actions.addView(View(this), LinearLayout.LayoutParams(dp(72), dp(52)))
         bottomPanel.addView(actions)
         frame.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
