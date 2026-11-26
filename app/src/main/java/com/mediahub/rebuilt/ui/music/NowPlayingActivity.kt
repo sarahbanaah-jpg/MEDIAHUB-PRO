@@ -32,6 +32,7 @@ import com.mediahub.rebuilt.media.DefaultAlbumArt
 import com.mediahub.rebuilt.media.Favourites
 import com.mediahub.rebuilt.media.MediaRepository
 import com.mediahub.rebuilt.service.PlaybackService
+import com.mediahub.rebuilt.service.AudioEqualizerController
 import com.mediahub.rebuilt.ui.MainActivity
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
@@ -403,12 +404,69 @@ class NowPlayingActivity : AppCompatActivity() {
     private fun showMore() {
         AlertDialog.Builder(this)
             .setTitle("Now Playing")
-            .setItems(arrayOf("Open library", "Home")) { _, which ->
+            .setItems(arrayOf("In-app equalizer", "Open library", "Home")) { _, which ->
                 when (which) {
-                    0 -> finish()
-                    1 -> startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
+                    0 -> showEqualizer()
+                    1 -> finish()
+                    2 -> startActivity(Intent(this, MainActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_CLEAR_TOP))
                 }
             }.show()
+    }
+
+    private fun showEqualizer() {
+        val eq = AudioEqualizerController.current()
+        if (eq == null) {
+            Toast.makeText(this, "Equalizer is not available for this audio output.", Toast.LENGTH_LONG).show()
+            return
+        }
+        try {
+            val range = eq.bandLevelRange
+            val panel = LinearLayout(this).apply {
+                orientation = LinearLayout.VERTICAL
+                setPadding(dp(20), dp(12), dp(20), dp(8))
+            }
+            for (i in 0 until eq.numberOfBands.toInt()) {
+                val band = i.toShort()
+                val frequency = eq.getCenterFreq(band) / 1000f
+                panel.addView(TextView(this).apply {
+                    text = "${frequency.toInt()} Hz"
+                    setTextColor(0xFFFFFFFF.toInt()); textSize = 12f
+                })
+                panel.addView(SeekBar(this).apply {
+                    max = (range[1] - range[0]).toInt()
+                    progress = (eq.getBandLevel(band) - range[0]).toInt().coerceIn(0, max)
+                    setOnSeekBarChangeListener(object : android.widget.SeekBar.OnSeekBarChangeListener {
+                        override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                            if (fromUser) try { eq.setBandLevel(band, (range[0] + progress).toShort()) } catch (_: Exception) { }
+                        }
+                        override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                        override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+                    })
+                })
+            }
+            AlertDialog.Builder(this).setTitle("MEDIAHUB-PRO Equalizer")
+                .setView(ScrollView(this).apply { addView(panel) })
+                .setNeutralButton("Presets") { _, _ -> showEqualizerPresets() }
+                .setPositiveButton("Done", null).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "This device does not expose equalizer controls.", Toast.LENGTH_LONG).show()
+        }
+    }
+
+    private fun showEqualizerPresets() {
+        val eq = AudioEqualizerController.current() ?: return
+        try {
+            val names = (0 until eq.numberOfPresets.toInt()).map { eq.getPresetName(it.toShort()) }.toTypedArray()
+            if (names.isEmpty()) return
+            AlertDialog.Builder(this).setTitle("Equalizer presets")
+                .setItems(names) { _, which ->
+                    try { eq.usePreset(which.toShort()) } catch (_: Exception) {
+                        Toast.makeText(this, "Preset unavailable on this device.", Toast.LENGTH_SHORT).show()
+                    }
+                }.show()
+        } catch (_: Exception) {
+            Toast.makeText(this, "Presets unavailable on this device.", Toast.LENGTH_SHORT).show()
+        }
     }
 
     private fun formatMs(ms: Long): String {

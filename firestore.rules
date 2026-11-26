@@ -15,6 +15,96 @@ service cloud.firestore {
       allow delete: if isOwnerAdmin();
     }
 
+    // Public directory exposes only display names, never private email or account fields.
+    match /public_profiles/{userId} {
+      allow read: if signedIn();
+      allow create, update: if signedIn() && request.auth.uid == userId
+        && request.resource.data.keys().hasOnly(['uid', 'displayName', 'lastSeen'])
+        && request.resource.data.uid == userId
+        && request.resource.data.displayName is string
+        && request.resource.data.displayName.size() > 0
+        && request.resource.data.displayName.size() <= 80;
+      allow delete: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /users/{userId}/devices/{tokenId} {
+      allow read, write: if signedIn() && request.auth.uid == userId;
+    }
+
+    match /chats/{chatId} {
+      function isMember() {
+        return signedIn() && request.auth.uid in resource.data.members;
+      }
+      allow read: if isMember();
+      allow create: if signedIn()
+        && request.resource.data.members is list
+        && request.resource.data.members.size() == 2
+        && request.auth.uid in request.resource.data.members
+        && request.resource.data.members[0] != request.resource.data.members[1];
+      allow update: if isMember()
+        && request.resource.data.members == resource.data.members
+        && request.resource.data.diff(resource.data).affectedKeys()
+          .hasOnly(['updatedAt', 'readAt', 'disappearSeconds'])
+        && (!('disappearSeconds' in request.resource.data)
+          || request.resource.data.disappearSeconds in [0, 60, 3600, 86400, 604800]);
+      allow delete: if false;
+
+      match /messages/{messageId} {
+        function chatMember() {
+          return signedIn()
+            && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        }
+        allow read: if chatMember();
+        allow create: if chatMember()
+          && request.resource.data.senderId == request.auth.uid
+          && request.resource.data.receiverId in get(/databases/$(database)/documents/chats/$(chatId)).data.members
+          && request.resource.data.receiverId != request.auth.uid
+          && request.resource.data.type in ['text', 'image', 'voice']
+          && request.resource.data.text is string
+          && request.resource.data.text.size() <= 4000
+          && request.resource.data.viewLimit in [0, 1, 2]
+          && request.resource.data.viewCount == 0
+          && request.resource.data.deletedForEveryone == false
+          && request.resource.data.deletedFor is list
+          && request.resource.data.createdAt == request.time;
+        allow update: if chatMember() && (
+          (resource.data.senderId == request.auth.uid
+            && request.resource.data.deletedForEveryone == true
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['deletedForEveryone', 'text', 'storagePath', 'deletedAt']))
+          ||
+          (request.resource.data.deletedFor is list
+            && request.auth.uid in request.resource.data.deletedFor
+            && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['deletedFor']))
+          ||
+          (resource.data.receiverId == request.auth.uid
+            && request.resource.data.viewCount == resource.data.viewCount + 1
+            && request.resource.data.viewedBy.hasAll([request.auth.uid])
+            && request.resource.data.diff(resource.data).affectedKeys()
+              .hasOnly(['viewCount', 'viewedBy']))
+        );
+        allow delete: if false;
+      }
+
+      match /calls/{callId} {
+        allow read: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members;
+        allow create: if signedIn()
+          && request.resource.data.callerId == request.auth.uid
+          && request.resource.data.calleeId in get(/databases/$(database)/documents/chats/$(chatId)).data.members
+          && request.resource.data.calleeId != request.auth.uid
+          && request.resource.data.status == 'ringing';
+        allow update: if signedIn()
+          && request.auth.uid in get(/databases/$(database)/documents/chats/$(chatId)).data.members
+          && request.resource.data.diff(resource.data).affectedKeys().hasOnly(['status', 'answeredAt', 'endedAt']);
+        allow delete: if false;
+      }
+    }
+
+    match /ai_usage/{userId} {
+      allow read, write: if false;
+    }
+
     match /user_bans/{userId} {
       allow read: if signedIn() && (request.auth.uid == userId || isOwnerAdmin());
       allow create, update, delete: if isOwnerAdmin();
