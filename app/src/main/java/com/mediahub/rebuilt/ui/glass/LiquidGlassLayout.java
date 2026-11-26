@@ -139,6 +139,11 @@ public final class LiquidGlassLayout extends LinearLayout {
         }
     }
 
+    @Override protected void dispatchDraw(Canvas canvas) {
+        if (captureInProgress) return;
+        super.dispatchDraw(canvas);
+    }
+
     @Override protected void onDraw(Canvas canvas) {
         if (captureInProgress) return;
         if (!glassEnabled()) {
