@@ -185,7 +185,11 @@ class MusicApiActivity : AppCompatActivity() {
             orientation = LinearLayout.HORIZONTAL
             setPadding(0, dp(10), 0, 0)
         }
-        actions.addView(action("LISTEN", true) { openOfficial(track.url) })
+        if (track.source.equals("youtube", ignoreCase = true)) {
+            actions.addView(action("PLAY IN BRAVE", true) { openInBrave(track.url) })
+        } else {
+            actions.addView(action("LISTEN", true) { openOfficial(track.url) })
+        }
         actions.addView(action("IN-APP PLAYER", false) { openEmbed(track.url) })
         card.addView(actions)
         results.addView(card)
@@ -194,6 +198,29 @@ class MusicApiActivity : AppCompatActivity() {
     private fun openOfficial(url: String) {
         try { startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url))) }
         catch (_: Exception) { Toast.makeText(this, "No music app can open this link.", Toast.LENGTH_SHORT).show() }
+    }
+
+    /**
+     * Hand YouTube links to Brave itself so Brave can apply its own browser
+     * playback/background settings, Premium sign-in and media controls.
+     * This deliberately does not intercept streams or bypass YouTube controls.
+     */
+    private fun openInBrave(url: String) {
+        try {
+            val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url)).apply {
+                setPackage("com.brave.browser")
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            startActivity(intent)
+        } catch (_: android.content.ActivityNotFoundException) {
+            try {
+                startActivity(Intent(Intent.ACTION_VIEW, Uri.parse(url)))
+            } catch (_: Exception) {
+                Toast.makeText(this, "Install Brave or YouTube to play this video.", Toast.LENGTH_LONG).show()
+            }
+        } catch (_: Exception) {
+            openOfficial(url)
+        }
     }
 
     private fun openEmbed(url: String) {
