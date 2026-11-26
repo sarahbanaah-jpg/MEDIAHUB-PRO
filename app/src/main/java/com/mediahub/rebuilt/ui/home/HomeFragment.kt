@@ -211,6 +211,10 @@ class HomeFragment : Fragment() {
             toolCard("💬", "WhatsApp Bot", "QR link · Baileys") { startActivity(Intent(requireContext(), WhatsAppBotActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
+            toolCard("💬", "Messages", "Chat · photos · voice") { startActivity(Intent(requireContext(), com.mediahub.rebuilt.social.ChatHubActivity::class.java)) },
+            toolCard("✦", "AI Assistant", "Ask MediaHub AI") { startActivity(Intent(requireContext(), com.mediahub.rebuilt.intelligence.MediaHubIntelligenceActivity::class.java)) }
+        ))
+        commandGrid.addView(toolRow(
             toolCard("✦", "What's New", "Every feature") { startActivity(Intent(requireContext(), MediaHubWhatsNewActivity::class.java)) },
             toolCard("▣", "Media Library", "Local collection") { openTab(R.id.navPhotos) }
         ))
