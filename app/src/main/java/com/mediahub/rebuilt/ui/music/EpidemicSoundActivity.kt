@@ -174,11 +174,9 @@ class EpidemicSoundActivity : AppCompatActivity() {
                     parsed.add(parseTrack(track))
                 }
             }
-            tracks.clear()
-            tracks.addAll(parsed.distinctBy { it.id })
-            renderTracks()
-            status.text = if (tracks.isEmpty()) "No tracks are available for this API key."
-                else "${names.size} collections · ${tracks.size} tracks"
+            val unique = parsed.distinctBy { it.id }
+            Pair(unique, if (unique.isEmpty()) "No tracks are available for this API key."
+                else "\${names.size} collections · \${unique.size} tracks")
         }
     }
 
@@ -193,21 +191,23 @@ class EpidemicSoundActivity : AppCompatActivity() {
                 val item = array.optJSONObject(i) ?: continue
                 parsed.add(parseTrack(item))
             }
-            tracks.clear()
-            tracks.addAll(parsed.distinctBy { it.id })
-            renderTracks()
-            status.text = if (tracks.isEmpty()) "No matching tracks found." else "Search results · ${tracks.size} tracks"
+            val unique = parsed.distinctBy { it.id }
+            Pair(unique, if (unique.isEmpty()) "No matching tracks found." else "Search results · \${unique.size} tracks")
         }
     }
 
-    private fun fetchTracks(loadingText: String, work: () -> Unit) {
+    private fun fetchTracks(loadingText: String, work: () -> Pair<List<EsTrack>, String>) {
         if (loading) return
         loading = true
         status.text = loadingText
         list.removeAllViews()
         lifecycleScope.launch {
             try {
-                withContext(Dispatchers.IO) { work() }
+                val result = withContext(Dispatchers.IO) { work() }
+                tracks.clear()
+                tracks.addAll(result.first)
+                renderTracks()
+                status.text = result.second
             } catch (e: Exception) {
                 val message = e.localizedMessage ?: "Unknown error"
                 status.text = when {
