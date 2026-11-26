@@ -107,6 +107,19 @@ class MusicFragment : Fragment() {
             }
             setOnClickListener { startActivity(Intent(requireContext(), CometMusicActivity::class.java)) }
         })
+        header.addView(TextView(requireContext()).apply {
+            text = "EPIDEMIC"
+            textSize = 10f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(dp(11), dp(11), dp(11), dp(11))
+            background = GradientDrawable().apply {
+                setColor(0xFFFF4D8D.toInt())
+                cornerRadius = dp(14).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(-2, -2).apply { marginStart = dp(6) }
+            setOnClickListener { startActivity(Intent(requireContext(), EpidemicSoundActivity::class.java)) }
+        })
         root.addView(header)
 
         val tabs = LinearLayout(requireContext()).apply {
