@@ -65,7 +65,7 @@ class EpidemicSoundActivity : AppCompatActivity() {
             setTypeface(null, Typeface.BOLD)
         })
         root.addView(TextView(this).apply {
-            text = "Official music catalogue · collections · search"
+            text = "Official music catalogue · collections · search · track details"
             textSize = 12f
             setTextColor(0xFFFF8FAF.toInt())
             setPadding(0, dp(4), 0, dp(14))
@@ -307,33 +307,17 @@ class EpidemicSoundActivity : AppCompatActivity() {
 
     private fun playTrack(index: Int) {
         if (index !in tracks.indices) return
-        val player = controller
-        if (player == null) {
-            Toast.makeText(this, "Player is starting. Tap again shortly.", Toast.LENGTH_SHORT).show()
-            return
-        }
         val song = tracks[index]
-        status.text = "Preparing ${song.title}…"
-        lifecycleScope.launch {
-            try {
-                val streamUrl = withContext(Dispatchers.IO) {
-                    val json = requestJson("/v0/tracks/${URLEncoder.encode(song.id, "UTF-8")}/download?format=mp3&quality=normal")
-                    json.optString("url").takeIf { it.startsWith("https://") }
-                        ?: throw IllegalStateException("The API did not return a playable download URL.")
-                }
-                val media = Media3Item.Builder().setUri(streamUrl).setMediaId("epidemicsound:${song.id}")
-                    .setMediaMetadata(MediaMetadata.Builder().setTitle(song.title).setArtist(song.artist)
-                        .setArtworkUri(android.net.Uri.parse(song.artwork).takeIf { it.isNotBlank() }).build()).build()
-                player.setMediaItem(media)
-                player.prepare()
-                player.play()
-                getSharedPreferences("mediahub_settings", MODE_PRIVATE).edit()
-                    .putString("island_mode", "music").putString("island_title", song.title).apply()
-                status.text = "Playing Epidemic Sound · ${song.title}"
-            } catch (e: Exception) {
-                status.text = "Playback unavailable: ${e.localizedMessage ?: "Track access denied"}"
-            }
+        // The supplied Epidemic Sound OpenAPI specification exposes catalogue,
+        // collection and metadata endpoints, but no audio stream/download endpoint.
+        // Do not call an undocumented URL or pretend a metadata record is playable.
+        val message = if (song.previewOnly) {
+            "This track is marked preview-only. The supplied API specification does not expose a preview or streaming URL."
+        } else {
+            "Track details are available. The supplied API specification does not include an audio streaming/download endpoint."
         }
+        status.text = message
+        Toast.makeText(this, message, Toast.LENGTH_LONG).show()
     }
 
     private fun requestJson(path: String): JSONObject {
