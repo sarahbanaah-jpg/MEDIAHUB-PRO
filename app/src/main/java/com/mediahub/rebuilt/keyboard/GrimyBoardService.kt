@@ -18,12 +18,13 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.HorizontalScrollView
+import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 
-/** Offline keyboard · Gboard-style bubble · Grimy Emoji pack with recents & stamps. */
+/** Offline keyboard · Gboard bubble · original Grimy custom emoji art. */
 class GrimyBoardService : InputMethodService() {
 
     private var caps = false
@@ -72,21 +73,19 @@ class GrimyBoardService : InputMethodService() {
             else -> 0xFF25222C.toInt()
         }
 
-    /** Core Grimy Emoji — brand vibe, works in every chat app. */
-    private val grimyEmoji = listOf(
+    private val stockEmoji = listOf(
         "🖤", "💜", "💗", "💖", "✨", "⭐", "🌟", "💫",
         "🔥", "⚡", "💥", "🌀", "🌌", "🌙", "☀️", "🌈",
         "🎧", "🎵", "🎶", "🎤", "🎸", "🎹", "📀", "💿",
         "💎", "👑", "🎀", "🧿", "🪬", "🪞", "🔮", "🪄",
         "😎", "😈", "🫶", "🤙", "🤟", "✌️", "👋", "🫡",
-        "🚀", "🛸", "👾", "🤖", "🦁", "🐺", "🐉", "🦋",
-        "💯", "✅", "🆗", "🆕", "🆙", "🔝", "❤️‍🔥", "🫶"
+        "🚀", "🛸", "👾", "🤖", "🦁", "🐺", "🐉", "🦋"
     )
 
-    /** Signature Grimy stamps — text+emoji brand inserts. */
     private val grimyStamps = listOf(
         "🖤 GRIMY", "✨ MediaHub", "🎧 Now Playing", "🔥 Grimy Mode",
-        "💜 Stay Grimy", "🚀 Level Up", "💎 Premium", "🌙 Night Vibes"
+        "💜 Stay Grimy", "🚀 Level Up", "💎 Premium", "🌙 Night Vibes",
+        ":grimy:", ":gfire:", ":gmusic:", ":gcrown:"
     )
 
     private val facesEmoji = listOf(
@@ -292,14 +291,11 @@ class GrimyBoardService : InputMethodService() {
     }
 
     private fun renderEmoji(p: LinearLayout) {
-        p.addView(label("GRIMY EMOJI", 13f, accent, true))
+        p.addView(label("YOUR GRIMY EMOJIS", 13f, accent, true))
 
-        // Recently used
         if (recentEmoji.isNotEmpty()) {
             p.addView(label("Recent", 11f, 0xFFAAAAAA.toInt(), false))
-            val recentRow = HorizontalScrollView(this).apply {
-                isHorizontalScrollBarEnabled = false
-            }
+            val recentRow = HorizontalScrollView(this).apply { isHorizontalScrollBarEnabled = false }
             val recentInner = LinearLayout(this).apply {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
@@ -314,13 +310,12 @@ class GrimyBoardService : InputMethodService() {
             p.addView(recentRow, LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(4) })
         }
 
-        // Tabs
         val tabs = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(0, dp(4), 0, dp(6))
         }
-        listOf("Grimy", "Stamps", "Faces", "Hearts", "More").forEachIndexed { i, name ->
+        listOf("Mine", "Stock", "Stamps", "Faces", "Hearts").forEachIndexed { i, name ->
             val active = emojiTab == i
             tabs.addView(
                 TextView(this).apply {
@@ -329,7 +324,7 @@ class GrimyBoardService : InputMethodService() {
                     gravity = Gravity.CENTER
                     setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
                     setTextColor(if (active) Color.BLACK else Color.WHITE)
-                    setPadding(dp(8), dp(8), dp(8), dp(8))
+                    setPadding(dp(6), dp(8), dp(6), dp(8))
                     background = GradientDrawable().apply {
                         if (active) setColor(accent) else setColor(keyBg)
                         cornerRadius = dp(14).toFloat()
@@ -350,8 +345,24 @@ class GrimyBoardService : InputMethodService() {
 
         when (emojiTab) {
             0 -> {
-                // Larger Grimy tiles (6 per row)
-                grimyEmoji.chunked(6).forEach { row ->
+                // Original drawn Grimy emojis — YOUR pack
+                p.addView(label("${GrimyCustomEmoji.pack.size} original · tap inserts :shortcode:", 10f, 0xFFAAAAAA.toInt(), false))
+                GrimyCustomEmoji.pack.chunked(5).forEach { row ->
+                    val r = LinearLayout(this).apply { gravity = Gravity.CENTER }
+                    row.forEach { emoji ->
+                        r.addView(
+                            customEmojiTile(emoji),
+                            LinearLayout.LayoutParams(0, dp(58), 1f).apply { setMargins(3, 3, 3, 3) }
+                        )
+                    }
+                    repeat(5 - row.size) {
+                        r.addView(View(this), LinearLayout.LayoutParams(0, dp(58), 1f))
+                    }
+                    box.addView(r)
+                }
+            }
+            1 -> {
+                stockEmoji.chunked(6).forEach { row ->
                     val r = LinearLayout(this).apply { gravity = Gravity.CENTER }
                     row.forEach { e ->
                         r.addView(
@@ -365,31 +376,56 @@ class GrimyBoardService : InputMethodService() {
                     box.addView(r)
                 }
             }
-            1 -> {
-                // Signature stamps — full-width brand chips
-                p.addView(label("Tap a stamp to insert", 11f, 0xFFAAAAAA.toInt(), false))
+            2 -> {
                 grimyStamps.forEach { stamp ->
                     box.addView(
-                        key(stamp, showBubble = false, highlight = false) {
+                        key(stamp, showBubble = false) {
                             commit(stamp)
-                            // remember first emoji char if present
-                            stamp.firstOrNull()?.toString()?.let { if (it.isNotBlank()) rememberEmoji(it) }
+                            stamp.takeWhile { it != ' ' && it != ':' }.let { if (it.isNotEmpty()) rememberEmoji(it) }
                         },
                         LinearLayout.LayoutParams(-1, dp(44)).apply { setMargins(0, 3, 0, 3) }
                     )
                 }
             }
-            2 -> addEmojiGrid(box, facesEmoji)
-            3 -> addEmojiGrid(box, heartsEmoji)
-            else -> addEmojiGrid(box, moreEmoji)
+            3 -> addEmojiGrid(box, facesEmoji)
+            else -> addEmojiGrid(box, heartsEmoji)
         }
 
         sc.addView(box)
-        p.addView(sc, LinearLayout.LayoutParams(-1, dp(200)))
+        p.addView(sc, LinearLayout.LayoutParams(-1, dp(210)))
         p.addView(
             key("ABC", showBubble = false) { mode = 0; render() },
             LinearLayout.LayoutParams(-1, dp(38))
         )
+    }
+
+    private fun customEmojiTile(emoji: GrimyEmoji): View {
+        val size = dp(52)
+        val bmp = GrimyCustomEmoji.bitmap(emoji, size)
+        val wrap = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            gravity = Gravity.CENTER
+            background = glass(keyBg, 0x33FFFFFF)
+            isClickable = true
+            isFocusable = true
+            setOnClickListener {
+                animate().scaleX(0.92f).scaleY(0.92f).setDuration(50).withEndAction {
+                    scaleX = 1f
+                    scaleY = 1f
+                }.start()
+                // Insert shortcode so it works in every app
+                commit(emoji.shortcode)
+                rememberEmoji(emoji.shortcode)
+                feedback()
+            }
+        }
+        val iv = ImageView(this).apply {
+            setImageBitmap(bmp)
+            scaleType = ImageView.ScaleType.FIT_CENTER
+            layoutParams = LinearLayout.LayoutParams(size, size)
+        }
+        wrap.addView(iv)
+        return wrap
     }
 
     private fun addEmojiGrid(box: LinearLayout, pack: List<String>) {
