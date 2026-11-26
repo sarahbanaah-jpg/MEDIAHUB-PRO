@@ -61,6 +61,7 @@
             </intent-filter>
         </activity>
 
+        <activity android:name=".device.DeviceCenterActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".arcade.MediaHubGameCenterActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".arcade.MediaHubArcadeActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".recorder.MediaHubRecorderActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
