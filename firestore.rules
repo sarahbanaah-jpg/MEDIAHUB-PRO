@@ -1,11 +1,17 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+    function isOwnerAdmin() {
+      return request.auth != null
+        && request.auth.token.email == "leonelsquare7@gmail.com"
+        && request.auth.token.email_verified == true;
+    }
+
     match /device_directory/{installationId} {
       // The directory is intentionally readable by all app users.
       allow read: if true;
 
-      // Each anonymous Firebase installation can only publish or remove its own entry.
+      // Each authenticated installation can only publish or update its own entry.
       allow create, update: if request.auth != null
         && request.auth.uid == installationId
         && request.resource.data.keys().hasOnly([
@@ -21,7 +27,23 @@ service cloud.firestore {
         && request.resource.data.primaryAbi is string
         && request.resource.data.lastSeen == request.time;
 
-      allow delete: if request.auth != null && request.auth.uid == installationId;
+      // Owners can remove their own entry; the verified owner admin can moderate the directory.
+      allow delete: if (request.auth != null && request.auth.uid == installationId) || isOwnerAdmin();
+    }
+
+    match /announcements/{announcementId} {
+      allow read: if request.auth != null;
+      allow create: if isOwnerAdmin()
+        && request.resource.data.keys().hasOnly(['title', 'message', 'createdBy', 'createdAt'])
+        && request.resource.data.title is string
+        && request.resource.data.title.size() > 0
+        && request.resource.data.title.size() <= 100
+        && request.resource.data.message is string
+        && request.resource.data.message.size() > 0
+        && request.resource.data.message.size() <= 2000
+        && request.resource.data.createdBy == "leonelsquare7@gmail.com"
+        && request.resource.data.createdAt == request.time;
+      allow update, delete: if isOwnerAdmin();
     }
   }
 }
