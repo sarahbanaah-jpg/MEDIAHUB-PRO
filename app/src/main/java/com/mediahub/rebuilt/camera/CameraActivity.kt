@@ -1,7 +1,7 @@
 package com.mediahub.rebuilt.camera
 
 import android.Manifest
-import android.app.Activity
+import androidx.appcompat.app.AppCompatActivity
 import android.content.ContentValues
 import android.content.pm.PackageManager
 import android.os.Build
@@ -40,7 +40,7 @@ import java.util.Locale
 import java.util.concurrent.TimeUnit
 
 /** CameraX camera experience inspired by modern Pro phone cameras; hardware capabilities are detected at runtime. */
-class CameraActivity : Activity() {
+class CameraActivity : AppCompatActivity() {
     private lateinit var previewView: PreviewView
     private lateinit var zoomLabel: TextView
     private lateinit var zoom: SeekBar
