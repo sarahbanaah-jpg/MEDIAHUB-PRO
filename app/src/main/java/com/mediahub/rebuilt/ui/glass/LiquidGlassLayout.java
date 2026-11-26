@@ -57,10 +57,10 @@ public final class LiquidGlassLayout extends LinearLayout {
     private static WeakReference<View> cachedRoot = new WeakReference<>(null);
     private static Bitmap cachedBackdrop;
     private static long capturedAt;
+    private static boolean captureInProgress;
     private final Paint paint = new Paint(Paint.ANTI_ALIAS_FLAG | Paint.FILTER_BITMAP_FLAG);
     private ViewTreeObserver.OnPreDrawListener preDrawListener;
     private RuntimeShaderHolder shaderHolder;
-    private boolean capturing;
 
     public LiquidGlassLayout(Context context) { super(context); init(); }
     public LiquidGlassLayout(Context context, AttributeSet attrs) { super(context, attrs); init(); }
@@ -86,7 +86,7 @@ public final class LiquidGlassLayout extends LinearLayout {
     @Override protected void onAttachedToWindow() {
         super.onAttachedToWindow();
         preDrawListener = () -> {
-            if (!capturing && glassEnabled() && isShown()) captureBackdropIfNeeded();
+            if (!captureInProgress && glassEnabled() && isShown()) captureBackdropIfNeeded();
             return true;
         };
         getViewTreeObserver().addOnPreDrawListener(preDrawListener);
@@ -115,9 +115,8 @@ public final class LiquidGlassLayout extends LinearLayout {
         int height = root.getHeight();
         if (width <= 0 || height <= 0) return;
 
-        int oldVisibility = getVisibility();
         try {
-            capturing = true;
+            captureInProgress = true;
             if (cachedBackdrop == null || cachedBackdrop.isRecycled() ||
                 cachedRoot.get() != root || cachedBackdrop.getWidth() != width ||
                 cachedBackdrop.getHeight() != height) {
@@ -128,7 +127,6 @@ public final class LiquidGlassLayout extends LinearLayout {
             } else {
                 cachedBackdrop.eraseColor(Color.TRANSPARENT);
             }
-            setVisibility(INVISIBLE);
             root.draw(new Canvas(cachedBackdrop));
             capturedAt = now;
         } catch (OutOfMemoryError | RuntimeException ignored) {
@@ -137,12 +135,12 @@ public final class LiquidGlassLayout extends LinearLayout {
                 cachedBackdrop = null;
             }
         } finally {
-            setVisibility(oldVisibility);
-            capturing = false;
+            captureInProgress = false;
         }
     }
 
     @Override protected void onDraw(Canvas canvas) {
+        if (captureInProgress) return;
         if (!glassEnabled()) {
             drawFallback(canvas, 0xE61A1422);
             return;
