@@ -376,7 +376,7 @@ class ChatActivity : AppCompatActivity() {
                 recorder?.stop(); recorder?.release(); recorder = null
                 val file = recordingFile
                 if (file != null && file.exists() && file.length() > 0) {
-                    upload(Uri.fromFile(file), "voice", 0)
+                    val limit = pendingViewLimit\n                    pendingViewLimit = 0\n                    upload(Uri.fromFile(file), "voice", limit)
                     Toast.makeText(this, "Voice message sent", Toast.LENGTH_SHORT).show()
                 }
             } catch (_: Exception) {
