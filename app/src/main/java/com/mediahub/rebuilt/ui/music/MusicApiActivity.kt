@@ -197,40 +197,21 @@ class MusicApiActivity : AppCompatActivity() {
     }
 
     private fun openEmbed(url: String) {
-        status.text = "Preparing official embedded player…"
+        status.text = "Preparing official player…"
         lifecycleScope.launch {
             try {
                 val embedUrl = withContext(Dispatchers.IO) {
                     request("POST", "/public/embed/url", JSONObject().put("url", url), authenticated = false)
                         .optString("embedUrl")
                 }
-                if (!embedUrl.startsWith("https://")) throw IllegalStateException("This service did not provide an embedded player.")
-                val web = WebView(this@MusicApiActivity).apply {
-                    settings.javaScriptEnabled = true
-                    settings.domStorageEnabled = true
-                    settings.mediaPlaybackRequiresUserGesture = true
-                    webChromeClient = WebChromeClient()
-                    webViewClient = WebViewClient()
-                    loadUrl(embedUrl)
+                if (!embedUrl.startsWith("https://")) {
+                    throw IllegalStateException("This service did not provide an embedded player.")
                 }
-                val playerDialog = AlertDialog.Builder(this@MusicApiActivity)
-                    .setTitle("Now Playing")
-                    .setView(web.apply { layoutParams = android.view.ViewGroup.LayoutParams(-1, dp(300)) })
-                    .setPositiveButton("DONE", null)
-                    .create()
-                playerDialog.setOnDismissListener {
-                    web.stopLoading()
-                    web.destroy()
-                    stopService(Intent(this@MusicApiActivity, com.mediahub.rebuilt.service.EmbeddedPlaybackService::class.java)
-                        .setAction(com.mediahub.rebuilt.service.EmbeddedPlaybackService.ACTION_STOP))
-                }
-                playerDialog.show()
-                androidx.core.content.ContextCompat.startForegroundService(
-                    this@MusicApiActivity,
-                    Intent(this@MusicApiActivity, com.mediahub.rebuilt.service.EmbeddedPlaybackService::class.java)
-                        .setAction(com.mediahub.rebuilt.service.EmbeddedPlaybackService.ACTION_START)
+                startActivity(
+                    Intent(this@MusicApiActivity, EmbeddedMusicPlayerActivity::class.java)
+                        .putExtra(EmbeddedMusicPlayerActivity.EXTRA_EMBED_URL, embedUrl)
                 )
-                status.text = "Embedded player ready · background playback enabled."
+                status.text = "Official player opened · background support depends on the music provider."
             } catch (e: Exception) {
                 status.text = "Embedded player unavailable: ${e.localizedMessage ?: "Use LISTEN to open the service."}"
             }
