@@ -19,10 +19,11 @@ import android.view.View
 import android.view.inputmethod.EditorInfo
 import android.widget.HorizontalScrollView
 import android.widget.LinearLayout
+import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 
-/** Offline system keyboard. Typed text is never uploaded. */
+/** Offline system keyboard. Gboard-style key bubble. No "YOU ARE TYPING" strip. */
 class GrimyBoardService : InputMethodService() {
 
     private var caps = false
@@ -30,16 +31,16 @@ class GrimyBoardService : InputMethodService() {
     private var symbols = false
     private var mode = 0
     private var root: LinearLayout? = null
-    private var previewView: TextView? = null
     private val clipboardItems = mutableListOf<String>()
     private val handler = Handler(Looper.getMainLooper())
     private var deleteRepeating = false
     private var lastSpaceTap = 0L
     private var lastShiftTap = 0L
+    private var keyPopup: PopupWindow? = null
 
     private val prefs by lazy { getSharedPreferences("grimy_board", Context.MODE_PRIVATE) }
     private val theme get() = prefs.getString("theme", "pink") ?: "pink"
-    private val showPreview get() = prefs.getBoolean("preview", true)
+    private val keyPopupEnabled get() = prefs.getBoolean("key_popup", true)
     private val numberRow get() = prefs.getBoolean("numbers", true)
     private val haptics get() = prefs.getBoolean("haptics", true)
     private val keySound get() = prefs.getBoolean("sound", false)
@@ -108,20 +109,13 @@ class GrimyBoardService : InputMethodService() {
         mode = 0
         if (!capsLock) caps = false
         symbols = false
+        dismissKeyPopup()
         render()
-        refreshPreview()
     }
 
-    override fun onUpdateSelection(
-        oldSelStart: Int,
-        oldSelEnd: Int,
-        newSelStart: Int,
-        newSelEnd: Int,
-        candidatesStart: Int,
-        candidatesEnd: Int
-    ) {
-        super.onUpdateSelection(oldSelStart, oldSelEnd, newSelStart, newSelEnd, candidatesStart, candidatesEnd)
-        refreshPreview()
+    override fun onFinishInputView(finishingInput: Boolean) {
+        dismissKeyPopup()
+        super.onFinishInputView(finishingInput)
     }
 
     private fun render() {
@@ -129,40 +123,16 @@ class GrimyBoardService : InputMethodService() {
         p.removeAllViews()
         p.setBackgroundColor(bg)
 
-        if (showPreview) {
-            val previewShell = LinearLayout(this).apply {
-                orientation = LinearLayout.VERTICAL
-                background = glass(0x22111118.toInt(), accent)
-                setPadding(dp(10), dp(8), dp(10), dp(8))
-            }
-            previewShell.addView(label("YOU ARE TYPING", 10f, accent, true))
-            previewView = TextView(this).apply {
-                text = "Tap keys — live preview appears here"
-                textSize = 15f
-                setTextColor(Color.WHITE)
-                typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
-                maxLines = 2
-                setPadding(0, dp(2), 0, 0)
-            }
-            previewShell.addView(previewView)
-            p.addView(
-                previewShell,
-                LinearLayout.LayoutParams(
-                    LinearLayout.LayoutParams.MATCH_PARENT,
-                    LinearLayout.LayoutParams.WRAP_CONTENT
-                ).apply { setMargins(0, 0, 0, dp(6)) }
-            )
-            refreshPreview()
-        }
+        // No YOU ARE TYPING strip — Gboard-style key bubble only
 
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         head.addView(label("GRIMY BOARD", 12f, accent, true), LinearLayout.LayoutParams(0, dp(34), 1f))
-        head.addView(key("←") { moveCursor(-1) }, LinearLayout.LayoutParams(dp(40), dp(34)))
-        head.addView(key("→") { moveCursor(1) }, LinearLayout.LayoutParams(dp(40), dp(34)))
-        head.addView(key("▤") { mode = if (mode == 2) 0 else 2; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
-        head.addView(key("☺") { mode = if (mode == 1) 0 else 1; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
+        head.addView(key("←", showBubble = false) { moveCursor(-1) }, LinearLayout.LayoutParams(dp(40), dp(34)))
+        head.addView(key("→", showBubble = false) { moveCursor(1) }, LinearLayout.LayoutParams(dp(40), dp(34)))
+        head.addView(key("▤", showBubble = false) { mode = if (mode == 2) 0 else 2; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
+        head.addView(key("☺", showBubble = false) { mode = if (mode == 1) 0 else 1; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
         head.addView(
-            key("⚙") {
+            key("⚙", showBubble = false) {
                 startActivity(
                     Intent(this, GrimyBoardSettingsActivity::class.java)
                         .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
@@ -194,7 +164,7 @@ class GrimyBoardService : InputMethodService() {
                     else -> "⇧"
                 }
                 r.addView(
-                    key(shiftLabel, highlight = caps || capsLock) {
+                    key(shiftLabel, highlight = caps || capsLock, showBubble = false) {
                         if (symbols) {
                             symbols = false
                             render()
@@ -223,7 +193,7 @@ class GrimyBoardService : InputMethodService() {
                 val shown = if (caps && !symbols) base.uppercase() else base
                 val alts = longPressMap[base.lowercase()] ?: emptyList()
                 r.addView(
-                    key(shown, longPressAlternates = alts) {
+                    key(shown, longPressAlternates = alts, showBubble = true) {
                         commit(shown)
                         if (caps && !capsLock) {
                             caps = false
@@ -237,6 +207,7 @@ class GrimyBoardService : InputMethodService() {
                 r.addView(
                     key(
                         "⌫",
+                        showBubble = false,
                         longPressAction = { startDeleteRepeat() },
                         longPressEnd = { stopDeleteRepeat() }
                     ) { deleteOnce() },
@@ -248,17 +219,17 @@ class GrimyBoardService : InputMethodService() {
 
         val bottom = LinearLayout(this).apply { gravity = Gravity.CENTER }
         bottom.addView(
-            key(if (symbols) "ABC" else "?123") { symbols = !symbols; render() },
+            key(if (symbols) "ABC" else "?123", showBubble = false) { symbols = !symbols; render() },
             LinearLayout.LayoutParams(dp(56), dp(44))
         )
-        bottom.addView(key(",") { commit(",") }, LinearLayout.LayoutParams(dp(34), dp(44)))
+        bottom.addView(key(",", showBubble = true) { commit(",") }, LinearLayout.LayoutParams(dp(34), dp(44)))
         bottom.addView(
-            key("English · GRIMY", highlight = true) { onSpace() },
+            key("English · GRIMY", highlight = true, showBubble = false) { onSpace() },
             LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(3, 0, 3, 0) }
         )
-        bottom.addView(key(".") { commit(".") }, LinearLayout.LayoutParams(dp(34), dp(44)))
+        bottom.addView(key(".", showBubble = true) { commit(".") }, LinearLayout.LayoutParams(dp(34), dp(44)))
         bottom.addView(
-            key("↵") {
+            key("↵", showBubble = false) {
                 val a = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION)
                     ?: EditorInfo.IME_ACTION_NONE
                 if (a == EditorInfo.IME_ACTION_NONE || a == EditorInfo.IME_ACTION_UNSPECIFIED) {
@@ -266,7 +237,6 @@ class GrimyBoardService : InputMethodService() {
                 } else {
                     currentInputConnection?.performEditorAction(a)
                 }
-                refreshPreview()
             },
             LinearLayout.LayoutParams(dp(46), dp(44))
         )
@@ -281,7 +251,7 @@ class GrimyBoardService : InputMethodService() {
                 val r = LinearLayout(this).apply { gravity = Gravity.CENTER }
                 row.forEach { e ->
                     r.addView(
-                        key(e) { commit(e) },
+                        key(e, showBubble = true) { commit(e) },
                         LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(2, 2, 2, 2) }
                     )
                 }
@@ -291,7 +261,7 @@ class GrimyBoardService : InputMethodService() {
         sc.addView(box)
         p.addView(sc, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(220)))
         p.addView(
-            key("ABC") { mode = 0; render() },
+            key("ABC", showBubble = false) { mode = 0; render() },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
         )
     }
@@ -303,7 +273,7 @@ class GrimyBoardService : InputMethodService() {
         }
         clipboardItems.forEach { v ->
             p.addView(
-                key(v.take(55)) {
+                key(v.take(55), showBubble = false) {
                     commit(v)
                     mode = 0
                     render()
@@ -314,9 +284,9 @@ class GrimyBoardService : InputMethodService() {
             )
         }
         val r = LinearLayout(this)
-        r.addView(key("Read clipboard") { readClipboard() }, LinearLayout.LayoutParams(0, dp(38), 1f))
-        r.addView(key("Clear") { clipboardItems.clear(); render() }, LinearLayout.LayoutParams(0, dp(38), 1f))
-        r.addView(key("ABC") { mode = 0; render() }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        r.addView(key("Read clipboard", showBubble = false) { readClipboard() }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        r.addView(key("Clear", showBubble = false) { clipboardItems.clear(); render() }, LinearLayout.LayoutParams(0, dp(38), 1f))
+        r.addView(key("ABC", showBubble = false) { mode = 0; render() }, LinearLayout.LayoutParams(0, dp(38), 1f))
         p.addView(r)
     }
 
@@ -324,39 +294,11 @@ class GrimyBoardService : InputMethodService() {
         val r = LinearLayout(this).apply { gravity = Gravity.CENTER }
         s.forEach { c ->
             r.addView(
-                key(c.toString()) { commit(c.toString()) },
+                key(c.toString(), showBubble = true) { commit(c.toString()) },
                 LinearLayout.LayoutParams(0, dp(h), 1f).apply { setMargins(2, 1, 2, 1) }
             )
         }
         p.addView(r)
-    }
-
-    private fun refreshPreview() {
-        val tv = previewView ?: return
-        val ic = currentInputConnection
-        if (ic == null) {
-            tv.text = "No field focused"
-            return
-        }
-        try {
-            val before = ic.getTextBeforeCursor(48, 0)?.toString().orEmpty()
-            val selected = ic.getSelectedText(0)?.toString().orEmpty()
-            val after = ic.getTextAfterCursor(24, 0)?.toString().orEmpty()
-            val shown = buildString {
-                append(before)
-                if (selected.isNotEmpty()) {
-                    append("[")
-                    append(selected)
-                    append("]")
-                } else {
-                    append("▏")
-                }
-                append(after)
-            }.replace('\n', ' ')
-            tv.text = if (shown.isBlank()) "Start typing…" else shown
-        } catch (_: Exception) {
-            tv.text = "Preview unavailable for this field"
-        }
     }
 
     private fun onSpace() {
@@ -369,7 +311,6 @@ class GrimyBoardService : InputMethodService() {
             commit(" ")
         }
         lastSpaceTap = now
-        refreshPreview()
     }
 
     private fun moveCursor(delta: Int) {
@@ -381,7 +322,6 @@ class GrimyBoardService : InputMethodService() {
             ic.setSelection(pos, pos)
         } catch (_: Exception) {
         }
-        refreshPreview()
         feedback()
     }
 
@@ -393,7 +333,6 @@ class GrimyBoardService : InputMethodService() {
         } else {
             ic.deleteSurroundingText(1, 0)
         }
-        refreshPreview()
         feedback()
     }
 
@@ -427,7 +366,6 @@ class GrimyBoardService : InputMethodService() {
 
     private fun commit(v: String) {
         currentInputConnection?.commitText(v, 1)
-        refreshPreview()
         feedback()
     }
 
@@ -458,9 +396,55 @@ class GrimyBoardService : InputMethodService() {
         }
     }
 
+    /** Gboard-style magnified letter above the key while finger is down. */
+    private fun showKeyPopup(anchor: View, label: String) {
+        if (!keyPopupEnabled || label.isBlank() || label.length > 3) return
+        dismissKeyPopup()
+        val bubble = TextView(this).apply {
+            text = label
+            gravity = Gravity.CENTER
+            textSize = 28f
+            setTextColor(Color.WHITE)
+            typeface = Typeface.create("sans-serif-medium", Typeface.BOLD)
+            setPadding(dp(18), dp(12), dp(18), dp(12))
+            background = GradientDrawable().apply {
+                setColor(0xFF2A2433.toInt())
+                cornerRadius = dp(12).toFloat()
+                setStroke(dp(2), accent)
+            }
+            elevation = dp(12).toFloat()
+        }
+        val popup = PopupWindow(
+            bubble,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            LinearLayout.LayoutParams.WRAP_CONTENT,
+            false
+        ).apply {
+            isOutsideTouchable = false
+            isFocusable = false
+            elevation = dp(12).toFloat()
+        }
+        keyPopup = popup
+        val yOff = -(anchor.height + dp(56))
+        val xOff = (anchor.width / 2) - dp(28)
+        try {
+            popup.showAsDropDown(anchor, xOff, yOff)
+        } catch (_: Exception) {
+        }
+    }
+
+    private fun dismissKeyPopup() {
+        try {
+            keyPopup?.dismiss()
+        } catch (_: Exception) {
+        }
+        keyPopup = null
+    }
+
     private fun key(
         t: String,
         highlight: Boolean = false,
+        showBubble: Boolean = false,
         longPressAlternates: List<String> = emptyList(),
         longPressAction: (() -> Unit)? = null,
         longPressEnd: (() -> Unit)? = null,
@@ -484,41 +468,43 @@ class GrimyBoardService : InputMethodService() {
             isFocusable = true
             isLongClickable = longPressAlternates.isNotEmpty() || longPressAction != null
 
+            setOnTouchListener { v, e ->
+                when (e.actionMasked) {
+                    MotionEvent.ACTION_DOWN -> {
+                        if (showBubble) showKeyPopup(v, t)
+                        if (longPressAction != null) longPressAction.invoke()
+                        false
+                    }
+                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                        dismissKeyPopup()
+                        longPressEnd?.invoke()
+                        false
+                    }
+                    else -> false
+                }
+            }
+
             setOnClickListener {
                 animate().scaleX(0.94f).scaleY(0.94f).setDuration(50).withEndAction {
                     scaleX = 1f
                     scaleY = 1f
                 }.start()
+                dismissKeyPopup()
                 click()
             }
 
             if (longPressAlternates.isNotEmpty()) {
                 setOnLongClickListener {
+                    dismissKeyPopup()
                     showAlternatesPopup(this, longPressAlternates)
                     true
-                }
-            }
-
-            if (longPressAction != null) {
-                setOnTouchListener { _, e ->
-                    when (e.actionMasked) {
-                        MotionEvent.ACTION_DOWN -> {
-                            longPressAction.invoke()
-                            false
-                        }
-                        MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
-                            longPressEnd?.invoke()
-                            false
-                        }
-                        else -> false
-                    }
                 }
             }
         }
     }
 
     private fun showAlternatesPopup(anchor: View, alts: List<String>) {
-        val popup = android.widget.PopupWindow(this)
+        val popup = PopupWindow(this)
         val row = LinearLayout(this).apply {
             orientation = LinearLayout.HORIZONTAL
             setPadding(dp(6), dp(6), dp(6), dp(6))
@@ -526,7 +512,7 @@ class GrimyBoardService : InputMethodService() {
         }
         alts.forEach { a ->
             row.addView(
-                key(a) {
+                key(a, showBubble = false) {
                     commit(a)
                     popup.dismiss()
                 },
