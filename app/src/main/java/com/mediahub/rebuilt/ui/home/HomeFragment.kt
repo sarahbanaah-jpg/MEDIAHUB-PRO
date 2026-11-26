@@ -12,7 +12,6 @@ import android.widget.ImageView
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
-import android.widget.Toast
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
@@ -40,6 +39,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
+/** Aurora home — deep purple + cyan, matches music mockup. */
 class HomeFragment : Fragment() {
     private lateinit var recent: LinearLayout
     private lateinit var categoryGrid: LinearLayout
@@ -47,44 +47,48 @@ class HomeFragment : Fragment() {
     private lateinit var updateStatus: TextView
 
     override fun onCreateView(inflater: LayoutInflater, container: ViewGroup?, savedInstanceState: Bundle?): View {
-        val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
-        val bg = if (prefs.getString("theme", "midnight") == "amoled") 0xFF000000.toInt() else 0xFF08080D.toInt()
         val scroll = ScrollView(requireContext()).apply {
-            setBackgroundColor(bg)
+            background = GradientDrawable(
+                GradientDrawable.Orientation.TOP_BOTTOM,
+                intArrayOf(0xFF1A0B3C.toInt(), 0xFF0B0520.toInt(), 0xFF12083A.toInt())
+            )
             isFillViewport = true
             clipToPadding = false
         }
         val root = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(16), dp(40), dp(16), dp(120))
+            setPadding(dp(18), dp(44), dp(18), dp(120))
         }
         scroll.addView(root)
+
         root.addView(TextView(requireContext()).apply {
             text = "MEDIAHUB PRO"
-            setTextColor(0xFFFF2D95.toInt())
+            setTextColor(0xFF5CE1FF.toInt())
             textSize = 11f
-            letterSpacing = 0.2f
+            letterSpacing = 0.22f
             setTypeface(null, Typeface.BOLD)
             setPadding(0, dp(8), 0, dp(4))
         })
         root.addView(TextView(requireContext()).apply {
-            text = "Your media. Your world."
+            text = "Listen. Watch. Create."
             setTextColor(0xFFFFFFFF.toInt())
-            textSize = 24f
+            textSize = 26f
             setTypeface(null, Typeface.BOLD)
-            setPadding(0, 0, 0, dp(16))
+            setPadding(0, 0, 0, dp(18))
         })
+
+        // Hero online music — aurora gradient
         val onlineMusicCard = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
-            setPadding(dp(18), dp(18), dp(18), dp(18))
+            setPadding(dp(20), dp(20), dp(20), dp(20))
             background = GradientDrawable(
                 GradientDrawable.Orientation.TL_BR,
-                intArrayOf(0xFF4A1738.toInt(), 0xFF211326.toInt(), 0xFF17151E.toInt())
+                intArrayOf(0xFF3D1F7A.toInt(), 0xFF1A0F45.toInt(), 0xFF0F1A4A.toInt())
             ).apply {
-                cornerRadius = dp(20).toFloat()
-                setStroke(dp(1), 0x66FF4D8D)
+                cornerRadius = dp(22).toFloat()
+                setStroke(dp(1), 0x665CE1FF.toInt())
             }
-            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(18) }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(20) }
             isClickable = true
             isFocusable = true
             setOnClickListener {
@@ -93,7 +97,7 @@ class HomeFragment : Fragment() {
         }
         onlineMusicCard.addView(TextView(requireContext()).apply {
             text = "♫  ONLINE MUSIC"
-            setTextColor(0xFFFFA0B8.toInt())
+            setTextColor(0xFF5CE1FF.toInt())
             textSize = 11f
             setTypeface(null, Typeface.BOLD)
             letterSpacing = 0.12f
@@ -103,48 +107,34 @@ class HomeFragment : Fragment() {
             setTextColor(0xFFFFFFFF.toInt())
             textSize = 20f
             setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(8), 0, dp(3))
+            setPadding(0, dp(8), 0, dp(4))
         })
         onlineMusicCard.addView(TextView(requireContext()).apply {
-            text = "Search artists and tracks · Trending · Latest releases"
-            setTextColor(0xFFE3C8D8.toInt())
+            text = "Search artists · Trending · Latest releases"
+            setTextColor(0xFFD7CFFF.toInt())
             textSize = 12f
         })
         onlineMusicCard.addView(TextView(requireContext()).apply {
             text = "OPEN ONLINE MUSIC  →"
-            setTextColor(0xFFFF6FAE.toInt())
+            setTextColor(0xFFA78BFF.toInt())
             textSize = 12f
             setTypeface(null, Typeface.BOLD)
             setPadding(0, dp(14), 0, 0)
         })
         root.addView(onlineMusicCard)
-        root.addView(TextView(requireContext()).apply {
-            text = "Command Centre"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 17f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(4), 0, dp(12))
-        })
+
+        root.addView(sectionTitle("Command Centre"))
         commandGrid = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
         root.addView(commandGrid)
-        root.addView(TextView(requireContext()).apply {
-            text = "Recents"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 17f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(12), 0, dp(8))
-        })
+
+        root.addView(sectionTitle("Recents"))
         recent = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
         root.addView(recent)
-        root.addView(TextView(requireContext()).apply {
-            text = "Categories"
-            setTextColor(0xFFFFFFFF.toInt())
-            textSize = 17f
-            setTypeface(null, Typeface.BOLD)
-            setPadding(0, dp(16), 0, dp(12))
-        })
+
+        root.addView(sectionTitle("Categories"))
         categoryGrid = LinearLayout(requireContext()).apply { orientation = LinearLayout.VERTICAL }
         root.addView(categoryGrid)
+
         val updateCard = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(16), dp(16), dp(16), dp(16))
@@ -153,7 +143,7 @@ class HomeFragment : Fragment() {
         }
         updateCard.addView(TextView(requireContext()).apply {
             text = "APP UPDATE"
-            setTextColor(0xFFFF6BB5.toInt())
+            setTextColor(0xFF5CE1FF.toInt())
             textSize = 11f
             setTypeface(null, Typeface.BOLD)
         })
@@ -165,14 +155,23 @@ class HomeFragment : Fragment() {
         }
         updateCard.addView(updateStatus)
         root.addView(updateCard)
+
         root.addView(TextView(requireContext()).apply {
-            text = "© Grimy. All rights reserved."
-            setTextColor(0xFF777381.toInt())
+            text = "© Grimy · MediaHub Pro"
+            setTextColor(0xFF6B5F96.toInt())
             textSize = 11f
             gravity = Gravity.CENTER
             setPadding(0, dp(28), 0, dp(8))
         })
         return scroll
+    }
+
+    private fun sectionTitle(t: String) = TextView(requireContext()).apply {
+        text = t
+        setTextColor(0xFFFFFFFF.toInt())
+        textSize = 17f
+        setTypeface(null, Typeface.BOLD)
+        setPadding(0, dp(8), 0, dp(12))
     }
 
     override fun onViewCreated(view: View, savedInstanceState: Bundle?) {
@@ -200,15 +199,15 @@ class HomeFragment : Fragment() {
         ))
         commandGrid.addView(toolRow(
             toolCard("📚", "Learn", "Offline media guides") { startActivity(Intent(requireContext(), MediaHubLearnActivity::class.java)) },
-            toolCard("🧰", "20 Tools", "Calculators & media guides") { startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java)) }
+            toolCard("🧰", "20 Tools", "Calculators & guides") { startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
-            toolCard("✨", "Content Library", "351 MB offline packs") { startActivity(Intent(requireContext(), MediaHubContentLibraryActivity::class.java)) },
-            toolCard("💬", "WhatsApp Bot", "Baileys · real QR link") { startActivity(Intent(requireContext(), WhatsAppBotActivity::class.java)) }
+            toolCard("✨", "Content Library", "Offline packs") { startActivity(Intent(requireContext(), MediaHubContentLibraryActivity::class.java)) },
+            toolCard("💬", "WhatsApp Bot", "QR link · Baileys") { startActivity(Intent(requireContext(), WhatsAppBotActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
-            toolCard("✦", "What's New", "Read every feature") { startActivity(Intent(requireContext(), MediaHubWhatsNewActivity::class.java)) },
-            toolCard("▣", "Media Library", "Your local collection") { openTab(R.id.navPhotos) }
+            toolCard("✦", "What's New", "Every feature") { startActivity(Intent(requireContext(), MediaHubWhatsNewActivity::class.java)) },
+            toolCard("▣", "Media Library", "Local collection") { openTab(R.id.navPhotos) }
         ))
 
         viewLifecycleOwner.lifecycleScope.launch {
@@ -222,7 +221,7 @@ class HomeFragment : Fragment() {
             if (latest.isEmpty()) {
                 recent.addView(TextView(ctx).apply {
                     text = "No recent media yet"
-                    setTextColor(0xFF9693A1.toInt())
+                    setTextColor(0xFF9B8FBE.toInt())
                     textSize = 14f
                 })
             } else latest.forEach { recent.addView(recentRow(it)) }
@@ -233,12 +232,12 @@ class HomeFragment : Fragment() {
                 layoutParams = LinearLayout.LayoutParams(-1, -2).apply { bottomMargin = dp(10) }
             }
             categoryGrid.addView(rowOf(
-                catCard("♫", "Audio", "${music.size} tracks", 0xFFFF2D95.toInt()) { openTab(R.id.navMusic) },
-                catCard("▶", "Videos", "${videos.size} files", 0xFFFF806F.toInt()) { openTab(R.id.navVideos) }
+                catCard("♫", "Audio", "${music.size} tracks", 0xFF5CE1FF.toInt()) { openTab(R.id.navMusic) },
+                catCard("▶", "Videos", "${videos.size} files", 0xFFA78BFF.toInt()) { openTab(R.id.navVideos) }
             ))
             categoryGrid.addView(rowOf(
-                catCard("▣", "Images", "${photos.size} photos", 0xFFFFA0B8.toInt()) { openTab(R.id.navPhotos) },
-                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFFB59BFF.toInt()) { openTab(R.id.navSettings) }
+                catCard("▣", "Images", "${photos.size} photos", 0xFFB59BFF.toInt()) { openTab(R.id.navPhotos) },
+                catCard("☁", "Storage", "${snap.freeStorageMb} MB free", 0xFF7C5CFF.toInt()) { openTab(R.id.navSettings) }
             ))
         }
 
@@ -271,7 +270,7 @@ class HomeFragment : Fragment() {
             text = title; setTextColor(0xFFFFFFFF.toInt()); textSize = 13f; setTypeface(null, Typeface.BOLD); setPadding(0, dp(8), 0, 0)
         })
         card.addView(TextView(requireContext()).apply {
-            text = subtitle; setTextColor(0xFF9693A1.toInt()); textSize = 11f; setPadding(0, dp(2), 0, 0)
+            text = subtitle; setTextColor(0xFF9B8FBE.toInt()); textSize = 11f; setPadding(0, dp(2), 0, 0)
         })
         return card
     }
@@ -295,8 +294,16 @@ class HomeFragment : Fragment() {
         val thumb = ImageView(requireContext()).apply {
             layoutParams = LinearLayout.LayoutParams(dp(48), dp(48))
             scaleType = ImageView.ScaleType.CENTER_CROP
-            background = GradientDrawable().apply { setColor(0xFF25202D.toInt()); cornerRadius = dp(12).toFloat() }
+            background = GradientDrawable().apply {
+                shape = GradientDrawable.OVAL
+                setColor(0xFF221247.toInt())
+            }
             clipToOutline = true
+            outlineProvider = object : android.view.ViewOutlineProvider() {
+                override fun getOutline(view: View, outline: android.graphics.Outline) {
+                    outline.setOval(0, 0, view.width, view.height)
+                }
+            }
         }
         row.addView(thumb)
         viewLifecycleOwner.lifecycleScope.launch(Dispatchers.IO) {
@@ -312,7 +319,7 @@ class HomeFragment : Fragment() {
             text = item.title; setTextColor(0xFFFFFFFF.toInt()); textSize = 14f; maxLines = 1; setTypeface(null, Typeface.BOLD)
         })
         col.addView(TextView(requireContext()).apply {
-            text = item.kind.name; setTextColor(0xFF9693A1.toInt()); textSize = 12f
+            text = item.kind.name; setTextColor(0xFF5CE1FF.toInt()); textSize = 12f
         })
         row.addView(col)
         return row
@@ -332,15 +339,15 @@ class HomeFragment : Fragment() {
             text = title; setTextColor(0xFFFFFFFF.toInt()); textSize = 14f; setTypeface(null, Typeface.BOLD); setPadding(0, dp(8), 0, 0)
         })
         card.addView(TextView(requireContext()).apply {
-            text = subtitle; setTextColor(0xFF9693A1.toInt()); textSize = 11f
+            text = subtitle; setTextColor(0xFF9B8FBE.toInt()); textSize = 11f
         })
         return card
     }
 
     private fun glassCard() = GradientDrawable().apply {
-        setColor(0xCC17171F.toInt())
+        setColor(0xCC1A0F3A.toInt())
         cornerRadius = dp(18).toFloat()
-        setStroke(dp(1), 0x33FFFFFF)
+        setStroke(dp(1), 0x335CE1FF.toInt())
     }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()

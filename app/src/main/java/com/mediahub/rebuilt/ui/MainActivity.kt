@@ -95,6 +95,7 @@ class MainActivity : AppCompatActivity() {
             val p = controller ?: return@setOnClickListener
             if (p.isPlaying) p.pause() else p.play()
         }
+        miniPlayerPlay.setTextColor(0xFF5CE1FF.toInt())
 
         UpdateChecker.check(this, notify = true) { info ->
             if (info != null && !isFinishing) {
@@ -241,8 +242,9 @@ class MainActivity : AppCompatActivity() {
             .replace(R.id.contentContainer, fragment)
             .commit()
 
-        val activeColor = 0xFFFF2D95.toInt()
-        val inactiveColor = 0xFF8E8E9A.toInt()
+        // Aurora cyan active tab (matches music mockup)
+        val activeColor = 0xFF5CE1FF.toInt()
+        val inactiveColor = 0xFF9B8FBE.toInt()
         listOf(R.id.navHome, R.id.navMusic, R.id.navVideos, R.id.navPhotos, R.id.navSettings).forEach { id ->
             val view = findViewById<View>(id)
             val label = view.findViewWithTag<TextView>("label")
@@ -251,7 +253,6 @@ class MainActivity : AppCompatActivity() {
             label?.setTextColor(if (active) activeColor else inactiveColor)
             icon?.setTextColor(if (active) activeColor else inactiveColor)
             label?.typeface = if (active) Typeface.DEFAULT_BOLD else Typeface.DEFAULT
-            // Soft rounded highlight only on active — no giant oval
             view.setBackgroundResource(if (active) R.drawable.bg_nav_item_active else 0)
         }
     }
