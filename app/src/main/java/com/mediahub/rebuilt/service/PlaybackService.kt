@@ -2,6 +2,8 @@ package com.mediahub.rebuilt.service
 
 import android.app.PendingIntent
 import android.content.Intent
+import android.media.AudioManager
+import androidx.media3.common.util.UnstableApi
 import androidx.media3.common.AudioAttributes
 import androidx.media3.common.C
 import androidx.media3.common.Player
@@ -15,6 +17,7 @@ import com.mediahub.rebuilt.ui.MainActivity
  * Lock-screen controls, media notification, background playback.
  * Default: play through the full queue (auto-next when a track ends).
  */
+@androidx.annotation.OptIn(UnstableApi::class)
 class PlaybackService : MediaSessionService() {
 
     private var mediaSession: MediaSession? = null
@@ -33,6 +36,14 @@ class PlaybackService : MediaSessionService() {
             )
             .setHandleAudioBecomingNoisy(true)
             .build()
+
+        val sessionId = (getSystemService(AUDIO_SERVICE) as AudioManager).generateAudioSessionId()
+        if (sessionId > 0) {
+            exo.setAudioSessionId(sessionId)
+            getSharedPreferences("mediahub_audio", MODE_PRIVATE).edit()
+                .putInt("session_id", sessionId).apply()
+            AudioEqualizerController.attach(sessionId)
+        }
 
         // Continuous play: when the current track ends, go to the next in the queue
         exo.repeatMode = Player.REPEAT_MODE_ALL
@@ -57,6 +68,7 @@ class PlaybackService : MediaSessionService() {
 
     override fun onDestroy() {
         mediaSession?.run {
+            AudioEqualizerController.release()
             player?.release()
             release()
             mediaSession = null
