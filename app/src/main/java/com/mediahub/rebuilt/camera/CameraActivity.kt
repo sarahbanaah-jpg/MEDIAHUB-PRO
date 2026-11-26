@@ -10,6 +10,7 @@ import android.provider.MediaStore
 import android.view.Gravity
 import android.view.View
 import android.view.MotionEvent
+import android.view.ScaleGestureDetector
 import android.graphics.Canvas
 import android.graphics.Paint
 import android.widget.Button
@@ -57,6 +58,7 @@ class CameraActivity : AppCompatActivity() {
     private var maxZoom = 1f
     private var minZoom = 1f
     private var currentZoom = 1f
+    private lateinit var scaleDetector: ScaleGestureDetector
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -86,15 +88,22 @@ class CameraActivity : AppCompatActivity() {
         gridOverlay = CompositionGridView().apply { visibility = View.GONE }
         frame.addView(gridOverlay, FrameLayout.LayoutParams(-1, -1))
 
-        // Tap to focus; leave the preview touch stream available for pinch-to-zoom.
+        // Native-feeling camera gestures: pinch to zoom and tap to focus.
+        scaleDetector = ScaleGestureDetector(this, object : ScaleGestureDetector.SimpleOnScaleGestureListener() {
+            override fun onScale(detector: ScaleGestureDetector): Boolean {
+                setZoomRatio(currentZoom * detector.scaleFactor)
+                return true
+            }
+        })
         previewView.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
+            scaleDetector.onTouchEvent(event)
+            if (event.action == MotionEvent.ACTION_UP && event.pointerCount == 1 && !scaleDetector.isInProgress) {
                 val point = previewView.meteringPointFactory.createPoint(event.x, event.y)
                 val action = FocusMeteringAction.Builder(point)
                     .setAutoCancelDuration(3, TimeUnit.SECONDS).build()
                 camera?.cameraControl?.startFocusAndMetering(action)
             }
-            false
+            true
         }
 
         val top = LinearLayout(this).apply {
