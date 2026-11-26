@@ -221,7 +221,6 @@ class CameraActivity : AppCompatActivity() {
         actions.addView(textButton("↻") { switchCamera() }, LinearLayout.LayoutParams(dp(52), dp(52)).apply {
             leftMargin = dp(20)
         })
-        actions.addView(View(this), LinearLayout.LayoutParams(dp(72), dp(52)))
         bottomPanel.addView(actions)
         frame.addView(bottomPanel, FrameLayout.LayoutParams(-1, -2, Gravity.BOTTOM))
 
