@@ -115,20 +115,27 @@ public final class LiquidGlassLayout extends LinearLayout {
         int height = root.getHeight();
         if (width <= 0 || height <= 0) return;
 
-        Bitmap next = null;
         int oldVisibility = getVisibility();
         try {
             capturing = true;
-            next = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+            if (cachedBackdrop == null || cachedBackdrop.isRecycled() ||
+                cachedRoot.get() != root || cachedBackdrop.getWidth() != width ||
+                cachedBackdrop.getHeight() != height) {
+                Bitmap previous = cachedBackdrop;
+                cachedBackdrop = Bitmap.createBitmap(width, height, Bitmap.Config.ARGB_8888);
+                if (previous != null && !previous.isRecycled()) previous.recycle();
+                cachedRoot = new WeakReference<>(root);
+            } else {
+                cachedBackdrop.eraseColor(Color.TRANSPARENT);
+            }
             setVisibility(INVISIBLE);
-            root.draw(new Canvas(next));
-            Bitmap previous = cachedBackdrop;
-            cachedBackdrop = next;
-            cachedRoot = new WeakReference<>(root);
+            root.draw(new Canvas(cachedBackdrop));
             capturedAt = now;
-            if (previous != null && previous != next && !previous.isRecycled()) previous.recycle();
         } catch (OutOfMemoryError | RuntimeException ignored) {
-            if (next != null && !next.isRecycled()) next.recycle();
+            if (cachedBackdrop != null && !cachedBackdrop.isRecycled()) {
+                cachedBackdrop.recycle();
+                cachedBackdrop = null;
+            }
         } finally {
             setVisibility(oldVisibility);
             capturing = false;
