@@ -23,13 +23,14 @@ import android.widget.PopupWindow
 import android.widget.ScrollView
 import android.widget.TextView
 
-/** Offline system keyboard. Gboard-style key bubble. No "YOU ARE TYPING" strip. */
+/** Offline system keyboard. Gboard-style key bubble + Grimy Emoji pack. */
 class GrimyBoardService : InputMethodService() {
 
     private var caps = false
     private var capsLock = false
     private var symbols = false
-    private var mode = 0
+    private var mode = 0 // 0 keys, 1 emoji, 2 clipboard
+    private var emojiTab = 0 // 0 Grimy, 1 faces, 2 hearts, 3 more
     private var root: LinearLayout? = null
     private val clipboardItems = mutableListOf<String>()
     private val handler = Handler(Looper.getMainLooper())
@@ -70,11 +71,33 @@ class GrimyBoardService : InputMethodService() {
             else -> 0xFF25222C.toInt()
         }
 
-    private val emojiGroups = listOf(
-        listOf("😀", "😂", "🥹", "😍", "🥰", "😘", "😎", "😭", "😡", "🤔", "🤫", "🤗", "😊", "😉", "🥳", "😴"),
-        listOf("🫶", "❤️", "🔥", "✨", "💯", "🙏", "💀", "👀", "💔", "💕", "🎉", "👍", "👏", "🤝", "💪", "🌹"),
-        listOf("🖤", "😈", "🙌", "💖", "⭐", "🌈", "🍀", "🎧", "🎵", "💎", "🦋", "🌸", "🚀", "🌙", "☀️", "⚡"),
-        listOf("1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "✅", "❌", "⚠️", "📌", "💬", "📱", "💻", "🎮", "📷", "🎬", "🎶")
+    /** Official Grimy Emoji pack — curated for MediaHub / Grimy brand. */
+    private val grimyEmoji = listOf(
+        "🖤", "💜", "💗", "💖", "✨", "⭐", "🌟", "💫",
+        "🔥", "⚡", "💥", "🌀", "🌌", "🌙", "☀️", "🌈",
+        "🎧", "🎵", "🎶", "🎤", "🎸", "🎹", "📀", "💿",
+        "💎", "👑", "🎀", "🧿", "🪬", "🪞", "🔮", "🪄",
+        "😎", "😈", "🫶", "🤙", "🤟", "✌️", "👋", "🫡",
+        "🚀", "🛸", "👾", "🤖", "🦁", "🐺", "🐉", "🦋",
+        "💯", "✅", "🆗", "🆕", "🆙", "🔝", "❤️‍🔥", "🫶"
+    )
+
+    private val facesEmoji = listOf(
+        "😀", "😂", "🥹", "😍", "🥰", "😘", "😎", "😭",
+        "😡", "🤔", "🤫", "🤗", "😊", "😉", "🥳", "😴",
+        "🫠", "🫡", "🫣", "🤭", "😤", "😈", "💀", "👀"
+    )
+
+    private val heartsEmoji = listOf(
+        "❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍",
+        "💕", "💞", "💓", "💗", "💖", "💘", "💝", "💔",
+        "❤️‍🔥", "❤️‍🩹", "🫶", "💋", "🌹", "🌷", "🌸", "💮"
+    )
+
+    private val moreEmoji = listOf(
+        "👍", "👏", "🙏", "💪", "🤝", "🙌", "🎉", "🎊",
+        "📱", "💻", "🎮", "📷", "🎬", "💬", "📌", "⚠️",
+        "✅", "❌", "1️⃣", "2️⃣", "3️⃣", "4️⃣", "5️⃣", "🍀"
     )
 
     private val longPressMap = mapOf(
@@ -123,14 +146,12 @@ class GrimyBoardService : InputMethodService() {
         p.removeAllViews()
         p.setBackgroundColor(bg)
 
-        // No YOU ARE TYPING strip — Gboard-style key bubble only
-
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         head.addView(label("GRIMY BOARD", 12f, accent, true), LinearLayout.LayoutParams(0, dp(34), 1f))
         head.addView(key("←", showBubble = false) { moveCursor(-1) }, LinearLayout.LayoutParams(dp(40), dp(34)))
         head.addView(key("→", showBubble = false) { moveCursor(1) }, LinearLayout.LayoutParams(dp(40), dp(34)))
         head.addView(key("▤", showBubble = false) { mode = if (mode == 2) 0 else 2; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
-        head.addView(key("☺", showBubble = false) { mode = if (mode == 1) 0 else 1; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
+        head.addView(key("☺", showBubble = false) { mode = if (mode == 1) 0 else 1; emojiTab = 0; render() }, LinearLayout.LayoutParams(dp(40), dp(34)))
         head.addView(
             key("⚙", showBubble = false) {
                 startActivity(
@@ -244,22 +265,65 @@ class GrimyBoardService : InputMethodService() {
     }
 
     private fun renderEmoji(p: LinearLayout) {
+        // Brand header
+        p.addView(label("GRIMY EMOJI", 13f, accent, true))
+
+        // Category tabs
+        val tabs = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL
+            gravity = Gravity.CENTER
+            setPadding(0, dp(4), 0, dp(6))
+        }
+        listOf("Grimy", "Faces", "Hearts", "More").forEachIndexed { i, name ->
+            val active = emojiTab == i
+            tabs.addView(
+                TextView(this).apply {
+                    text = name
+                    textSize = 12f
+                    gravity = Gravity.CENTER
+                    setTypeface(null, if (active) Typeface.BOLD else Typeface.NORMAL)
+                    setTextColor(if (active) Color.BLACK else Color.WHITE)
+                    setPadding(dp(12), dp(8), dp(12), dp(8))
+                    background = GradientDrawable().apply {
+                        if (active) setColor(accent) else setColor(keyBg)
+                        cornerRadius = dp(14).toFloat()
+                        if (!active) setStroke(dp(1), 0x33FFFFFF)
+                    }
+                    setOnClickListener {
+                        emojiTab = i
+                        render()
+                    }
+                },
+                LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(dp(3), 0, dp(3), 0) }
+            )
+        }
+        p.addView(tabs)
+
+        val pack = when (emojiTab) {
+            0 -> grimyEmoji
+            1 -> facesEmoji
+            2 -> heartsEmoji
+            else -> moreEmoji
+        }
+
         val sc = ScrollView(this)
         val box = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        emojiGroups.forEach { group ->
-            group.chunked(8).forEach { row ->
-                val r = LinearLayout(this).apply { gravity = Gravity.CENTER }
-                row.forEach { e ->
-                    r.addView(
-                        key(e, showBubble = true) { commit(e) },
-                        LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(2, 2, 2, 2) }
-                    )
-                }
-                box.addView(r)
+        pack.chunked(8).forEach { row ->
+            val r = LinearLayout(this).apply { gravity = Gravity.CENTER }
+            row.forEach { e ->
+                r.addView(
+                    key(e, showBubble = true) { commit(e) },
+                    LinearLayout.LayoutParams(0, dp(46), 1f).apply { setMargins(2, 2, 2, 2) }
+                )
             }
+            // pad incomplete rows
+            repeat(8 - row.size) {
+                r.addView(View(this), LinearLayout.LayoutParams(0, dp(46), 1f))
+            }
+            box.addView(r)
         }
         sc.addView(box)
-        p.addView(sc, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(220)))
+        p.addView(sc, LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(210)))
         p.addView(
             key("ABC", showBubble = false) { mode = 0; render() },
             LinearLayout.LayoutParams(LinearLayout.LayoutParams.MATCH_PARENT, dp(38))
@@ -396,9 +460,8 @@ class GrimyBoardService : InputMethodService() {
         }
     }
 
-    /** Gboard-style magnified letter above the key while finger is down. */
     private fun showKeyPopup(anchor: View, label: String) {
-        if (!keyPopupEnabled || label.isBlank() || label.length > 3) return
+        if (!keyPopupEnabled || label.isBlank() || label.length > 4) return
         dismissKeyPopup()
         val bubble = TextView(this).apply {
             text = label
