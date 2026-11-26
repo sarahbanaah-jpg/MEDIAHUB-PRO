@@ -121,6 +121,19 @@ class MusicFragment : Fragment() {
             setOnClickListener { startActivity(Intent(requireContext(), EpidemicSoundActivity::class.java)) }
         })
         root.addView(header)
+        root.addView(TextView(requireContext()).apply {
+            text = "🌍  GLOBAL MUSIC  ·  Search Spotify, Apple Music, Deezer, TIDAL & YouTube"
+            textSize = 11f
+            setTypeface(null, Typeface.BOLD)
+            setTextColor(0xFFFFFFFF.toInt())
+            setPadding(dp(14), dp(13), dp(14), dp(13))
+            background = GradientDrawable().apply {
+                colors = intArrayOf(0xFFFF4D8D.toInt(), 0xFF9D4EDD.toInt())
+                cornerRadius = dp(15).toFloat()
+            }
+            layoutParams = LinearLayout.LayoutParams(-1, -2).apply { topMargin = dp(12) }
+            setOnClickListener { startActivity(Intent(requireContext(), MusicApiActivity::class.java)) }
+        })
 
         val tabs = LinearLayout(requireContext()).apply {
             orientation = LinearLayout.HORIZONTAL
