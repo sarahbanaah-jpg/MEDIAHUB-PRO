@@ -4,6 +4,10 @@ import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
+import android.Manifest
+import android.content.pm.PackageManager
+import androidx.core.content.ContextCompat
+import com.google.firebase.messaging.FirebaseMessaging
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -47,9 +51,16 @@ class ChatHubActivity : AppCompatActivity() {
             ?: user.email?.substringBefore("@") ?: "MediaHub user"
         db.collection("public_profiles").document(user.uid).set(
             mapOf("uid" to user.uid, "displayName" to name,
-                "email" to (user.email ?: ""), "lastSeen" to com.google.firebase.Timestamp.now()),
+                "lastSeen" to com.google.firebase.Timestamp.now()),
             com.google.firebase.firestore.SetOptions.merge()
         )
+        FirebaseMessaging.getInstance().token.addOnSuccessListener { token ->
+            db.collection("users").document(user.uid).collection("devices").document(token)
+                .set(mapOf("token" to token, "updatedAt" to com.google.firebase.firestore.FieldValue.serverTimestamp()))
+        }
+        if (Build.VERSION.SDK_INT >= 33 && ContextCompat.checkSelfPermission(this, Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+            requestPermissions(arrayOf(Manifest.permission.POST_NOTIFICATIONS), 7301)
+        }
         listener = db.collection("public_profiles").addSnapshotListener { snap, error ->
             if (error != null) {
                 Toast.makeText(this, "Could not load users: ${error.localizedMessage}", Toast.LENGTH_LONG).show()
@@ -69,7 +80,7 @@ class ChatHubActivity : AppCompatActivity() {
             profiles.forEach { doc ->
                 val uid = doc.id
                 val display = doc.getString("displayName") ?: "MediaHub user"
-                val email = doc.getString("email").orEmpty()
+
                 val row = LinearLayout(this).apply {
                     orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
                     setPadding(dp(14), dp(14), dp(14), dp(14))
@@ -100,7 +111,7 @@ class ChatHubActivity : AppCompatActivity() {
                     setTypeface(null, Typeface.BOLD)
                 })
                 details.addView(TextView(this).apply {
-                    text = email; textSize = 12f; setTextColor(0xFFBBAED5.toInt())
+                    text = "MEDIAHUB-PRO member"; textSize = 12f; setTextColor(0xFFBBAED5.toInt())
                 })
                 row.addView(details, LinearLayout.LayoutParams(0, -2, 1f))
                 row.addView(TextView(this).apply {
