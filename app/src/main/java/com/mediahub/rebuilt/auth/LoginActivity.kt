@@ -16,6 +16,9 @@ import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.UserProfileChangeRequest
+import com.google.firebase.firestore.FieldValue
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import com.mediahub.rebuilt.ui.MainActivity
 
 class LoginActivity : AppCompatActivity() {
@@ -28,7 +31,7 @@ class LoginActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (auth.currentUser != null) { enterApp(); return }
+        if (auth.currentUser != null) { buildScreen(); enterApp(); return }
         buildScreen()
     }
 
@@ -126,10 +129,16 @@ class LoginActivity : AppCompatActivity() {
                     .setDisplayName(name.text.toString().trim())
                     .build()
                 user.updateProfile(profile).addOnCompleteListener {
-                    user.sendEmailVerification().addOnCompleteListener {
+                    if (mail.equals(ADMIN_EMAIL, ignoreCase = true)) {
                         setBusy(false)
-                        status.text = if (it.isSuccessful) "Verification email sent. You can continue, but verify your email to enable owner administration." else "Account created. You can resend email verification later."
+                        status.text = "Owner account ready. No email verification step is required."
                         enterApp()
+                    } else {
+                        user.sendEmailVerification().addOnCompleteListener {
+                            setBusy(false)
+                            status.text = if (it.isSuccessful) "Verification email sent." else "Account created. You can resend email verification later."
+                            enterApp()
+                        }
                     }
                 }
             } else {
@@ -154,9 +163,38 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun enterApp() {
-        startActivity(Intent(this, MainActivity::class.java))
-        finish()
+        val user = auth.currentUser ?: return
+        val db = FirebaseFirestore.getInstance()
+        db.collection("user_bans").document(user.uid).get()
+            .addOnSuccessListener { ban ->
+                if (ban.exists()) {
+                    auth.signOut()
+                    if (!::status.isInitialized) buildScreen()
+                    status.text = "This account is suspended. Reason: ${ban.getString("reason").orEmpty()}"
+                    return@addOnSuccessListener
+                }
+                val account = hashMapOf<String, Any>(
+                    "uid" to user.uid,
+                    "email" to (user.email ?: ""),
+                    "displayName" to (user.displayName ?: ""),
+                    "createdAt" to FieldValue.serverTimestamp(),
+                    "lastSeen" to FieldValue.serverTimestamp()
+                )
+                db.collection("users").document(user.uid).set(account, SetOptions.merge())
+                    .addOnSuccessListener {
+                        startActivity(Intent(this, MainActivity::class.java))
+                        finish()
+                    }
+                    .addOnFailureListener { error ->
+                        status.text = "Account check could not finish: ${error.localizedMessage}"
+                    }
+            }
+            .addOnFailureListener { error ->
+                status.text = "Could not verify account status. Check your internet connection: ${error.localizedMessage}"
+            }
     }
+
+    companion object { private const val ADMIN_EMAIL = "leonelsquare7@gmail.com" }
 
     private fun dp(value: Int) = (value * resources.displayMetrics.density).toInt()
 }

@@ -15,6 +15,7 @@ import android.widget.TextView
 import androidx.fragment.app.Fragment
 import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
+import com.mediahub.rebuilt.camera.CameraActivity
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.ambient.AmbientDisplayActivity
 import com.mediahub.rebuilt.arcade.MediaHubGameCenterActivity
@@ -182,12 +183,16 @@ class HomeFragment : Fragment() {
         }
         commandGrid.removeAllViews()
         commandGrid.addView(toolRow(
-            toolCard("🎬", "Studio", "Trim & export") { startActivity(Intent(requireContext(), MediaHubStudioActivity::class.java)) },
-            toolCard("🔒", "Vault", "Encrypted files") { startActivity(Intent(requireContext(), PrivateVaultActivity::class.java)) }
+            toolCard("📸", "Pro Camera", "Photo · Video · Zoom") { startActivity(Intent(requireContext(), CameraActivity::class.java)) },
+            toolCard("🎬", "Studio", "Trim & export") { startActivity(Intent(requireContext(), MediaHubStudioActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
-            toolCard("📡", "Remote", "Offline QR control") { startActivity(Intent(requireContext(), MediaHubRemoteActivity::class.java)) },
-            toolCard("🌙", "Ambient", "Charging clock") { startActivity(Intent(requireContext(), AmbientDisplayActivity::class.java)) }
+            toolCard("🔒", "Vault", "Encrypted files") { startActivity(Intent(requireContext(), PrivateVaultActivity::class.java)) },
+            toolCard("📡", "Remote", "Offline QR control") { startActivity(Intent(requireContext(), MediaHubRemoteActivity::class.java)) }
+        ))
+        commandGrid.addView(toolRow(
+            toolCard("🌙", "Ambient", "Charging clock") { startActivity(Intent(requireContext(), AmbientDisplayActivity::class.java)) },
+            toolCard("🧠", "Intelligence", "Library tips") { startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java)) }
         ))
         commandGrid.addView(toolRow(
             toolCard("🧠", "Intelligence", "Library tips") { startActivity(Intent(requireContext(), MediaHubIntelligenceActivity::class.java)) },

@@ -26,6 +26,8 @@ import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
 import com.google.firebase.auth.FirebaseAuth
+import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.ListenerRegistration
 import com.mediahub.rebuilt.auth.LoginActivity
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.service.PlaybackService
@@ -48,6 +50,7 @@ class MainActivity : AppCompatActivity() {
     private var dynamicIsland: DynamicIslandOverlay? = null
     private var controller: MediaController? = null
     private var controllerFuture: ListenableFuture<MediaController>? = null
+    private var banListener: ListenerRegistration? = null
 
     private val permissionLauncher = registerForActivityResult(
         ActivityResultContracts.RequestMultiplePermissions()
@@ -125,6 +128,19 @@ class MainActivity : AppCompatActivity() {
     override fun onStart() {
         super.onStart()
         connectPlayer()
+        val user = FirebaseAuth.getInstance().currentUser
+        if (user != null) {
+            banListener = FirebaseFirestore.getInstance().collection("user_bans").document(user.uid)
+                .addSnapshotListener { snapshot, _ ->
+                    if (snapshot?.exists() == true && !isFinishing) {
+                        FirebaseAuth.getInstance().signOut()
+                        startActivity(Intent(this, LoginActivity::class.java).apply {
+                            flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                        })
+                        finish()
+                    }
+                }
+        }
     }
 
     override fun onResume() {
@@ -144,6 +160,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     override fun onStop() {
+        banListener?.remove()
+        banListener = null
         dynamicIsland?.stop()
         controller?.removeListener(playerListener)
         controller = null
