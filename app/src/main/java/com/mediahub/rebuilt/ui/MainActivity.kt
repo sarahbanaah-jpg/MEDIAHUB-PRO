@@ -25,6 +25,8 @@ import androidx.media3.common.Player
 import androidx.media3.session.MediaController
 import androidx.media3.session.SessionToken
 import com.google.common.util.concurrent.ListenableFuture
+import com.google.firebase.auth.FirebaseAuth
+import com.mediahub.rebuilt.auth.LoginActivity
 import com.mediahub.rebuilt.R
 import com.mediahub.rebuilt.service.PlaybackService
 import com.mediahub.rebuilt.ui.home.HomeFragment
@@ -64,6 +66,11 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        if (FirebaseAuth.getInstance().currentUser == null) {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+            return
+        }
         WindowCompat.setDecorFitsSystemWindows(window, false)
         window.statusBarColor = 0x00000000
         window.navigationBarColor = 0x00000000

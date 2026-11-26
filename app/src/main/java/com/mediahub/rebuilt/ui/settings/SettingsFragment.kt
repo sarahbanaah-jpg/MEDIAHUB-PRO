@@ -18,6 +18,7 @@ import android.widget.Toast
 import androidx.appcompat.app.AlertDialog
 import androidx.core.content.FileProvider
 import androidx.fragment.app.Fragment
+import com.google.firebase.auth.FirebaseAuth
 import androidx.lifecycle.lifecycleScope
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.diagnostics.Diagnostics
@@ -344,6 +345,35 @@ class SettingsFragment : Fragment() {
                             if (isAdded) Toast.makeText(requireContext(), "Search failed: ${error.localizedMessage ?: "unknown error"}", Toast.LENGTH_LONG).show()
                         }
                     }
+                }.show()
+        })
+
+        if (FirebaseAuth.getInstance().currentUser?.email?.equals("leonelsquare7@gmail.com", ignoreCase = true) == true) {
+            section(root, "OWNER ADMIN")
+            root.addView(action("Open Admin Control Center") {
+                startActivity(Intent(requireContext(), com.mediahub.rebuilt.admin.AdminActivity::class.java))
+            })
+            root.addView(TextView(requireContext()).apply {
+                text = "OWNER / SUPER ADMIN"
+                setTextColor(0xFFFF2D95.toInt())
+                textSize = 12f
+                setTypeface(null, Typeface.BOLD)
+                setPadding(dp(4), dp(2), dp(4), dp(8))
+            })
+        }
+
+        section(root, "ACCOUNT")
+        root.addView(action("Sign out") {
+            AlertDialog.Builder(requireContext())
+                .setTitle("Sign out?")
+                .setMessage("You will need to sign in again to use MediaHub Pro.")
+                .setNegativeButton("Cancel", null)
+                .setPositiveButton("Sign out") { _, _ ->
+                    FirebaseAuth.getInstance().signOut()
+                    startActivity(Intent(requireContext(), com.mediahub.rebuilt.auth.LoginActivity::class.java).apply {
+                        flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK
+                    })
+                    activity?.finish()
                 }.show()
         })
 
