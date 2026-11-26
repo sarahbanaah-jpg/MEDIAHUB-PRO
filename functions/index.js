@@ -1,5 +1,7 @@
 const { onDocumentCreated } = require("firebase-functions/v2/firestore");
 const { onCall, HttpsError } = require("firebase-functions/v2/https");
+const { onDocumentUpdated } = require("firebase-functions/v2/firestore");
+const { onSchedule } = require("firebase-functions/v2/scheduler");
 const { defineSecret } = require("firebase-functions/params");
 const admin = require("firebase-admin");
 
@@ -114,3 +116,42 @@ exports.chatAssistant = onCall(
     return { answer: String(answer || "I couldn't generate a response.").slice(0, 6000) };
   }
 );
+
+
+/** Delete protected attachments after a view limit or Delete for everyone. */
+exports.purgeDeletedChatAttachment = onDocumentUpdated(
+  "chats/{chatId}/messages/{messageId}",
+  async (event) => {
+    const before = event.data?.before?.data();
+    const after = event.data?.after?.data();
+    if (!before || !after) return;
+    const path = before.storagePath;
+    if (!path) return;
+    const limit = Number(after.viewLimit || 0);
+    const count = Number(after.viewCount || 0);
+    const shouldDelete = after.deletedForEveryone === true || (limit > 0 && count >= limit);
+    if (!shouldDelete) return;
+    try {
+      await admin.storage().bucket().file(String(path)).delete({ ignoreNotFound: true });
+    } catch (error) {
+      console.warn("Could not purge chat attachment", error.message);
+    }
+  }
+);
+
+/** Periodically remove expired message records and their media objects. */
+exports.cleanupExpiredChatMessages = onSchedule("every 60 minutes", async () => {
+  const now = admin.firestore.Timestamp.now();
+  const expired = await db.collectionGroup("messages")
+    .where("expiresAt", "<=", now).limit(300).get();
+  if (expired.empty) return;
+  const batch = db.batch();
+  const mediaDeletes = [];
+  expired.docs.forEach((doc) => {
+    const path = doc.get("storagePath");
+    if (path) mediaDeletes.push(admin.storage().bucket().file(String(path)).delete({ ignoreNotFound: true }).catch(() => null));
+    batch.delete(doc.ref);
+  });
+  await Promise.all(mediaDeletes);
+  await batch.commit();
+});
