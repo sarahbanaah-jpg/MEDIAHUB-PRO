@@ -156,11 +156,13 @@ class CameraActivity : Activity() {
                 val provider = providerFuture.get()
                 val selector = if (frontCamera) CameraSelector.DEFAULT_FRONT_CAMERA else CameraSelector.DEFAULT_BACK_CAMERA
                 val preview = Preview.Builder().build().also { it.setSurfaceProvider(previewView.surfaceProvider) }
-                imageCapture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build()
+                val stillCapture = ImageCapture.Builder().setCaptureMode(ImageCapture.CAPTURE_MODE_MAXIMIZE_QUALITY).build()
+                imageCapture = stillCapture
                 val recorder = Recorder.Builder().setQualitySelector(QualitySelector.fromOrderedList(listOf(Quality.UHD, Quality.FHD, Quality.HD, Quality.SD))).build()
-                videoCapture = VideoCapture.withOutput(recorder)
+                val video = VideoCapture.withOutput(recorder)
+                videoCapture = video
                 provider.unbindAll()
-                camera = provider.bindToLifecycle(this, selector, preview, imageCapture, videoCapture)
+                camera = provider.bindToLifecycle(this, selector, preview, stillCapture, video)
                 val state = camera?.cameraInfo?.zoomState?.value
                 minZoom = state?.minZoomRatio ?: 1f
                 maxZoom = state?.maxZoomRatio ?: 1f
