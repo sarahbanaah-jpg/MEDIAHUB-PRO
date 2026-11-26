@@ -33,6 +33,7 @@
         android:usesCleartextTraffic="false"
         android:hardwareAccelerated="true">
 
+        <activity android:name=".admin.AdminActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".auth.LoginActivity" android:exported="true" android:windowSoftInputMode="adjustResize" android:theme="@style/Theme.MediaHubPro">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
