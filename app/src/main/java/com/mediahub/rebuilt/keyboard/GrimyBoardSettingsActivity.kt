@@ -32,14 +32,15 @@ class GrimyBoardSettingsActivity : Activity() {
     private fun draw() {
         box.removeAllViews()
         text("GRIMY BOARD", 26f, 0xFFFF3789.toInt(), true)
-        text("Gboard-style key bubble · themes · typing", 14f, Color.LTGRAY)
+        text("Suggestions · one-hand · numpad · voice · private", 13f, Color.LTGRAY)
 
         text("THEMES", 12f, 0xFFFF3789.toInt(), true)
         listOf(
             "pink" to "Pink Glow",
             "amoled" to "AMOLED Black",
             "neon" to "Neon Mint",
-            "glass" to "Purple Glass"
+            "glass" to "Purple Glass",
+            "grimy" to "Grimy Mode"
         ).forEach { (id, name) ->
             choice("Theme · $name", prefs.getString("theme", "pink") == id) {
                 prefs.edit().putString("theme", id).apply()
@@ -47,21 +48,32 @@ class GrimyBoardSettingsActivity : Activity() {
             }
         }
 
-        text("TYPING", 12f, 0xFFFF3789.toInt(), true)
-        choice("Key popup bubble (like Gboard)", prefs.getBoolean("key_popup", true)) {
+        text("SMART TYPING", 12f, 0xFFFF3789.toInt(), true)
+        choice("Word suggestions bar", prefs.getBoolean("suggestions", true)) {
+            flip("suggestions", true); draw()
+        }
+        choice("Key popup bubble (Gboard-style)", prefs.getBoolean("key_popup", true)) {
             flip("key_popup", true); draw()
         }
         choice("Number row", prefs.getBoolean("numbers", true)) {
             flip("numbers", true); draw()
         }
+        choice("Double-space for period", prefs.getBoolean("double_space", true)) {
+            flip("double_space", true); draw()
+        }
+
+        text("FEEDBACK", 12f, 0xFFFF3789.toInt(), true)
         choice("Key vibration", prefs.getBoolean("haptics", true)) {
             flip("haptics", true); draw()
         }
+        listOf(0 to "Haptic · Light", 1 to "Haptic · Medium", 2 to "Haptic · Strong").forEach { (n, label) ->
+            choice(label, prefs.getInt("haptic_level", 1) == n) {
+                prefs.edit().putInt("haptic_level", n).apply()
+                draw()
+            }
+        }
         choice("Key sound", prefs.getBoolean("sound", false)) {
             flip("sound", false); draw()
-        }
-        choice("Double-space for period", prefs.getBoolean("double_space", true)) {
-            flip("double_space", true); draw()
         }
 
         text("KEY HEIGHT", 12f, 0xFFFF3789.toInt(), true)
@@ -72,20 +84,25 @@ class GrimyBoardSettingsActivity : Activity() {
             }
         }
 
-        text("HOW TO USE", 12f, 0xFFFF3789.toInt(), true)
+        text("PRIVACY", 12f, 0xFFFF3789.toInt(), true)
+        choice("Private mode (no recent / no clipboard save)", prefs.getBoolean("incognito", false)) {
+            flip("incognito", false); draw()
+        }
         text(
-            "• Touch a letter — a bubble shows that letter\n" +
-                "• Double-tap ⇧ for caps lock\n" +
-                "• Hold ⌫ to delete quickly\n" +
-                "• Long-press letters for accents\n" +
-                "• Double-tap space for . ",
+            "Typed text is not sent to a server. Private mode stops local history.",
             13f,
             Color.LTGRAY
         )
 
-        text("PRIVACY", 12f, 0xFFFF3789.toInt(), true)
+        text("ON KEYBOARD", 12f, 0xFFFF3789.toInt(), true)
         text(
-            "Typed text is not sent to a server. Clipboard entries stay in memory only.",
+            "• ☺ Grimy emoji (Mine pack)\n" +
+                "• 123 Number pad\n" +
+                "• ⊏ One-handed mode\n" +
+                "• 🎙 Voice typing\n" +
+                "• ↶ Undo\n" +
+                "• EN/SW language\n" +
+                "• ▤ Clipboard + pin",
             13f,
             Color.LTGRAY
         )
