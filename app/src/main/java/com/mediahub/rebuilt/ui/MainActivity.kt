@@ -69,7 +69,9 @@ class MainActivity : AppCompatActivity() {
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
-        if (FirebaseAuth.getInstance().currentUser == null) {
+        val offlineGuest = intent.getBooleanExtra("offline_guest", false) ||
+            getSharedPreferences("mediahub_settings", MODE_PRIVATE).getBoolean("offline_guest_mode", false)
+        if (FirebaseAuth.getInstance().currentUser == null && !offlineGuest) {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
             return
