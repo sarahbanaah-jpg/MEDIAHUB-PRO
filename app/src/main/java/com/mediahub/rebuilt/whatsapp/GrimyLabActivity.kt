@@ -10,6 +10,7 @@ import android.widget.EditText
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.ScrollView
+import android.widget.SeekBar
 import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
@@ -23,6 +24,8 @@ class GrimyLabActivity : AppCompatActivity() {
     private lateinit var recipientInput: EditText
     private var timer: CountDownTimer? = null
     private var sessionEndsAt = 0L
+    private var localPayload = ""
+    private var selectedLength = 2000
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -50,6 +53,25 @@ class GrimyLabActivity : AppCompatActivity() {
         root.addView(button("GENERATE SAMPLE (500 CHARACTERS)") { generate(500) })
         root.addView(button("GENERATE SAMPLE (1,000 CHARACTERS)") { generate(1000) })
         root.addView(button("GENERATE LONG TEST (2,000 CHARACTERS)") { generate(2000) })
+        root.addView(label("LOCAL STRESS TEST SIZE: 2,000–900,000 CHARACTERS", 0xFFB7FF3C.toInt(), 12f, true))
+        val sizeLabel = label("Selected: 2,000 characters • local only above 2,000", 0xFFE1E3E8.toInt(), 13f)
+        root.addView(sizeLabel)
+        root.addView(SeekBar(this).apply {
+            max = 449
+            progress = 0
+            setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
+                override fun onProgressChanged(seekBar: SeekBar?, progress: Int, fromUser: Boolean) {
+                    selectedLength = 2000 + progress * 2000
+                    sizeLabel.text = "Selected: %,d characters • %s".format(
+                        selectedLength,
+                        if (selectedLength > 2000) "LOCAL ONLY — cannot be sent or shared" else "WhatsApp manual share available"
+                    )
+                }
+                override fun onStartTrackingTouch(seekBar: SeekBar?) {}
+                override fun onStopTrackingTouch(seekBar: SeekBar?) {}
+            })
+        })
+        root.addView(button("GENERATE SELECTED LOCAL STRESS TEST") { generate(selectedLength) })
         recipientInput = EditText(this).apply {
             hint = "Recipient number with country code, e.g. 2547XXXXXXXX"
             setHintTextColor(0xFF858B96.toInt())
@@ -107,14 +129,17 @@ class GrimyLabActivity : AppCompatActivity() {
     }
 
     private fun generate(size: Int) {
-        val safeSize = size.coerceIn(1, 2000)
+        val safeSize = size.coerceIn(1, 900000)
         val unit = "GRIMY LAB · Compatibility sample · 0123456789 · AaZz · 🙂\n"
         val text = buildString(safeSize) {
             while (length < safeSize) append(unit)
             if (length > safeSize) setLength(safeSize)
         }
-        sample.text = text
-        status.text = "SAMPLE READY • " + text.length + " characters"
+        localPayload = text
+        sample.text = if (text.length <= 2000) text else
+            text.take(900) + "\n\n… PREVIEW ONLY …\n\n" + text.takeLast(900) +
+                "\n\nFull " + text.length + "-character payload remains local in memory."
+        status.text = "LOCAL TEST READY • " + text.length + " characters"
     }
 
     private fun openWhatsAppChat() {
@@ -123,8 +148,12 @@ class GrimyLabActivity : AppCompatActivity() {
             Toast.makeText(this, "Enter a valid international number with country code", Toast.LENGTH_LONG).show()
             return
         }
-        val text = sample.text.toString()
-        if (text.isBlank() || text.startsWith("Your sample")) {
+        val text = localPayload
+        if (text.length > 2000) {
+            Toast.makeText(this, "Payloads above 2,000 characters are local-only and cannot be sent to WhatsApp.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (text.isBlank()) {
             Toast.makeText(this, "Generate a test message first", Toast.LENGTH_SHORT).show()
             return
         }
@@ -137,8 +166,12 @@ class GrimyLabActivity : AppCompatActivity() {
     }
 
     private fun shareSample() {
-        val text = sample.text.toString()
-        if (text.isBlank() || text.startsWith("Your sample")) {
+        val text = localPayload
+        if (text.length > 2000) {
+            Toast.makeText(this, "Payloads above 2,000 characters are local-only and cannot be shared externally.", Toast.LENGTH_LONG).show()
+            return
+        }
+        if (text.isBlank()) {
             Toast.makeText(this, "Generate a sample first", Toast.LENGTH_SHORT).show()
             return
         }
