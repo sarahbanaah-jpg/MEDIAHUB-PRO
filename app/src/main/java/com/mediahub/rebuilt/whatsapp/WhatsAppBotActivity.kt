@@ -1,5 +1,6 @@
 package com.mediahub.rebuilt.whatsapp
 
+import android.content.Intent
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -140,6 +141,10 @@ class WhatsAppBotActivity : AppCompatActivity() {
         root.addView(botToggle)
 
         // QR
+        root.addView(primaryBtn("OPEN GRIMY LAB") {
+            startActivity(Intent(this, GrimyLabActivity::class.java))
+        })
+
         root.addView(section("QR pairing"))
         qrHint = TextView(this).apply {
             text = "When status is QR, scan with WhatsApp → Linked Devices."
