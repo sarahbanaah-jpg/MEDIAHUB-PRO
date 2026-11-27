@@ -9,6 +9,10 @@ class UpdateCheckWorker(
     params: WorkerParameters
 ) : CoroutineWorker(appContext, params) {
     override suspend fun doWork(): Result {
+        if (applicationContext.getSharedPreferences("mediahub_settings", Context.MODE_PRIVATE)
+                .getBoolean("offline_mode", false)) {
+            return Result.success()
+        }
         return try {
             UpdateChecker.checkInBackground(applicationContext)
             Result.success()
