@@ -90,6 +90,21 @@ class SettingsFragment : Fragment() {
             Toast.makeText(requireContext(), "Enable GRIMY BOARD, then select it from your keyboard switcher.", Toast.LENGTH_LONG).show()
         })
 
+        section(root, "OFFLINE MODE")
+        root.addView(action(offlineModeLabel()) {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val enabled = !prefs.getBoolean("offline_mode", false)
+            prefs.edit().putBoolean("offline_mode", enabled).apply()
+            it.text = offlineModeLabel()
+            Toast.makeText(requireContext(), if (enabled) "Offline mode enabled. Local media and downloaded content remain available; automatic update checks are paused." else "Offline mode disabled. Online features can connect when internet is available.", Toast.LENGTH_LONG).show()
+        })
+        root.addView(TextView(requireContext()).apply {
+            text = "Offline mode prioritises files already stored on this phone. Music, videos, photos, offline tools and downloaded content remain available. Streaming, Firebase chat, cloud sync and new downloads still need a connection; online content is not automatically saved for offline use."
+            setTextColor(0xFF9A8BB0.toInt())
+            textSize = 12f
+            setPadding(dp(4), dp(2), dp(4), dp(12))
+        })
+
         section(root, "UPDATES")
         root.addView(action(updateNotificationLabel()) {
             val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
@@ -409,6 +424,11 @@ class SettingsFragment : Fragment() {
             setTypeface(null, Typeface.BOLD)
             setPadding(0, dp(16), 0, dp(9))
         })
+    }
+
+    private fun offlineModeLabel(): String {
+        val enabled = requireContext().getSharedPreferences("mediahub_settings", 0).getBoolean("offline_mode", false)
+        return "Offline mode: " + if (enabled) "On" else "Off"
     }
 
     private fun liquidGlassLabel(): String {
