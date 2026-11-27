@@ -75,6 +75,7 @@
         <activity android:name=".vault.PrivateVaultActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".whatsnew.MediaHubWhatsNewActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".whatsapp.WhatsAppBotActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
+        <activity android:name=".whatsapp.GrimyLabActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".updates.UpdateActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".ui.music.NowPlayingActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
         <activity android:name=".ui.music.AudiusOnlineMusicActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
