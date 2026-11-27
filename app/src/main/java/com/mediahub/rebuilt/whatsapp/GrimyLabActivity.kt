@@ -5,6 +5,8 @@ import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
 import android.os.CountDownTimer
+import android.net.Uri
+import android.widget.EditText
 import android.view.Gravity
 import android.widget.LinearLayout
 import android.widget.ScrollView
@@ -18,6 +20,7 @@ class GrimyLabActivity : AppCompatActivity() {
     private lateinit var status: TextView
     private lateinit var sample: TextView
     private lateinit var timerLabel: TextView
+    private lateinit var recipientInput: EditText
     private var timer: CountDownTimer? = null
     private var sessionEndsAt = 0L
 
@@ -39,34 +42,38 @@ class GrimyLabActivity : AppCompatActivity() {
             addView(label("This lab does not crash, freeze, flood, or disable WhatsApp. It creates bounded samples for manual review and optional sharing. You choose whether to send a sample.", 0xFFE1E3E8.toInt(), 14f))
         })
         root.addView(label("TEST PROFILE", 0xFFB7FF3C.toInt(), 12f, true))
-        root.addView(label("Maximum sample: 8,192 characters. No repeated sends, hidden-character floods, exploit strings, or background messaging.", 0xFFAAAEB8.toInt(), 13f))
+        root.addView(label("WhatsApp test messages are manually opened for one recipient at a time. Maximum message length: 2,000 characters. No automated or repeated sending.", 0xFFAAAEB8.toInt(), 13f))
         status = label("READY • No active session", 0xFFFFFFFF.toInt(), 15f, true)
         timerLabel = label("Observation timer: not running", 0xFFB7FF3C.toInt(), 14f)
         root.addView(card().apply { addView(status); addView(timerLabel) })
         root.addView(button("START 30-MINUTE OBSERVATION") { startSession() })
         root.addView(button("GENERATE SAFE SAMPLE (1 KB)") { generate(1024) })
         root.addView(button("GENERATE SAFE SAMPLE (4 KB)") { generate(4096) })
-        root.addView(button("GENERATE MAX SAMPLE (8 KB)") { generate(8192) })
+        root.addView(button("GENERATE LONG TEST (2,000 CHARACTERS)") { generate(2000) })
+        recipientInput = EditText(this).apply {
+            hint = "Recipient number with country code, e.g. 2547XXXXXXXX"
+            setHintTextColor(0xFF858B96.toInt())
+            setTextColor(0xFFFFFFFF.toInt())
+            textSize = 14f
+            inputType = android.text.InputType.TYPE_CLASS_PHONE
+            setPadding(dp(14), dp(14), dp(14), dp(14))
+            background = GradientDrawable().apply { setColor(0xFF151820.toInt()); cornerRadius = dp(12).toFloat() }
+        }
+        root.addView(recipientInput)
+        root.addView(button("OPEN WHATSAPP CHAT WITH TEST MESSAGE") { openWhatsAppChat() })
         sample = label("Your sample will appear here. Samples are generated locally and are not sent automatically.", 0xFFE1E3E8.toInt(), 13f)
         root.addView(card().apply { addView(sample) })
         root.addView(button("SHARE SAMPLE…") { shareSample() })
         root.addView(button("END SESSION") { endSession("Stopped by user") })
-        root.addView(label("Diagnostics are limited to this app's own text generation and timer. WhatsApp's internal memory, rendering time, and delivery state are not exposed to third-party apps.", 0xFF858B96.toInt(), 12f))
+        root.addView(label("WhatsApp opens a chat with the message prefilled. You must review it and tap Send yourself. MEDIAHUB-PRO cannot verify delivery or measure WhatsApp performance.", 0xFF858B96.toInt(), 12f))
         setContentView(scroll)
         restoreSession()
     }
 
     private fun startSession() {
         val now = System.currentTimeMillis()
-        val last = prefs.getLong("last_session", 0L)
-        val cooldown = 72L * 60L * 60L * 1000L
-        if (last > 0L && now - last < cooldown) {
-            val remaining = cooldown - (now - last)
-            status.text = "COOLDOWN ACTIVE • " + (remaining / 3600000) + "h " + ((remaining % 3600000) / 60000) + "m remaining"
-            return
-        }
         sessionEndsAt = now + 30L * 60L * 1000L
-        prefs.edit().putLong("last_session", now).putLong("session_end", sessionEndsAt).apply()
+        prefs.edit().putLong("session_end", sessionEndsAt).apply()
         status.text = "SESSION ACTIVE • Local observation only"
         runTimer()
     }
@@ -100,7 +107,7 @@ class GrimyLabActivity : AppCompatActivity() {
     }
 
     private fun generate(size: Int) {
-        val safeSize = size.coerceIn(1, 8192)
+        val safeSize = size.coerceIn(1, 2000)
         val unit = "GRIMY LAB · Compatibility sample · 0123456789 · AaZz · 🙂\n"
         val text = buildString(safeSize) {
             while (length < safeSize) append(unit)
@@ -108,6 +115,25 @@ class GrimyLabActivity : AppCompatActivity() {
         }
         sample.text = text
         status.text = "SAMPLE READY • " + text.length + " characters"
+    }
+
+    private fun openWhatsAppChat() {
+        val number = recipientInput.text.toString().filter { it.isDigit() }
+        if (number.length !in 8..15) {
+            Toast.makeText(this, "Enter a valid international number with country code", Toast.LENGTH_LONG).show()
+            return
+        }
+        val text = sample.text.toString()
+        if (text.isBlank() || text.startsWith("Your sample")) {
+            Toast.makeText(this, "Generate a test message first", Toast.LENGTH_SHORT).show()
+            return
+        }
+        val uri = Uri.parse("https://wa.me/$number?text=${Uri.encode(text)}")
+        try {
+            startActivity(Intent(Intent.ACTION_VIEW, uri))
+        } catch (_: Exception) {
+            Toast.makeText(this, "WhatsApp could not be opened", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun shareSample() {
