@@ -221,6 +221,21 @@ class SettingsFragment : Fragment() {
                     Toast.makeText(requireContext(), "Dynamic Island position saved.", Toast.LENGTH_SHORT).show()
                 }.show()
         })
+        section(root, "OFFLINE MODE")
+        root.addView(action(offlineModeLabel()) {
+            val prefs = requireContext().getSharedPreferences("mediahub_settings", 0)
+            val enabled = !prefs.getBoolean("offline_mode", false)
+            prefs.edit().putBoolean("offline_mode", enabled).apply()
+            it.text = offlineModeLabel()
+            Toast.makeText(requireContext(), if (enabled) "Offline mode enabled. Local media remains available; update checks are paused." else "Offline mode disabled. Online services can connect when internet is available.", Toast.LENGTH_LONG).show()
+        })
+        root.addView(TextView(requireContext()).apply {
+            text = "Offline mode keeps on-device music, videos and photos available and pauses MediaHub update checks. Firebase, streaming and other server-based features still need internet unless they provide their own offline cache."
+            setTextColor(0xFF9A8BB0.toInt())
+            textSize = 12f
+            setPadding(dp(4), dp(2), dp(4), dp(12))
+        })
+
         section(root, "OFFLINE MEDIA TRANSFER")
         root.addView(action("Send or receive files with Quick Share") {
             startActivity(Intent(requireContext(), com.mediahub.rebuilt.transfer.MediaHubTransferActivity::class.java))
@@ -332,6 +347,11 @@ class SettingsFragment : Fragment() {
             setTypeface(null, Typeface.BOLD)
             setPadding(0, dp(16), 0, dp(9))
         })
+    }
+
+    private fun offlineModeLabel(): String {
+        val enabled = requireContext().getSharedPreferences("mediahub_settings", 0).getBoolean("offline_mode", false)
+        return "Offline mode: " + if (enabled) "On" else "Off"
     }
 
     private fun updateNotificationLabel(): String {
