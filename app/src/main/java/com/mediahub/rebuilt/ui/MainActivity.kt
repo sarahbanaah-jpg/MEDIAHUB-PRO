@@ -96,13 +96,15 @@ class MainActivity : AppCompatActivity() {
             if (p.isPlaying) p.pause() else p.play()
         }
 
-        UpdateChecker.check(this, notify = true) { info ->
-            if (info != null && !isFinishing) {
-                if (info.mandatory) {
-                    mandatoryUpdate = true
-                    UpdateChecker.openUpdateScreen(this, info)
-                } else {
-                    UpdateChecker.openUpdateScreen(this, info)
+        if (!isOfflineModeEnabled()) {
+            UpdateChecker.check(this, notify = true) { info ->
+                if (info != null && !isFinishing) {
+                    if (info.mandatory) {
+                        mandatoryUpdate = true
+                        UpdateChecker.openUpdateScreen(this, info)
+                    } else {
+                        UpdateChecker.openUpdateScreen(this, info)
+                    }
                 }
             }
         }
@@ -124,7 +126,7 @@ class MainActivity : AppCompatActivity() {
         dynamicIsland?.refresh()
         dynamicIsland?.start()
         refreshMiniPlayer()
-        if (mandatoryUpdate) {
+        if (mandatoryUpdate && !isOfflineModeEnabled()) {
             UpdateChecker.check(this, notify = false) { info ->
                 if (info != null && info.mandatory && !isFinishing) {
                     UpdateChecker.openUpdateScreen(this, info)
@@ -173,6 +175,9 @@ class MainActivity : AppCompatActivity() {
         miniPlayerLabel.text = if (artist != null) "$title · $artist" else title
         miniPlayerPlay.text = if (p.isPlaying) "Ⅱ" else "▶"
     }
+
+    private fun isOfflineModeEnabled(): Boolean =
+        getSharedPreferences("mediahub_settings", MODE_PRIVATE).getBoolean("offline_mode", false)
 
     private fun hasMediaPermissions(): Boolean {
         if (Build.VERSION.SDK_INT < 33) {
