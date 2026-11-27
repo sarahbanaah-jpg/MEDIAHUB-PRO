@@ -36,7 +36,7 @@ class GrimyLabActivity : AppCompatActivity() {
         root.addView(label("‹ BACK", 0xFFB7FF3C.toInt(), 13f).apply { setOnClickListener { finish() } })
         root.addView(label("GRIMY LAB", 0xFFB7FF3C.toInt(), 12f))
         root.addView(label("Message Engineering", 0xFFFFFFFF.toInt(), 27f, true))
-        root.addView(label("Controlled compatibility bench • local-only diagnostics", 0xFFAAAEB8.toInt(), 13f))
+        root.addView(label("Controlled compatibility bench • manual message testing", 0xFFAAAEB8.toInt(), 13f))
         root.addView(card().apply {
             addView(label("SAFETY BOUNDARY", 0xFFFF5757.toInt(), 12f, true))
             addView(label("This lab does not crash, freeze, flood, or disable WhatsApp. It creates bounded samples for manual review and optional sharing. You choose whether to send a sample.", 0xFFE1E3E8.toInt(), 14f))
@@ -47,8 +47,8 @@ class GrimyLabActivity : AppCompatActivity() {
         timerLabel = label("Observation timer: not running", 0xFFB7FF3C.toInt(), 14f)
         root.addView(card().apply { addView(status); addView(timerLabel) })
         root.addView(button("START 30-MINUTE OBSERVATION") { startSession() })
-        root.addView(button("GENERATE SAFE SAMPLE (1 KB)") { generate(1024) })
-        root.addView(button("GENERATE SAFE SAMPLE (4 KB)") { generate(4096) })
+        root.addView(button("GENERATE SAMPLE (500 CHARACTERS)") { generate(500) })
+        root.addView(button("GENERATE SAMPLE (1,000 CHARACTERS)") { generate(1000) })
         root.addView(button("GENERATE LONG TEST (2,000 CHARACTERS)") { generate(2000) })
         recipientInput = EditText(this).apply {
             hint = "Recipient number with country code, e.g. 2547XXXXXXXX"
