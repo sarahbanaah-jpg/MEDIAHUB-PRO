@@ -183,6 +183,9 @@ class LoginActivity : AppCompatActivity() {
         // let that previously authenticated user reach local media without waiting
         // for Firestore account/ban checks that cannot complete without a network.
         if (!hasInternetConnection()) {
+            getSharedPreferences("mediahub_settings", MODE_PRIVATE).edit()
+                .putBoolean("offline_mode", true)
+                .apply()
             Toast.makeText(
                 this,
                 "Offline access enabled. Local media is available; account and ban checks will refresh when you reconnect.",
