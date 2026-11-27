@@ -84,6 +84,17 @@ class GrimyBoardSettingsActivity : Activity() {
             }
         }
 
+        text("GRIMY FONT STUDIO · RECIPIENT-VISIBLE", 12f, 0xFFFF3789.toInt(), true)
+        text("Choose a style that is inserted as Unicode text. People can see it in WhatsApp and other apps without installing GRIMY BOARD. Some devices may render certain symbols differently.", 12f, Color.LTGRAY)
+        val activeStyle = prefs.getString("text_style", "grimy") ?: "grimy"
+        text("Preview: " + GrimyTextStyles.apply("Hi, welcome to GRIMY!", activeStyle), 20f, Color.WHITE, true)
+        GrimyTextStyles.styles.forEach { style ->
+            choice("${style.name}  ·  ${style.sample}", activeStyle == style.id) {
+                prefs.edit().putString("text_style", style.id).apply()
+                draw()
+            }
+        }
+
         text("PRIVACY", 12f, 0xFFFF3789.toInt(), true)
         choice("Private mode (no recent / no clipboard save)", prefs.getBoolean("incognito", false)) {
             flip("incognito", false); draw()
