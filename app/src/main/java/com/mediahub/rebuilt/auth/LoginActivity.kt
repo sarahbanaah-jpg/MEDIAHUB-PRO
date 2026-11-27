@@ -89,11 +89,23 @@ class LoginActivity : AppCompatActivity() {
             text = "Forgot password?"; textSize = 14f; setTextColor(muted); gravity = Gravity.CENTER
             setPadding(0, dp(10), 0, dp(12)); setOnClickListener { resetPassword() }
         }
+        val offline = TextView(this).apply {
+            text = "CONTINUE OFFLINE"; textSize = 14f; setTextColor(accent)
+            gravity = Gravity.CENTER; setPadding(0, dp(14), 0, dp(10))
+            setOnClickListener {
+                getSharedPreferences("mediahub_settings", MODE_PRIVATE).edit()
+                    .putBoolean("offline_mode", true)
+                    .putBoolean("offline_guest_mode", true)
+                    .apply()
+                startActivity(Intent(this@LoginActivity, MainActivity::class.java).putExtra("offline_guest", true))
+                finish()
+            }
+        }
         root.addView(brand); root.addView(pro); root.addView(heading); root.addView(sub)
         root.addView(name, matchWrap()).also { name.visibility = View.GONE }
         root.addView(email, matchWrap()); root.addView(password, matchWrap())
         root.addView(status, matchWrap()); root.addView(action, matchWrap())
-        root.addView(toggle, matchWrap()); root.addView(forgot, matchWrap())
+        root.addView(toggle, matchWrap()); root.addView(forgot, matchWrap()); root.addView(offline, matchWrap())
         setContentView(root)
     }
 
