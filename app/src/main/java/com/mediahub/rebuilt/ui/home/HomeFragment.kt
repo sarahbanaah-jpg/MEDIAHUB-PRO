@@ -250,12 +250,18 @@ class HomeFragment : Fragment() {
             ))
         }
 
-        UpdateChecker.check(requireContext(), notify = false) { info ->
-            if (!isAdded) return@check
-            if (info == null) updateStatus.text = "You're up to date  ·  v${BuildConfig.VERSION_NAME}"
-            else {
-                updateStatus.text = "v${info.version} available  ·  tap to update"
-                updateStatus.setOnClickListener { UpdateChecker.openUpdateScreen(requireContext(), info) }
+        val offlineMode = requireContext().getSharedPreferences("mediahub_settings", 0)
+            .getBoolean("offline_mode", false)
+        if (offlineMode) {
+            updateStatus.text = "Offline mode · update checks paused"
+        } else {
+            UpdateChecker.check(requireContext(), notify = false) { info ->
+                if (!isAdded) return@check
+                if (info == null) updateStatus.text = "You're up to date  ·  v${BuildConfig.VERSION_NAME}"
+                else {
+                    updateStatus.text = "v${info.version} available  ·  tap to update"
+                    updateStatus.setOnClickListener { UpdateChecker.openUpdateScreen(requireContext(), info) }
+                }
             }
         }
     }
