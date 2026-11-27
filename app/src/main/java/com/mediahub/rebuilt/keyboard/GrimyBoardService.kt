@@ -286,7 +286,7 @@ class GrimyBoardService : InputMethodService() {
     private fun applySuggestion(word: String) {
         val ic = currentInputConnection ?: return
         if (currentWord.isNotEmpty()) {
-            ic.deleteSurroundingText(currentWord.length, 0)
+            ic.deleteSurroundingTextInCodePoints(currentWord.length, 0)
         }
         pushUndo()
         val style = prefs.getString("text_style", "grimy") ?: "grimy"
@@ -669,7 +669,7 @@ class GrimyBoardService : InputMethodService() {
         if (doubleSpacePeriod && now - lastSpaceTap < 320) {
             val ic = currentInputConnection
             pushUndo()
-            ic?.deleteSurroundingText(1, 0)
+            ic?.deleteSurroundingTextInCodePoints(1, 0)
             ic?.commitText(". ", 1)
             currentWord.clear()
         } else {
@@ -695,7 +695,7 @@ class GrimyBoardService : InputMethodService() {
         val ic = currentInputConnection ?: return
         val selected = ic.getSelectedText(0)
         if (selected != null && selected.isNotEmpty()) ic.commitText("", 1)
-        else ic.deleteSurroundingText(1, 0)
+        else ic.deleteSurroundingTextInCodePoints(1, 0)
         if (currentWord.isNotEmpty()) currentWord.deleteAt(currentWord.length - 1)
         feedback()
         if (suggestionsOn) render()
