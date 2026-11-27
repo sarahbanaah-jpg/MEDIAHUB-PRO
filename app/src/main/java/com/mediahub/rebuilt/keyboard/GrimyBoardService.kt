@@ -223,6 +223,7 @@ class GrimyBoardService : InputMethodService() {
         head.addView(key("⚙", showBubble = false) {
             startActivity(Intent(this, GrimyBoardSettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
         }, LinearLayout.LayoutParams(dp(36), dp(32)))
+        head.addView(key("Aa", showBubble = false) { mode = if (mode == 4) 0 else 4; render() }, LinearLayout.LayoutParams(dp(38), dp(32)))
         p.addView(head)
 
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
@@ -230,6 +231,7 @@ class GrimyBoardService : InputMethodService() {
             1 -> renderEmoji(content)
             2 -> renderClipboard(content)
             3 -> renderNumpad(content)
+            4 -> renderTextStyles(content)
             else -> renderKeys(content)
         }
 
@@ -287,7 +289,8 @@ class GrimyBoardService : InputMethodService() {
             ic.deleteSurroundingText(currentWord.length, 0)
         }
         pushUndo()
-        ic.commitText("$word ", 1)
+        val style = prefs.getString("text_style", "grimy") ?: "grimy"
+        ic.commitText(GrimyTextStyles.apply(word, style) + " ", 1)
         lastWord = word
         currentWord.clear()
         feedback()
@@ -385,6 +388,39 @@ class GrimyBoardService : InputMethodService() {
             LinearLayout.LayoutParams(dp(44), dp(44))
         )
         p.addView(bottom)
+    }
+
+    private fun renderTextStyles(p: LinearLayout) {
+        p.addView(label("GRIMY FONT STUDIO", 15f, accent, true))
+        p.addView(label("Styles are Unicode text, so recipients can read them without GRIMY BOARD.", 11f, Color.LTGRAY, false))
+        val current = prefs.getString("text_style", "grimy") ?: "grimy"
+        val preview = TextView(this).apply {
+            text = GrimyTextStyles.apply("Hi, welcome to GRIMY BOARD!", current)
+            textSize = 22f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+            setPadding(dp(8), dp(16), dp(8), dp(16)); background = glass(keyBg, accent)
+        }
+        p.addView(preview, LinearLayout.LayoutParams(-1, dp(64)).apply { setMargins(0, dp(6), 0, dp(8)) })
+        val scroll = ScrollView(this)
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        GrimyTextStyles.styles.forEach { style ->
+            val selected = style.id == current
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(7), dp(10), dp(7)); background = glass(if (selected) 0xFF392033.toInt() else keyBg, if (selected) accent else 0x22FFFFFF)
+                isClickable = true
+                setOnClickListener {
+                    prefs.edit().putString("text_style", style.id).apply()
+                    mode = 0; render()
+                    Toast.makeText(this@GrimyBoardService, "${style.name} selected", Toast.LENGTH_SHORT).show()
+                }
+            }
+            row.addView(TextView(this).apply { text = style.name; textSize = 12f; setTextColor(Color.WHITE) }, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(TextView(this).apply { text = style.sample; textSize = 18f; setTextColor(accent) })
+            list.addView(row, LinearLayout.LayoutParams(-1, dp(42)).apply { setMargins(0, dp(2), 0, dp(2)) })
+        }
+        scroll.addView(list)
+        p.addView(scroll, LinearLayout.LayoutParams(-1, dp(190)))
+        p.addView(key("Use selected style · Back to keyboard", highlight = true, showBubble = false) { mode = 0; render() }, LinearLayout.LayoutParams(-1, dp(38)))
     }
 
     private fun renderNumpad(p: LinearLayout) {
@@ -525,7 +561,9 @@ class GrimyBoardService : InputMethodService() {
 
     private fun typeChar(ch: String) {
         pushUndo()
-        commit(ch)
+        val style = prefs.getString("text_style", "grimy") ?: "grimy"
+        val outgoing = if (ch.length == 1 && ch[0].isLetter()) GrimyTextStyles.apply(ch, style) else ch
+        commit(outgoing)
         if (ch.length == 1 && ch[0].isLetter()) {
             currentWord.append(ch)
         } else if (ch == " " || ch == "." || ch == "," || ch == "!" || ch == "?") {
