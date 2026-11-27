@@ -2,6 +2,8 @@ package com.mediahub.rebuilt.auth
 
 import android.app.Activity
 import android.content.Intent
+import android.net.ConnectivityManager
+import android.net.NetworkCapabilities
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
@@ -164,6 +166,21 @@ class LoginActivity : AppCompatActivity() {
 
     private fun enterApp() {
         val user = auth.currentUser ?: return
+
+        // Firebase Auth retains the last signed-in user on this device. When offline,
+        // let that previously authenticated user reach local media without waiting
+        // for Firestore account/ban checks that cannot complete without a network.
+        if (!hasInternetConnection()) {
+            Toast.makeText(
+                this,
+                "Offline access enabled. Local media is available; account and ban checks will refresh when you reconnect.",
+                Toast.LENGTH_LONG
+            ).show()
+            startActivity(Intent(this, MainActivity::class.java))
+            finish()
+            return
+        }
+
         val db = FirebaseFirestore.getInstance()
         db.collection("user_bans").document(user.uid).get()
             .addOnSuccessListener { ban ->
@@ -192,6 +209,14 @@ class LoginActivity : AppCompatActivity() {
             .addOnFailureListener { error ->
                 status.text = "Could not verify account status. Check your internet connection: ${error.localizedMessage}"
             }
+    }
+
+    private fun hasInternetConnection(): Boolean {
+        val manager = getSystemService(CONNECTIVITY_SERVICE) as? ConnectivityManager ?: return false
+        val network = manager.activeNetwork ?: return false
+        val capabilities = manager.getNetworkCapabilities(network) ?: return false
+        return capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_INTERNET) &&
+            capabilities.hasCapability(NetworkCapabilities.NET_CAPABILITY_VALIDATED)
     }
 
     companion object { private const val ADMIN_EMAIL = "leonelsquare7@gmail.com" }
