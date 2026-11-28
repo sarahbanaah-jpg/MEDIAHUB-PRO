@@ -31,13 +31,13 @@ import android.widget.Toast
 import java.util.Locale
 import com.mediahub.rebuilt.ui.LiquidGlass
 
-/** GRIMY BOARD — suggestions, liquid glass, one-hand, numpad, voice, emoji. */
+/** GRIMY BOARD — liquid glass, font styles, suggestions, emoji, voice. */
 class GrimyBoardService : InputMethodService() {
 
     private var caps = false
     private var capsLock = false
     private var symbols = false
-    private var mode = 0
+    private var mode = 0 // 0 keys, 1 emoji, 2 clipboard, 3 numpad, 4 font styles
     private var emojiTab = 0
     private var oneHand = 0
     private var language = "en"
@@ -54,12 +54,10 @@ class GrimyBoardService : InputMethodService() {
     private var speech: SpeechRecognizer? = null
     private var currentWord = StringBuilder()
     private var lastWord = ""
-    private val grimySwipe = GrimySwipe()
-    private var swipeActive = false
-    private var emojiQuery = ""
 
     private val prefs by lazy { getSharedPreferences("grimy_board", Context.MODE_PRIVATE) }
     private val theme get() = prefs.getString("theme", "pink") ?: "pink"
+    private val textStyle get() = prefs.getString("text_style", "normal") ?: "normal"
     private val keyPopupEnabled get() = prefs.getBoolean("key_popup", true)
     private val numberRow get() = prefs.getBoolean("numbers", true)
     private val haptics get() = prefs.getBoolean("haptics", true)
@@ -99,7 +97,7 @@ class GrimyBoardService : InputMethodService() {
             setBackgroundColor(bg)
         }
         render()
-        try { root?.let { LiquidGlass.apply(it, 1.15f) } } catch (_: Exception) {}
+        try { root?.let { LiquidGlass.apply(it, 1.0f) } } catch (_: Exception) {}
         return root!!
     }
 
@@ -129,10 +127,12 @@ class GrimyBoardService : InputMethodService() {
         while (recentEmoji.size > 16) recentEmoji.removeAt(recentEmoji.lastIndex); saveRecents()
     }
 
+    private fun styleText(raw: String): String = GrimyTextStyles.apply(raw, textStyle)
+
     private fun render() {
         val p = root ?: return
         p.removeAllViews(); p.setBackgroundColor(bg)
-        try { LiquidGlass.apply(p, 1.1f) } catch (_: Exception) {}
+        try { LiquidGlass.apply(p, 1.0f) } catch (_: Exception) {}
         if (suggestionsOn && mode == 0) p.addView(buildSuggestionsBar())
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         head.addView(label(if (incognito) "GRIMY · PRIVATE" else "GRIMY BOARD", 11f, accent, true), LinearLayout.LayoutParams(0, dp(32), 1f))
@@ -142,22 +142,93 @@ class GrimyBoardService : InputMethodService() {
         head.addView(key("🎙", showBubble = false) { startVoice() }, LinearLayout.LayoutParams(dp(36), dp(32)))
         head.addView(key("▤", showBubble = false) { mode = if (mode == 2) 0 else 2; render() }, LinearLayout.LayoutParams(dp(36), dp(32)))
         head.addView(key("☺", showBubble = false) { mode = if (mode == 1) 0 else 1; emojiTab = 0; render() }, LinearLayout.LayoutParams(dp(36), dp(32)))
-        head.addView(key("⚙", showBubble = false) { startActivity(Intent(this, GrimyBoardSettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)) }, LinearLayout.LayoutParams(dp(36), dp(32)))
+        // Font style studio
+        head.addView(key("Aa", highlight = mode == 4 || textStyle != "normal", showBubble = false) {
+            mode = if (mode == 4) 0 else 4; render()
+        }, LinearLayout.LayoutParams(dp(38), dp(32)))
+        head.addView(key("⚙", showBubble = false) {
+            startActivity(Intent(this, GrimyBoardSettingsActivity::class.java).addFlags(Intent.FLAG_ACTIVITY_NEW_TASK))
+        }, LinearLayout.LayoutParams(dp(36), dp(32)))
         p.addView(head)
+
         val content = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
-        when (mode) { 1 -> renderEmoji(content); 2 -> renderClipboard(content); 3 -> renderNumpad(content); else -> renderKeys(content) }
+        when (mode) {
+            1 -> renderEmoji(content)
+            2 -> renderClipboard(content)
+            3 -> renderNumpad(content)
+            4 -> renderTextStyles(content)
+            else -> renderKeys(content)
+        }
         when (oneHand) {
-            1 -> { val row = LinearLayout(this); row.addView(content, LinearLayout.LayoutParams(0, -2, 0.72f)); row.addView(View(this), LinearLayout.LayoutParams(0, -2, 0.28f)); p.addView(row) }
-            2 -> { val row = LinearLayout(this); row.addView(View(this), LinearLayout.LayoutParams(0, -2, 0.28f)); row.addView(content, LinearLayout.LayoutParams(0, -2, 0.72f)); p.addView(row) }
+            1 -> {
+                val row = LinearLayout(this)
+                row.addView(content, LinearLayout.LayoutParams(0, -2, 0.72f))
+                row.addView(View(this), LinearLayout.LayoutParams(0, -2, 0.28f))
+                p.addView(row)
+            }
+            2 -> {
+                val row = LinearLayout(this)
+                row.addView(View(this), LinearLayout.LayoutParams(0, -2, 0.28f))
+                row.addView(content, LinearLayout.LayoutParams(0, -2, 0.72f))
+                p.addView(row)
+            }
             else -> p.addView(content)
         }
     }
 
+    private fun renderTextStyles(p: LinearLayout) {
+        p.addView(label("GRIMY FONT STUDIO", 15f, accent, true))
+        p.addView(label("Unicode styles — recipients can read them without this app.", 11f, Color.LTGRAY, false))
+        val current = textStyle
+        val preview = TextView(this).apply {
+            text = GrimyTextStyles.apply("Hi, welcome to GRIMY BOARD!", current)
+            textSize = 20f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+            setPadding(dp(8), dp(14), dp(8), dp(14)); background = glass(keyBg, accent)
+        }
+        p.addView(preview, LinearLayout.LayoutParams(-1, dp(60)).apply { setMargins(0, dp(6), 0, dp(8) }})
+        val scroll = ScrollView(this)
+        val list = LinearLayout(this).apply { orientation = LinearLayout.VERTICAL }
+        GrimyTextStyles.styles.forEach { style ->
+            val selected = style.id == current
+            val row = LinearLayout(this).apply {
+                orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER_VERTICAL
+                setPadding(dp(10), dp(7), dp(10), dp(7))
+                background = glass(if (selected) 0xFF392033.toInt() else keyBg, if (selected) accent else 0x22FFFFFF)
+                isClickable = true
+                setOnClickListener {
+                    prefs.edit().putString("text_style", style.id).apply()
+                    mode = 0; render()
+                    Toast.makeText(this@GrimyBoardService, "${style.name} on", Toast.LENGTH_SHORT).show()
+                }
+            }
+            row.addView(TextView(this).apply {
+                text = style.name; textSize = 12f; setTextColor(Color.WHITE)
+            }, LinearLayout.LayoutParams(0, -2, 1f))
+            row.addView(TextView(this).apply {
+                text = style.sample; textSize = 18f; setTextColor(accent)
+            })
+            list.addView(row, LinearLayout.LayoutParams(-1, dp(42)).apply { setMargins(0, dp(2), 0, dp(2)) })
+        }
+        scroll.addView(list)
+        p.addView(scroll, LinearLayout.LayoutParams(-1, dp(200)))
+        p.addView(key("Use style · Back to keyboard", highlight = true, showBubble = false) {
+            mode = 0; render()
+        }, LinearLayout.LayoutParams(-1, dp(38)))
+    }
+
     private fun buildSuggestionsBar(): View {
-        val bar = LinearLayout(this).apply { orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER; setPadding(dp(4), dp(4), dp(4), dp(4)); background = glass(0xCC1A1020.toInt(), 0x33FFFFFF) }
-        val suggestions = if (language == "sw" && currentWord.isEmpty()) swahiliHint.take(3) else GrimySuggestions.suggest(currentWord.toString(), lastWord)
+        val bar = LinearLayout(this).apply {
+            orientation = LinearLayout.HORIZONTAL; gravity = Gravity.CENTER
+            setPadding(dp(4), dp(4), dp(4), dp(4)); background = glass(0xCC1A1020.toInt(), 0x33FFFFFF)
+        }
+        val suggestions = if (language == "sw" && currentWord.isEmpty()) swahiliHint.take(3)
+        else GrimySuggestions.suggest(currentWord.toString(), lastWord)
         suggestions.forEach { s ->
-            bar.addView(TextView(this).apply { text = s; textSize = 14f; gravity = Gravity.CENTER; setTextColor(Color.WHITE); setPadding(dp(12), dp(8), dp(12), dp(8)); background = glass(keyBg, accent); setOnClickListener { applySuggestion(s) } }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
+            bar.addView(TextView(this).apply {
+                text = styleText(s); textSize = 14f; gravity = Gravity.CENTER; setTextColor(Color.WHITE)
+                setPadding(dp(12), dp(8), dp(12), dp(8)); background = glass(keyBg, accent)
+                setOnClickListener { applySuggestion(s) }
+            }, LinearLayout.LayoutParams(0, -2, 1f).apply { setMargins(dp(3), 0, dp(3), 0) })
         }
         return bar
     }
@@ -165,7 +236,7 @@ class GrimyBoardService : InputMethodService() {
     private fun applySuggestion(word: String) {
         val ic = currentInputConnection ?: return
         if (currentWord.isNotEmpty()) ic.deleteSurroundingText(currentWord.length, 0)
-        pushUndo(); ic.commitText("$word ", 1); lastWord = word; currentWord.clear(); feedback(); render()
+        pushUndo(); ic.commitText(styleText(word) + " ", 1); lastWord = word; currentWord.clear(); feedback(); render()
     }
 
     private fun renderKeys(p: LinearLayout) {
@@ -178,7 +249,8 @@ class GrimyBoardService : InputMethodService() {
                 r.addView(key(shiftLabel, highlight = caps || capsLock, showBubble = false) {
                     if (symbols) { symbols = false; render() } else {
                         val now = SystemClock.uptimeMillis()
-                        if (now - lastShiftTap < 350) { capsLock = !capsLock; caps = capsLock } else { if (capsLock) { capsLock = false; caps = false } else caps = !caps }
+                        if (now - lastShiftTap < 350) { capsLock = !capsLock; caps = capsLock }
+                        else { if (capsLock) { capsLock = false; caps = false } else caps = !caps }
                         lastShiftTap = now; render()
                     }
                 }, LinearLayout.LayoutParams(dp(44), dp(height)).apply { setMargins(2, 2, 2, 2) })
@@ -201,7 +273,9 @@ class GrimyBoardService : InputMethodService() {
         bottom.addView(key(".", showBubble = true) { typeChar(".") }, LinearLayout.LayoutParams(dp(32), dp(44)))
         bottom.addView(key("↵", showBubble = false) {
             val a = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
-            if (a == EditorInfo.IME_ACTION_NONE || a == EditorInfo.IME_ACTION_UNSPECIFIED) { pushUndo(); currentInputConnection?.commitText("\n", 1) } else currentInputConnection?.performEditorAction(a)
+            if (a == EditorInfo.IME_ACTION_NONE || a == EditorInfo.IME_ACTION_UNSPECIFIED) {
+                pushUndo(); currentInputConnection?.commitText("\n", 1)
+            } else currentInputConnection?.performEditorAction(a)
             currentWord.clear(); render()
         }, LinearLayout.LayoutParams(dp(44), dp(44)))
         p.addView(bottom)
@@ -283,7 +357,10 @@ class GrimyBoardService : InputMethodService() {
     }
 
     private fun typeChar(ch: String) {
-        pushUndo(); commit(ch)
+        pushUndo()
+        // Style only letters so numbers/punctuation stay plain
+        val out = if (ch.length == 1 && ch[0].isLetter()) styleText(ch) else ch
+        commit(out)
         if (ch.length == 1 && ch[0].isLetter()) currentWord.append(ch)
         else if (ch == " " || ch == "." || ch == "," || ch == "!" || ch == "?") {
             if (currentWord.isNotEmpty()) { lastWord = currentWord.toString(); currentWord.clear() }
@@ -295,7 +372,9 @@ class GrimyBoardService : InputMethodService() {
     private fun pushUndo() {
         try {
             val before = currentInputConnection?.getTextBeforeCursor(80, 0)?.toString() ?: return
-            if (undoStack.isEmpty() || undoStack.last() != before) { undoStack.addLast(before); while (undoStack.size > 20) undoStack.removeFirst() }
+            if (undoStack.isEmpty() || undoStack.last() != before) {
+                undoStack.addLast(before); while (undoStack.size > 20) undoStack.removeFirst()
+            }
         } catch (_: Exception) {}
     }
     private fun undo() {
@@ -310,13 +389,18 @@ class GrimyBoardService : InputMethodService() {
 
     private fun startVoice() {
         if (speech != null) { stopVoice(); return }
-        if (!SpeechRecognizer.isRecognitionAvailable(this)) { Toast.makeText(this, "Voice not available", Toast.LENGTH_SHORT).show(); return }
+        if (!SpeechRecognizer.isRecognitionAvailable(this)) {
+            Toast.makeText(this, "Voice not available", Toast.LENGTH_SHORT).show(); return
+        }
         try {
             speech = SpeechRecognizer.createSpeechRecognizer(this).also { sr ->
                 sr.setRecognitionListener(object : RecognitionListener {
                     override fun onResults(results: Bundle?) {
                         val text = results?.getStringArrayList(SpeechRecognizer.RESULTS_RECOGNITION)?.firstOrNull()
-                        if (!text.isNullOrBlank()) { pushUndo(); commit("$text "); lastWord = text.split(" ").lastOrNull().orEmpty() }
+                        if (!text.isNullOrBlank()) {
+                            pushUndo(); commit(styleText(text) + " ")
+                            lastWord = text.split(" ").lastOrNull().orEmpty()
+                        }
                         stopVoice(); render()
                     }
                     override fun onError(error: Int) { stopVoice() }
@@ -334,7 +418,9 @@ class GrimyBoardService : InputMethodService() {
                 })
                 Toast.makeText(this, "Listening…", Toast.LENGTH_SHORT).show()
             }
-        } catch (_: Exception) { Toast.makeText(this, "Mic permission needed", Toast.LENGTH_SHORT).show(); stopVoice() }
+        } catch (_: Exception) {
+            Toast.makeText(this, "Mic permission needed", Toast.LENGTH_SHORT).show(); stopVoice()
+        }
     }
     private fun stopVoice() { try { speech?.destroy() } catch (_: Exception) {}; speech = null }
 
@@ -347,7 +433,8 @@ class GrimyBoardService : InputMethodService() {
     private fun onSpace() {
         val now = SystemClock.uptimeMillis()
         if (doubleSpacePeriod && now - lastSpaceTap < 320) {
-            pushUndo(); currentInputConnection?.deleteSurroundingText(1, 0); currentInputConnection?.commitText(". ", 1); currentWord.clear()
+            pushUndo(); currentInputConnection?.deleteSurroundingText(1, 0)
+            currentInputConnection?.commitText(". ", 1); currentWord.clear()
         } else typeChar(" ")
         lastSpaceTap = now; render()
     }
@@ -369,7 +456,9 @@ class GrimyBoardService : InputMethodService() {
         if (incognito) return
         val cm = getSystemService(Context.CLIPBOARD_SERVICE) as android.content.ClipboardManager
         val v = cm.primaryClip?.takeIf { it.itemCount > 0 }?.getItemAt(0)?.coerceToText(this)?.toString()?.trim().orEmpty()
-        if (v.isNotEmpty() && !clipboardItems.contains(v)) { clipboardItems.add(0, v); while (clipboardItems.size > 10) clipboardItems.removeAt(clipboardItems.lastIndex) }
+        if (v.isNotEmpty() && !clipboardItems.contains(v)) {
+            clipboardItems.add(0, v); while (clipboardItems.size > 10) clipboardItems.removeAt(clipboardItems.lastIndex)
+        }
         render()
     }
 
@@ -377,10 +466,16 @@ class GrimyBoardService : InputMethodService() {
     private fun feedback() {
         if (haptics) try {
             val ms = when (hapticLevel) { 0 -> 8; 2 -> 20; else -> 12 }
-            val vib = if (android.os.Build.VERSION.SDK_INT >= 31) getSystemService(VibratorManager::class.java).defaultVibrator else @Suppress("DEPRECATION") getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
-            if (android.os.Build.VERSION.SDK_INT >= 26) vib.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE)) else @Suppress("DEPRECATION") vib.vibrate(ms.toLong())
+            val vib = if (android.os.Build.VERSION.SDK_INT >= 31)
+                getSystemService(VibratorManager::class.java).defaultVibrator
+            else @Suppress("DEPRECATION") getSystemService(Context.VIBRATOR_SERVICE) as Vibrator
+            if (android.os.Build.VERSION.SDK_INT >= 26)
+                vib.vibrate(VibrationEffect.createOneShot(ms.toLong(), VibrationEffect.DEFAULT_AMPLITUDE))
+            else @Suppress("DEPRECATION") vib.vibrate(ms.toLong())
         } catch (_: Exception) {}
-        if (keySound) try { (getSystemService(Context.AUDIO_SERVICE) as AudioManager).playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD, 0.4f) } catch (_: Exception) {}
+        if (keySound) try {
+            (getSystemService(Context.AUDIO_SERVICE) as AudioManager).playSoundEffect(AudioManager.FX_KEYPRESS_STANDARD, 0.4f)
+        } catch (_: Exception) {}
     }
 
     private fun showKeyPopup(anchor: View, label: String) {
@@ -389,43 +484,59 @@ class GrimyBoardService : InputMethodService() {
         val bubble = TextView(this).apply {
             text = label; gravity = Gravity.CENTER; textSize = 28f; setTextColor(Color.WHITE)
             setPadding(dp(18), dp(12), dp(18), dp(12))
-            background = GradientDrawable().apply { setColor(0xFF2A2433.toInt()); cornerRadius = dp(12).toFloat(); setStroke(dp(2), accent) }
+            background = GradientDrawable().apply {
+                setColor(0xFF2A2433.toInt()); cornerRadius = dp(12).toFloat(); setStroke(dp(2), accent)
+            }
         }
         keyPopup = PopupWindow(bubble, -2, -2, false).apply { isOutsideTouchable = false; isFocusable = false }
         try { keyPopup?.showAsDropDown(anchor, (anchor.width / 2) - dp(28), -(anchor.height + dp(56))) } catch (_: Exception) {}
     }
     private fun dismissKeyPopup() { try { keyPopup?.dismiss() } catch (_: Exception) {}; keyPopup = null }
 
-    private fun key(t: String, highlight: Boolean = false, showBubble: Boolean = false, bigEmoji: Boolean = false, longPressAlternates: List<String> = emptyList(), longPressAction: (() -> Unit)? = null, longPressEnd: (() -> Unit)? = null, click: () -> Unit): TextView =
-        TextView(this).apply {
-            text = t; gravity = Gravity.CENTER
-            textSize = when { bigEmoji -> 22f; t.length > 6 -> 11f; t.length > 2 -> 13f; else -> 18f }
-            setTextColor(Color.WHITE)
-            background = glass(if (highlight || t.contains("GRIMY")) accent else keyBg, if (highlight) 0x66FFFFFF else 0x22FFFFFF)
-            isClickable = true; isFocusable = true; isLongClickable = longPressAlternates.isNotEmpty() || longPressAction != null
-            setOnTouchListener { v, e ->
-                when (e.actionMasked) {
-                    MotionEvent.ACTION_DOWN -> { if (showBubble) showKeyPopup(v, t); longPressAction?.invoke(); false }
-                    MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { dismissKeyPopup(); longPressEnd?.invoke(); false }
-                    else -> false
-                }
-            }
-            setOnClickListener {
-                animate().scaleX(0.93f).scaleY(0.93f).setDuration(45).withEndAction { scaleX = 1f; scaleY = 1f }.start()
-                dismissKeyPopup(); click()
-            }
-            if (longPressAlternates.isNotEmpty()) setOnLongClickListener {
-                dismissKeyPopup()
-                val popup = PopupWindow(this@GrimyBoardService)
-                val row = LinearLayout(this@GrimyBoardService).apply { orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(6), dp(6), dp(6)); background = glass(0xFF1A1820.toInt(), accent) }
-                longPressAlternates.forEach { a -> row.addView(key(a, showBubble = false) { typeChar(a); popup.dismiss() }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { setMargins(3, 0, 3, 0) }) }
-                popup.contentView = HorizontalScrollView(this@GrimyBoardService).apply { addView(row) }
-                popup.isOutsideTouchable = true; popup.isFocusable = true
-                popup.showAsDropDown(this, 0, -dp(52)); true
+    private fun key(
+        t: String, highlight: Boolean = false, showBubble: Boolean = false, bigEmoji: Boolean = false,
+        longPressAlternates: List<String> = emptyList(), longPressAction: (() -> Unit)? = null,
+        longPressEnd: (() -> Unit)? = null, click: () -> Unit
+    ): TextView = TextView(this).apply {
+        text = t; gravity = Gravity.CENTER
+        textSize = when { bigEmoji -> 22f; t.length > 6 -> 11f; t.length > 2 -> 13f; else -> 18f }
+        setTextColor(Color.WHITE)
+        background = glass(if (highlight || t.contains("GRIMY")) accent else keyBg, if (highlight) 0x66FFFFFF else 0x22FFFFFF)
+        isClickable = true; isFocusable = true
+        isLongClickable = longPressAlternates.isNotEmpty() || longPressAction != null
+        setOnTouchListener { v, e ->
+            when (e.actionMasked) {
+                MotionEvent.ACTION_DOWN -> { if (showBubble) showKeyPopup(v, t); longPressAction?.invoke(); false }
+                MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> { dismissKeyPopup(); longPressEnd?.invoke(); false }
+                else -> false
             }
         }
+        setOnClickListener {
+            animate().scaleX(0.93f).scaleY(0.93f).setDuration(45).withEndAction { scaleX = 1f; scaleY = 1f }.start()
+            dismissKeyPopup(); click()
+        }
+        if (longPressAlternates.isNotEmpty()) setOnLongClickListener {
+            dismissKeyPopup()
+            val popup = PopupWindow(this@GrimyBoardService)
+            val row = LinearLayout(this@GrimyBoardService).apply {
+                orientation = LinearLayout.HORIZONTAL; setPadding(dp(6), dp(6), dp(6), dp(6))
+                background = glass(0xFF1A1820.toInt(), accent)
+            }
+            longPressAlternates.forEach { a ->
+                row.addView(key(a, showBubble = false) { typeChar(a); popup.dismiss() }, LinearLayout.LayoutParams(dp(40), dp(40)).apply { setMargins(3, 0, 3, 0) })
+            }
+            popup.contentView = HorizontalScrollView(this@GrimyBoardService).apply { addView(row) }
+            popup.isOutsideTouchable = true; popup.isFocusable = true
+            popup.showAsDropDown(this, 0, -dp(52)); true
+        }
+    }
 
-    private fun glass(fill: Int, stroke: Int) = GradientDrawable().apply { setColor(fill); cornerRadius = dp(10).toFloat(); setStroke(dp(1), stroke) }
-    private fun label(t: String, s: Float, c: Int, b: Boolean) = TextView(this).apply { text = t; textSize = s; setTextColor(c); if (b) setTypeface(null, Typeface.BOLD); setPadding(dp(6), dp(3), dp(6), dp(3)) }
+    private fun glass(fill: Int, stroke: Int) = GradientDrawable().apply {
+        setColor(fill); cornerRadius = dp(10).toFloat(); setStroke(dp(1), stroke)
+    }
+    private fun label(t: String, s: Float, c: Int, b: Boolean) = TextView(this).apply {
+        text = t; textSize = s; setTextColor(c); if (b) setTypeface(null, Typeface.BOLD)
+        setPadding(dp(6), dp(3), dp(6), dp(3))
+    }
     private fun dp(v: Int) = (v * resources.displayMetrics.density).toInt()
 }
