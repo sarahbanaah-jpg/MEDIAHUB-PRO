@@ -20,7 +20,9 @@ import android.speech.SpeechRecognizer
 import android.view.Gravity
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -29,10 +31,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.util.Locale
+import com.mediahub.rebuilt.ui.LiquidGlass
 
 /**
- * GRIMY BOARD — sharp readable keys (no RenderEffect on the IME).
- * Glass look comes from translucent drawables only so letters stay clear.
+ * GRIMY BOARD — continuous smooth liquid bend on BACKGROUND only.
+ * Keys sit on top without RenderEffect so letters stay sharp and readable.
  */
 class GrimyBoardService : InputMethodService() {
     private var caps = false
@@ -42,6 +45,8 @@ class GrimyBoardService : InputMethodService() {
     private var emojiTab = 0
     private var oneHand = 0
     private var language = "en"
+    private var shell: FrameLayout? = null
+    private var glassBg: View? = null
     private var root: LinearLayout? = null
     private val clipboardItems = mutableListOf<String>()
     private val recentEmoji = mutableListOf<String>()
@@ -106,13 +111,36 @@ class GrimyBoardService : InputMethodService() {
 
     override fun onCreateInputView(): View {
         loadRecents()
+        // Shell: glass background (bends continuously) + sharp key layer on top
+        shell = FrameLayout(this).apply {
+            layoutParams = ViewGroup.LayoutParams(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
+        }
+        glassBg = View(this).apply {
+            setBackgroundColor(bg)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.MATCH_PARENT
+            )
+        }
         root = LinearLayout(this).apply {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(4), dp(4), dp(4), dp(6))
-            setBackgroundColor(bg)
+            setBackgroundColor(Color.TRANSPARENT)
+            layoutParams = FrameLayout.LayoutParams(
+                FrameLayout.LayoutParams.MATCH_PARENT,
+                FrameLayout.LayoutParams.WRAP_CONTENT
+            )
         }
+        shell!!.addView(glassBg)
+        shell!!.addView(root)
+        try {
+            glassBg?.let { LiquidGlass.applySubtle(it) }
+        } catch (_: Exception) {}
         render()
-        return root!!
+        return shell!!
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -122,6 +150,10 @@ class GrimyBoardService : InputMethodService() {
         symbols = false
         currentWord.clear()
         dismissKeyPopup()
+        glassBg?.setBackgroundColor(bg)
+        try {
+            glassBg?.let { LiquidGlass.applySubtle(it) }
+        } catch (_: Exception) {}
         render()
     }
 
@@ -151,9 +183,7 @@ class GrimyBoardService : InputMethodService() {
     private fun render() {
         val p = root ?: return
         p.removeAllViews()
-        p.setBackgroundColor(bg)
-        // IMPORTANT: never apply RenderEffect/LiquidGlass to the keyboard root —
-        // it blurs every key and makes typing unusable.
+        // Keys layer stays transparent — bend only on glassBg underneath
 
         if (suggestionsOn && mode == 0) p.addView(buildSuggestionsBar())
 

@@ -8,9 +8,9 @@ import android.view.View
 import androidx.annotation.RequiresApi
 
 /**
- * Smooth liquid glass — AGSL multi-octave refraction on API 33+,
- * chained blur on API 31–32.
- * Displacement is low-frequency and heavily smoothed for 100% fluid bend.
+ * Smooth continuous liquid glass.
+ * - apply(): general UI panels (music cards etc.)
+ * - applySubtle(): keyboard background only — low strength, no heavy blur so overlay text stays sharp
  */
 object LiquidGlass {
 
@@ -24,7 +24,6 @@ object LiquidGlass {
             return fract(sin(dot(p, float2(127.1, 311.7))) * 43758.5453123);
         }
 
-        // Quintic smoothstep for silk-smooth interpolation
         float2 fade(float2 t) {
             return t * t * t * (t * (t * 6.0 - 15.0) + 10.0);
         }
@@ -40,7 +39,6 @@ object LiquidGlass {
             return mix(a, b, u.x) + (c - a) * u.y * (1.0 - u.x) + (d - b) * u.x * u.y;
         }
 
-        // Multi-octave fbm for continuous liquid motion
         float fbm(float2 p) {
             float v = 0.0;
             float a = 0.5;
@@ -54,47 +52,51 @@ object LiquidGlass {
 
         half4 main(float2 fragCoord) {
             float2 uv = fragCoord / size;
+            float2 flow = float2(time * 0.05, time * 0.032);
+            float n1 = fbm(uv * 1.6 + flow);
+            float n2 = fbm(uv * 2.2 - flow * 1.2 + float2(4.1, 1.3));
 
-            // Very low frequency drift — smooth bend, not jitter
-            float2 flow = float2(time * 0.045, time * 0.028);
-            float n1 = fbm(uv * 1.8 + flow);
-            float n2 = fbm(uv * 2.4 - flow * 1.3 + float2(3.7, 1.1));
+            float e = 0.014;
+            float dx = fbm(uv * 1.6 + flow + float2(e, 0.0)) - fbm(uv * 1.6 + flow - float2(e, 0.0));
+            float dy = fbm(uv * 1.6 + flow + float2(0.0, e)) - fbm(uv * 1.6 + flow - float2(0.0, e));
 
-            // Soft gradient of the field (stable refraction direction)
-            float e = 0.012;
-            float dx = fbm(uv * 1.8 + flow + float2(e, 0.0)) - fbm(uv * 1.8 + flow - float2(e, 0.0));
-            float dy = fbm(uv * 1.8 + flow + float2(0.0, e)) - fbm(uv * 1.8 + flow - float2(0.0, e));
-
-            float amp = strength * 14.0;
-            float2 offset = float2(dx, dy) * amp + float2(n1 - 0.5, n2 - 0.5) * amp * 0.35;
+            float amp = strength * 10.0;
+            float2 offset = float2(dx, dy) * amp + float2(n1 - 0.5, n2 - 0.5) * amp * 0.3;
 
             float2 sampleAt = clamp(fragCoord + offset, float2(1.0), size - float2(1.0));
             half4 color = content.eval(sampleAt);
 
-            // Soft specular caustic (smooth, not sparkly)
-            float caustic = smoothstep(0.35, 0.75, n1) * smoothstep(0.3, 0.7, n2);
-            color.rgb += half3(caustic * 0.12, caustic * 0.13, caustic * 0.15);
+            float caustic = smoothstep(0.4, 0.78, n1) * smoothstep(0.35, 0.72, n2);
+            color.rgb += half3(caustic * 0.08, caustic * 0.09, caustic * 0.11);
 
-            // Gentle edge light
-            float edge = smoothstep(0.0, 0.08, uv.x) * smoothstep(0.0, 0.08, uv.y)
-                * smoothstep(0.0, 0.08, 1.0 - uv.x) * smoothstep(0.0, 0.08, 1.0 - uv.y);
-            color.rgb += half3(0.04, 0.045, 0.055) * (1.0 - edge);
+            float edge = smoothstep(0.0, 0.1, uv.x) * smoothstep(0.0, 0.1, uv.y)
+                * smoothstep(0.0, 0.1, 1.0 - uv.x) * smoothstep(0.0, 0.1, 1.0 - uv.y);
+            color.rgb += half3(0.03, 0.035, 0.045) * (1.0 - edge);
 
-            color.a = max(color.a, half(0.78));
+            color.a = max(color.a, half(0.85));
             return color;
         }
     """
 
     fun apply(view: View, strength: Float = 1.0f) {
         if (Build.VERSION.SDK_INT >= 33) {
-            applyAgsl(view, strength)
+            applyAgsl(view, strength, withBlur = true)
         } else if (Build.VERSION.SDK_INT >= 31) {
-            applyBlur(view)
+            applyBlur(view, 18f)
+        }
+    }
+
+    /** Keyboard background: continuous bend, no heavy blur so keys on top stay sharp. */
+    fun applySubtle(view: View) {
+        if (Build.VERSION.SDK_INT >= 33) {
+            applyAgsl(view, 0.55f, withBlur = false)
+        } else if (Build.VERSION.SDK_INT >= 31) {
+            applyBlur(view, 6f)
         }
     }
 
     @RequiresApi(33)
-    private fun applyAgsl(view: View, strength: Float) {
+    private fun applyAgsl(view: View, strength: Float, withBlur: Boolean) {
         try {
             val shader = RuntimeShader(AGSL)
             val updateSize = {
@@ -107,17 +109,21 @@ object LiquidGlass {
             view.addOnLayoutChangeListener { _, _, _, _, _, _, _, _, _ -> updateSize() }
             updateSize()
             shader.setFloatUniform("time", 0f)
-            shader.setFloatUniform("strength", strength.coerceIn(0.3f, 2.0f))
+            shader.setFloatUniform("strength", strength.coerceIn(0.2f, 2.0f))
 
-            // Chain soft blur under refraction for silk smoothness
-            val glass = RenderEffect.createRuntimeShaderEffect(shader, "content")
-            val smooth = RenderEffect.createChainEffect(
-                glass,
-                RenderEffect.createBlurEffect(8f, 8f, Shader.TileMode.CLAMP)
-            )
-            view.setRenderEffect(smooth)
+            fun buildEffect(): RenderEffect {
+                val glass = RenderEffect.createRuntimeShaderEffect(shader, "content")
+                return if (withBlur) {
+                    RenderEffect.createChainEffect(
+                        glass,
+                        RenderEffect.createBlurEffect(6f, 6f, Shader.TileMode.CLAMP)
+                    )
+                } else {
+                    glass
+                }
+            }
+            view.setRenderEffect(buildEffect())
 
-            // ~30fps time tick — smooth motion, low battery cost
             view.postDelayed(object : Runnable {
                 override fun run() {
                     if (!view.isAttachedToWindow || Build.VERSION.SDK_INT < 33) return
@@ -127,27 +133,22 @@ object LiquidGlass {
                             (System.nanoTime() % 100_000_000_000L) / 1_000_000_000f
                         )
                         updateSize()
-                        val g = RenderEffect.createRuntimeShaderEffect(shader, "content")
-                        val s = RenderEffect.createChainEffect(
-                            g,
-                            RenderEffect.createBlurEffect(8f, 8f, Shader.TileMode.CLAMP)
-                        )
-                        view.setRenderEffect(s)
-                        view.postDelayed(this, 33)
+                        view.setRenderEffect(buildEffect())
+                        view.postDelayed(this, 40)
                     } catch (_: Exception) {
                     }
                 }
-            }, 33)
+            }, 40)
         } catch (_: Exception) {
-            if (Build.VERSION.SDK_INT >= 31) applyBlur(view)
+            if (Build.VERSION.SDK_INT >= 31) applyBlur(view, if (withBlur) 18f else 6f)
         }
     }
 
     @RequiresApi(31)
-    private fun applyBlur(view: View) {
+    private fun applyBlur(view: View, radius: Float) {
         try {
             view.setRenderEffect(
-                RenderEffect.createBlurEffect(28f, 28f, Shader.TileMode.CLAMP)
+                RenderEffect.createBlurEffect(radius, radius, Shader.TileMode.CLAMP)
             )
         } catch (_: Exception) {
         }
