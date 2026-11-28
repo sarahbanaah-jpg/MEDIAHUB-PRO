@@ -218,6 +218,12 @@ class HomeFragment : Fragment() {
             toolCard("✦", "What's New", "Every feature") { startActivity(Intent(requireContext(), MediaHubWhatsNewActivity::class.java)) },
             toolCard("▣", "Media Library", "Local collection") { openTab(R.id.navPhotos) }
         ))
+        commandGrid.addView(toolRow(
+            toolCard("⌘", "CART3R.JAILBREAK", "Developer command center") {
+                startActivity(Intent(requireContext(), com.mediahub.rebuilt.developer.CarterCommandCenterActivity::class.java))
+            },
+            toolCard("🧰", "20 Tools", "Calculators & guides") { startActivity(Intent(requireContext(), MediaHubToolkitActivity::class.java)) }
+        ))
 
         viewLifecycleOwner.lifecycleScope.launch {
             val ctx = requireContext()
