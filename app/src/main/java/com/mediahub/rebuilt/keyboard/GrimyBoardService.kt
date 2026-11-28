@@ -111,10 +111,13 @@ class GrimyBoardService : InputMethodService() {
             orientation = LinearLayout.VERTICAL
             setPadding(dp(4), dp(4), dp(4), dp(6))
             setBackgroundColor(bg)
-            // Critical: WRAP_CONTENT so the IME only occupies key height — no black gap
+            // Fill the IME window and pin the keyboard rows to its bottom edge.
+            // Some Android builds give the input view a tall frame; WRAP_CONTENT
+            // left the keys at the top with a large empty area underneath.
+            gravity = Gravity.BOTTOM
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
+                ViewGroup.LayoutParams.MATCH_PARENT
             )
         }
         render()
