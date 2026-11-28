@@ -29,8 +29,11 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.util.Locale
-import com.mediahub.rebuilt.ui.LiquidGlass
 
+/**
+ * GRIMY BOARD — sharp readable keys (no RenderEffect on the IME).
+ * Glass look comes from translucent drawables only so letters stay clear.
+ */
 class GrimyBoardService : InputMethodService() {
     private var caps = false
     private var capsLock = false
@@ -66,13 +69,24 @@ class GrimyBoardService : InputMethodService() {
     private val height get() = prefs.getInt("height", 48).coerceIn(40, 58)
 
     private val accent: Int get() = when (theme) {
-        "neon" -> 0xFF00E6BE.toInt(); "glass" -> 0xFFBE96FF.toInt(); "grimy" -> 0xFFFF2D95.toInt(); else -> 0xFFFF3789.toInt()
+        "neon" -> 0xFF00E6BE.toInt()
+        "glass" -> 0xFFBE96FF.toInt()
+        "grimy" -> 0xFFFF2D95.toInt()
+        else -> 0xFFFF3789.toInt()
     }
     private val bg: Int get() = when (theme) {
-        "amoled" -> Color.BLACK; "neon" -> 0xFF081216.toInt(); "glass" -> 0xFF120F1A.toInt(); "grimy" -> 0xFF0A0612.toInt(); else -> 0xFF0D0C13.toInt()
+        "amoled" -> Color.BLACK
+        "neon" -> 0xFF081216.toInt()
+        "glass" -> 0xFF120F1A.toInt()
+        "grimy" -> 0xFF0A0612.toInt()
+        else -> 0xFF0D0C13.toInt()
     }
     private val keyBg: Int get() = when (theme) {
-        "amoled" -> 0xFF141414.toInt(); "neon" -> 0xFF102226.toInt(); "glass" -> 0xFF2A2436.toInt(); "grimy" -> 0xFF1A1028.toInt(); else -> 0xFF25222C.toInt()
+        "amoled" -> 0xFF1A1A1A.toInt()
+        "neon" -> 0xFF102226.toInt()
+        "glass" -> 0xFF2A2436.toInt()
+        "grimy" -> 0xFF1A1028.toInt()
+        else -> 0xFF2A2733.toInt()
     }
 
     private val grimyStamps = listOf("🖤 GRIMY", "✨ MediaHub", "🎧 Now Playing", "🔥 Grimy Mode", "💜 Stay Grimy", "🚀 Level Up")
@@ -80,9 +94,13 @@ class GrimyBoardService : InputMethodService() {
     private val heartsEmoji = listOf("❤️", "🧡", "💛", "💚", "💙", "💜", "🖤", "🤍", "💕", "💞", "💓", "💗", "💖", "💘")
     private val moreEmoji = listOf("👍", "👏", "🙏", "💪", "🤝", "🙌", "🎉", "🎊", "📱", "💻", "🎮", "📷")
     private val longPressMap = mapOf(
-        "a" to listOf("á", "à", "â", "ä"), "e" to listOf("é", "è", "ê", "ë"),
-        "i" to listOf("í", "ì", "î", "ï"), "o" to listOf("ó", "ò", "ô", "ö"),
-        "u" to listOf("ú", "ù", "û", "ü"), "n" to listOf("ñ"), "c" to listOf("ç")
+        "a" to listOf("á", "à", "â", "ä"),
+        "e" to listOf("é", "è", "ê", "ë"),
+        "i" to listOf("í", "ì", "î", "ï"),
+        "o" to listOf("ó", "ò", "ô", "ö"),
+        "u" to listOf("ú", "ù", "û", "ü"),
+        "n" to listOf("ñ"),
+        "c" to listOf("ç")
     )
     private val swahiliHint = listOf("habari", "asante", "karibu", "sasa", "nzuri")
 
@@ -94,7 +112,6 @@ class GrimyBoardService : InputMethodService() {
             setBackgroundColor(bg)
         }
         render()
-        try { root?.let { LiquidGlass.apply(it, 1.0f) } } catch (_: Exception) {}
         return root!!
     }
 
@@ -135,7 +152,9 @@ class GrimyBoardService : InputMethodService() {
         val p = root ?: return
         p.removeAllViews()
         p.setBackgroundColor(bg)
-        try { LiquidGlass.apply(p, 1.0f) } catch (_: Exception) {}
+        // IMPORTANT: never apply RenderEffect/LiquidGlass to the keyboard root —
+        // it blurs every key and makes typing unusable.
+
         if (suggestionsOn && mode == 0) p.addView(buildSuggestionsBar())
 
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
@@ -204,7 +223,7 @@ class GrimyBoardService : InputMethodService() {
                 orientation = LinearLayout.HORIZONTAL
                 gravity = Gravity.CENTER_VERTICAL
                 setPadding(dp(10), dp(7), dp(10), dp(7))
-                background = glass(if (selected) 0xFF392033.toInt() else keyBg, if (selected) accent else 0x22FFFFFF)
+                background = glass(if (selected) 0xFF392033.toInt() else keyBg, if (selected) accent else 0x33FFFFFF)
                 isClickable = true
                 setOnClickListener {
                     prefs.edit().putString("text_style", style.id).apply()
@@ -233,7 +252,7 @@ class GrimyBoardService : InputMethodService() {
             orientation = LinearLayout.HORIZONTAL
             gravity = Gravity.CENTER
             setPadding(dp(4), dp(4), dp(4), dp(4))
-            background = glass(0xCC1A1020.toInt(), 0x33FFFFFF)
+            background = glass(0xFF1A1020.toInt(), 0x44FFFFFF)
         }
         val suggestions = if (language == "sw" && currentWord.isEmpty()) swahiliHint.take(3)
         else GrimySuggestions.suggest(currentWord.toString(), lastWord)
@@ -305,7 +324,7 @@ class GrimyBoardService : InputMethodService() {
             language = if (language == "en") "sw" else "en"; render()
         }, LinearLayout.LayoutParams(dp(40), dp(44)))
         bottom.addView(key(",", false, true) { typeChar(",") }, LinearLayout.LayoutParams(dp(32), dp(44)))
-        bottom.addView(key("English · GRIMY", true) { onSpace() }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(3, 0, 3, 0) })
+        bottom.addView(key("space", true) { onSpace() }, LinearLayout.LayoutParams(0, dp(44), 1f).apply { setMargins(3, 0, 3, 0) })
         bottom.addView(key(".", false, true) { typeChar(".") }, LinearLayout.LayoutParams(dp(32), dp(44)))
         bottom.addView(key("↵", false) {
             val a = currentInputEditorInfo?.imeOptions?.and(EditorInfo.IME_MASK_ACTION) ?: EditorInfo.IME_ACTION_NONE
@@ -359,7 +378,7 @@ class GrimyBoardService : InputMethodService() {
                     val bmp = GrimyCustomEmoji.bitmap(e, size)
                     val wrap = LinearLayout(this).apply {
                         gravity = Gravity.CENTER
-                        background = glass(keyBg, 0x33FFFFFF)
+                        background = glass(keyBg, 0x44FFFFFF)
                         isClickable = true
                         setOnClickListener {
                             commit(e.shortcode); rememberEmoji(e.shortcode); feedback()
@@ -615,14 +634,15 @@ class GrimyBoardService : InputMethodService() {
         text = t
         gravity = Gravity.CENTER
         textSize = when {
-            t.length > 6 -> 11f
-            t.length > 2 -> 13f
-            else -> 18f
+            t.length > 6 -> 12f
+            t.length > 2 -> 14f
+            else -> 20f
         }
         setTextColor(Color.WHITE)
+        typeface = Typeface.create("sans-serif-medium", Typeface.NORMAL)
         background = glass(
-            if (highlight || t.contains("GRIMY")) accent else keyBg,
-            if (highlight) 0x66FFFFFF else 0x22FFFFFF
+            if (highlight || t.equals("space", true)) accent else keyBg,
+            if (highlight) 0x66FFFFFF else 0x33FFFFFF
         )
         isClickable = true
         isFocusable = true
@@ -643,7 +663,7 @@ class GrimyBoardService : InputMethodService() {
             }
         }
         setOnClickListener {
-            animate().scaleX(0.93f).scaleY(0.93f).setDuration(45).withEndAction {
+            animate().scaleX(0.94f).scaleY(0.94f).setDuration(40).withEndAction {
                 scaleX = 1f; scaleY = 1f
             }.start()
             dismissKeyPopup()
@@ -673,7 +693,9 @@ class GrimyBoardService : InputMethodService() {
     }
 
     private fun glass(fill: Int, stroke: Int) = GradientDrawable().apply {
-        setColor(fill); cornerRadius = dp(10).toFloat(); setStroke(dp(1), stroke)
+        setColor(fill)
+        cornerRadius = dp(10).toFloat()
+        setStroke(dp(1), stroke)
     }
 
     private fun label(t: String, s: Float, c: Int, b: Boolean) = TextView(this).apply {
