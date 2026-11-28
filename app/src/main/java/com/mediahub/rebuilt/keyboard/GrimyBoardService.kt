@@ -22,7 +22,6 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
-import android.widget.FrameLayout
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -31,11 +30,10 @@ import android.widget.ScrollView
 import android.widget.TextView
 import android.widget.Toast
 import java.util.Locale
-import com.mediahub.rebuilt.ui.LiquidGlass
 
 /**
- * GRIMY BOARD — continuous smooth liquid bend on BACKGROUND only.
- * Keys sit on top without RenderEffect so letters stay sharp and readable.
+ * GRIMY BOARD — height wraps keys only (no empty black gap).
+ * Solid theme background; keys stay sharp and readable.
  */
 class GrimyBoardService : InputMethodService() {
     private var caps = false
@@ -45,8 +43,6 @@ class GrimyBoardService : InputMethodService() {
     private var emojiTab = 0
     private var oneHand = 0
     private var language = "en"
-    private var shell: FrameLayout? = null
-    private var glassBg: View? = null
     private var root: LinearLayout? = null
     private val clipboardItems = mutableListOf<String>()
     private val recentEmoji = mutableListOf<String>()
@@ -111,36 +107,18 @@ class GrimyBoardService : InputMethodService() {
 
     override fun onCreateInputView(): View {
         loadRecents()
-        // Shell: glass background (bends continuously) + sharp key layer on top
-        shell = FrameLayout(this).apply {
+        root = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(dp(4), dp(4), dp(4), dp(6))
+            setBackgroundColor(bg)
+            // Critical: WRAP_CONTENT so the IME only occupies key height — no black gap
             layoutParams = ViewGroup.LayoutParams(
                 ViewGroup.LayoutParams.MATCH_PARENT,
                 ViewGroup.LayoutParams.WRAP_CONTENT
             )
         }
-        glassBg = View(this).apply {
-            setBackgroundColor(bg)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.MATCH_PARENT
-            )
-        }
-        root = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(dp(4), dp(4), dp(4), dp(6))
-            setBackgroundColor(Color.TRANSPARENT)
-            layoutParams = FrameLayout.LayoutParams(
-                FrameLayout.LayoutParams.MATCH_PARENT,
-                FrameLayout.LayoutParams.WRAP_CONTENT
-            )
-        }
-        shell!!.addView(glassBg)
-        shell!!.addView(root)
-        try {
-            glassBg?.let { LiquidGlass.applySubtle(it) }
-        } catch (_: Exception) {}
         render()
-        return shell!!
+        return root!!
     }
 
     override fun onStartInputView(info: EditorInfo?, restarting: Boolean) {
@@ -150,10 +128,7 @@ class GrimyBoardService : InputMethodService() {
         symbols = false
         currentWord.clear()
         dismissKeyPopup()
-        glassBg?.setBackgroundColor(bg)
-        try {
-            glassBg?.let { LiquidGlass.applySubtle(it) }
-        } catch (_: Exception) {}
+        root?.setBackgroundColor(bg)
         render()
     }
 
@@ -183,7 +158,7 @@ class GrimyBoardService : InputMethodService() {
     private fun render() {
         val p = root ?: return
         p.removeAllViews()
-        // Keys layer stays transparent — bend only on glassBg underneath
+        p.setBackgroundColor(bg)
 
         if (suggestionsOn && mode == 0) p.addView(buildSuggestionsBar())
 
@@ -216,14 +191,14 @@ class GrimyBoardService : InputMethodService() {
         when (oneHand) {
             1 -> {
                 val row = LinearLayout(this)
-                row.addView(content, LinearLayout.LayoutParams(0, -2, 0.72f))
-                row.addView(View(this), LinearLayout.LayoutParams(0, -2, 0.28f))
+                row.addView(content, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.72f))
+                row.addView(View(this), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.28f))
                 p.addView(row)
             }
             2 -> {
                 val row = LinearLayout(this)
-                row.addView(View(this), LinearLayout.LayoutParams(0, -2, 0.28f))
-                row.addView(content, LinearLayout.LayoutParams(0, -2, 0.72f))
+                row.addView(View(this), LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.28f))
+                row.addView(content, LinearLayout.LayoutParams(0, ViewGroup.LayoutParams.WRAP_CONTENT, 0.72f))
                 p.addView(row)
             }
             else -> p.addView(content)
