@@ -1,6 +1,6 @@
 package com.mediahub.rebuilt.keyboard
 
-/** Offline word suggestions for GRIMY BOARD. */
+/** Offline word suggestions + swipe dictionary for GRIMY BOARD. */
 object GrimySuggestions {
     private val words = listOf(
         "the", "be", "to", "of", "and", "a", "in", "that", "have", "i",
@@ -18,7 +18,11 @@ object GrimySuggestions {
         "happy", "great", "awesome", "beautiful", "kenya", "nairobi", "eldoret",
         "swahili", "habari", "asante", "karibu", "sasa", "nzuri", "pole", "safari",
         "grimy", "mediahub", "update", "download", "install", "message", "chat",
-        "play", "pause", "next", "song", "album", "artist", "listen", "watch"
+        "play", "pause", "next", "song", "album", "artist", "listen", "watch",
+        "home", "school", "money", "food", "water", "help", "need", "call", "send",
+        "where", "why", "here", "going", "come", "later", "soon", "always", "never",
+        "something", "nothing", "everything", "someone", "everyone", "myself",
+        "keyboard", "typing", "swipe", "emoji", "glass", "liquid", "premium"
     )
 
     private val nextWords = mapOf(
@@ -32,6 +36,8 @@ object GrimySuggestions {
         "mediahub" to listOf("pro", "update"),
         "grimy" to listOf("board", "mode", "emoji")
     )
+
+    fun swipeDictionary(): List<String> = words.filter { it.length >= 2 }
 
     fun suggest(prefix: String, previous: String? = null): List<String> {
         val p = prefix.lowercase().trim()
@@ -49,6 +55,33 @@ object GrimySuggestions {
         if (words.contains(w)) return null
         return words.minByOrNull { levenshtein(w, it) }
             ?.takeIf { levenshtein(w, it) in 1..2 }
+    }
+
+    fun emojiSearch(query: String, custom: List<Pair<String, String>>, stock: List<String>): List<String> {
+        val q = query.lowercase().trim()
+        if (q.isEmpty()) return emptyList()
+        val fromCustom = custom.filter { (id, short) ->
+            id.contains(q) || short.contains(q) || short.removePrefix(":").removeSuffix(":").contains(q)
+        }.map { it.second }
+        val tags = mapOf(
+            "fire" to listOf("🔥", ":gfire:"),
+            "heart" to listOf("❤️", "🖤", ":gheart:"),
+            "music" to listOf("🎵", "🎧", ":gmusic:"),
+            "star" to listOf("⭐", "✨", ":gstar:"),
+            "love" to listOf("😍", "💕", ":glove:"),
+            "happy" to listOf("😀", "😂", "😊"),
+            "sad" to listOf("😭", "💔"),
+            "ok" to listOf("👍", "✅", ":gok:"),
+            "grimy" to listOf(":grimy:", "🖤"),
+            "crown" to listOf("👑", ":gcrown:"),
+            "rocket" to listOf("🚀", ":grocket:")
+        )
+        val tagged = tags.filterKeys { it.contains(q) || q.contains(it) }.values.flatten()
+        val fromStock = stock.filter {
+            // rough: keep if query matches common names via tags only
+            false
+        }
+        return (fromCustom + tagged + fromStock).distinct().take(24)
     }
 
     private fun levenshtein(a: String, b: String): Int {
