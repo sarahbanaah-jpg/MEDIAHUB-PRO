@@ -689,7 +689,6 @@ class GrimyBoardService : InputMethodService() {
             }
         }
         setOnClickListener {
-            animate().cancel()
             dismissKeyPopup()
             click()
         }
