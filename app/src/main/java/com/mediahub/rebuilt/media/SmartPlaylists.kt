@@ -9,10 +9,10 @@ object SmartPlaylists {
     fun recentlyAdded(items: List<MediaItem>, limit: Int = 50): List<MediaItem> =
         items.sortedByDescending { it.dateAdded }.take(limit)
 
-    fun mostPlayed(items: List<MediaItem>, playCounts: Map<String, Int>, limit: Int = 50): List<MediaItem> =
+    fun mostPlayed(items: List<MediaItem>, playCounts: Map<Long, Int>, limit: Int = 50): List<MediaItem> =
         items.sortedByDescending { playCounts[it.id] ?: 0 }.take(limit)
 
-    fun neverPlayed(items: List<MediaItem>, playCounts: Map<String, Int>, limit: Int = 50): List<MediaItem> =
+    fun neverPlayed(items: List<MediaItem>, playCounts: Map<Long, Int>, limit: Int = 50): List<MediaItem> =
         items.filter { (playCounts[it.id] ?: 0) == 0 }.take(limit)
 
     fun shortTracks(items: List<MediaItem>, maxMs: Long = 180_000L, limit: Int = 50): List<MediaItem> =
