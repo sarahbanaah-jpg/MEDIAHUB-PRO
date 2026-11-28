@@ -1,6 +1,13 @@
 package com.mediahub.rebuilt.ui.home
 
+import android.app.ActivityManager
+import android.content.Context
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.os.Environment
+import android.os.StatFs
+import android.text.format.Formatter
 import android.graphics.Typeface
 import android.graphics.drawable.GradientDrawable
 import android.os.Bundle
@@ -11,6 +18,7 @@ import android.view.ViewGroup
 import android.widget.LinearLayout
 import android.widget.ScrollView
 import android.widget.TextView
+import android.widget.Toast
 import androidx.fragment.app.Fragment
 import com.mediahub.rebuilt.BuildConfig
 import com.mediahub.rebuilt.keyboard.GrimyBoardSettingsActivity
@@ -72,6 +80,28 @@ class HomeFragment : Fragment() {
             "Check for the latest MEDIAHUB-PRO release and install updates"
         ) { checkForUpdates() })
 
+        root.addView(TextView(context).apply {
+            text = "WHY THE OTHER FEATURES ARE RESTRICTED"
+            setTextColor(0xFFFF6BA6.toInt())
+            textSize = 12f
+            typeface = Typeface.DEFAULT_BOLD
+            gravity = Gravity.CENTER
+            setPadding(0, dp(18), 0, dp(8))
+        })
+        root.addView(TextView(context).apply {
+            text = "Our usage review showed that GRIMY BOARD was the feature people used most, while music and the other MediaHub features received limited interest. We have therefore focused this release on the keyboard and app updates. The other features are restricted for now, not permanently ruled out. If you would like us to bring any of them back, send us a request."
+            setTextColor(0xFFD0C3CB.toInt())
+            textSize = 13f
+            gravity = Gravity.CENTER
+            setLineSpacing(dp(3).toFloat(), 1f)
+            setPadding(0, 0, 0, dp(12))
+        })
+        root.addView(actionCard(
+            "✉",
+            "REQUEST A FEATURE",
+            "Email the developer. A device-specification report will be prepared for you to review."
+        ) { requestFeatureRestoration() })
+
         updateStatus = TextView(context).apply {
             text = "Installed version · v${BuildConfig.VERSION_NAME}"
             setTextColor(0xFFB8AAB1.toInt())
@@ -116,6 +146,51 @@ class HomeFragment : Fragment() {
                 }
             }
         )
+    }
+
+    private fun requestFeatureRestoration() {
+        val context = requireContext()
+        val metrics = context.resources.displayMetrics
+        val activityManager = context.getSystemService(Context.ACTIVITY_SERVICE) as ActivityManager
+        val memory = ActivityManager.MemoryInfo().also { activityManager.getMemoryInfo(it) }
+        val storage = StatFs(Environment.getDataDirectory().path)
+        val totalStorage = storage.totalBytes
+        val freeStorage = storage.availableBytes
+        val totalMemory = memory.totalMem
+        val deviceReport = buildString {
+            appendLine("MEDIAHUB-PRO feature restoration request")
+            appendLine()
+            appendLine("Requested feature(s): [Please describe the feature(s) you want restored]")
+            appendLine("Message: [Add your comments here]")
+            appendLine()
+            appendLine("Device specifications (available to the app):")
+            appendLine("Manufacturer: ${Build.MANUFACTURER}")
+            appendLine("Model: ${Build.MODEL}")
+            appendLine("Device: ${Build.DEVICE}")
+            appendLine("Product: ${Build.PRODUCT}")
+            appendLine("Android version: ${Build.VERSION.RELEASE}")
+            appendLine("Android SDK: ${Build.VERSION.SDK_INT}")
+            if (Build.VERSION.SDK_INT >= 23) appendLine("Android security patch: ${Build.VERSION.SECURITY_PATCH}")
+            appendLine("Supported ABIs: ${Build.SUPPORTED_ABIS.joinToString()}")
+            appendLine("Screen resolution: ${metrics.widthPixels} × ${metrics.heightPixels} px")
+            appendLine("Screen density: ${metrics.densityDpi} dpi")
+            appendLine("Total RAM: ${Formatter.formatFileSize(context, totalMemory)}")
+            appendLine("Total internal storage: ${Formatter.formatFileSize(context, totalStorage)}")
+            appendLine("Available internal storage: ${Formatter.formatFileSize(context, freeStorage)}")
+            appendLine("MEDIAHUB-PRO version: ${BuildConfig.VERSION_NAME} (${BuildConfig.VERSION_CODE})")
+            appendLine()
+            appendLine("Privacy: This report is prepared on this device and is only shared if you choose to send this email. It does not include an IMEI, serial number, contacts, or message contents.")
+        }
+        val emailIntent = Intent(Intent.ACTION_SENDTO).apply {
+            data = Uri.parse("mailto:leonelsquare7@gmail.com")
+            putExtra(Intent.EXTRA_SUBJECT, "MEDIAHUB-PRO — feature restoration request")
+            putExtra(Intent.EXTRA_TEXT, deviceReport)
+        }
+        try {
+            startActivity(emailIntent)
+        } catch (_: Exception) {
+            Toast.makeText(context, "No email app is available on this device.", Toast.LENGTH_LONG).show()
+        }
     }
 
     private fun actionCard(icon: String, title: String, subtitle: String, action: () -> Unit): View {
