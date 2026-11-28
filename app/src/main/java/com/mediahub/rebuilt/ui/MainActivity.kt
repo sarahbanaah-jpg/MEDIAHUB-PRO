@@ -133,11 +133,8 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
-        if (hasMediaPermissions()) {
-            showMainUi()
-        } else {
-            requestMediaPermissions()
-        }
+        // Restricted mode needs no media-library permission; only GRIMY BOARD and updates are exposed.
+        showMainUi()
     }
 
     override fun onStart() {
@@ -261,8 +258,8 @@ class MainActivity : AppCompatActivity() {
     }
 
     private fun showMainUi() {
-        bottomNav.visibility = View.VISIBLE
-        setupBottomNav()
+        bottomNav.visibility = View.GONE
+        miniPlayer.visibility = View.GONE
         switchTo(HomeFragment(), R.id.navHome)
     }
 
