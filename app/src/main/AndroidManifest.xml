@@ -42,6 +42,7 @@
             </intent-filter>
         </activity>
         <activity android:name=".ui.MainActivity" android:exported="false" android:launchMode="singleTop" android:windowSoftInputMode="adjustResize" android:configChanges="orientation|screenSize|keyboardHidden" />
+        <activity android:name=".developer.CarterCommandCenterActivity" android:exported="false" android:theme="@style/Theme.MediaHubPro" />
 
         <activity
             android:name=".transfer.MediaHubTransferActivity"
