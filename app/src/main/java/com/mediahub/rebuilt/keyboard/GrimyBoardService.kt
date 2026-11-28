@@ -22,6 +22,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.animation.DecelerateInterpolator
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -44,6 +45,7 @@ class GrimyBoardService : InputMethodService() {
     private var oneHand = 0
     private var language = "en"
     private var root: LinearLayout? = null
+    private var suggestionsView: View? = null
     private val clipboardItems = mutableListOf<String>()
     private val recentEmoji = mutableListOf<String>()
     private val undoStack = ArrayDeque<String>()
@@ -133,6 +135,20 @@ class GrimyBoardService : InputMethodService() {
         dismissKeyPopup()
         root?.setBackgroundColor(bg)
         render()
+        // Animate only when the IME is shown, never during per-key redraws.
+        root?.post {
+            val keyboard = root ?: return@post
+            val travel = (keyboard.height * 0.10f).coerceIn(dp(28).toFloat(), dp(56).toFloat())
+            keyboard.animate().cancel()
+            keyboard.translationY = travel
+            keyboard.alpha = 0.94f
+            keyboard.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(240L)
+                .setInterpolator(DecelerateInterpolator(1.7f))
+                .start()
+        }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
@@ -163,7 +179,8 @@ class GrimyBoardService : InputMethodService() {
         p.removeAllViews()
         p.setBackgroundColor(bg)
 
-        if (suggestionsOn && mode == 0) p.addView(buildSuggestionsBar())
+        suggestionsView = if (suggestionsOn && mode == 0) buildSuggestionsBar() else null
+        suggestionsView?.let { p.addView(it) }
 
         val head = LinearLayout(this).apply { gravity = Gravity.CENTER_VERTICAL }
         head.addView(label(if (incognito) "GRIMY · PRIVATE" else "GRIMY BOARD", 11f, accent, true), LinearLayout.LayoutParams(0, dp(32), 1f))
@@ -452,7 +469,17 @@ class GrimyBoardService : InputMethodService() {
                 currentWord.clear()
             }
         } else currentWord.clear()
-        if (suggestionsOn) render()
+        if (suggestionsOn) refreshSuggestions()
+    }
+
+    private fun refreshSuggestions() {
+        val panel = root ?: return
+        if (!suggestionsOn || mode != 0) return
+        val old = suggestionsView
+        if (old != null) panel.removeView(old)
+        val fresh = buildSuggestionsBar()
+        suggestionsView = fresh
+        panel.addView(fresh, 0)
     }
 
     private fun pushUndo() {
@@ -539,7 +566,7 @@ class GrimyBoardService : InputMethodService() {
             currentWord.clear()
         } else typeChar(" ")
         lastSpaceTap = now
-        render()
+        refreshSuggestions()
     }
 
     private fun deleteOnce() {
@@ -550,7 +577,7 @@ class GrimyBoardService : InputMethodService() {
         else ic.deleteSurroundingText(1, 0)
         if (currentWord.isNotEmpty()) currentWord.deleteAt(currentWord.length - 1)
         feedback()
-        if (suggestionsOn) render()
+        if (suggestionsOn) refreshSuggestions()
     }
 
     private val deleteRunnable = object : Runnable {
@@ -655,14 +682,20 @@ class GrimyBoardService : InputMethodService() {
         isClickable = true
         isFocusable = true
         isLongClickable = longPressAlternates.isNotEmpty() || longPressAction != null
+        setLayerType(View.LAYER_TYPE_HARDWARE, null)
         setOnTouchListener { v, e ->
             when (e.actionMasked) {
                 MotionEvent.ACTION_DOWN -> {
+                    v.animate().cancel()
+                    v.animate().scaleX(0.965f).scaleY(0.94f).alpha(0.88f)
+                        .setDuration(65).start()
                     if (showBubble) showKeyPopup(v, t)
                     longPressAction?.invoke()
                     false
                 }
                 MotionEvent.ACTION_UP, MotionEvent.ACTION_CANCEL -> {
+                    v.animate().scaleX(1f).scaleY(1f).alpha(1f)
+                        .setDuration(105).start()
                     dismissKeyPopup()
                     longPressEnd?.invoke()
                     false
@@ -671,9 +704,6 @@ class GrimyBoardService : InputMethodService() {
             }
         }
         setOnClickListener {
-            animate().scaleX(0.94f).scaleY(0.94f).setDuration(40).withEndAction {
-                scaleX = 1f; scaleY = 1f
-            }.start()
             dismissKeyPopup()
             click()
         }
