@@ -22,6 +22,7 @@ import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.EditorInfo
+import android.view.animation.DecelerateInterpolator
 import android.widget.HorizontalScrollView
 import android.widget.ImageView
 import android.widget.LinearLayout
@@ -134,6 +135,20 @@ class GrimyBoardService : InputMethodService() {
         dismissKeyPopup()
         root?.setBackgroundColor(bg)
         render()
+        // Animate only when the IME is shown, never during per-key redraws.
+        root?.post {
+            val keyboard = root ?: return@post
+            val travel = (keyboard.height * 0.10f).coerceIn(dp(28).toFloat(), dp(56).toFloat())
+            keyboard.animate().cancel()
+            keyboard.translationY = travel
+            keyboard.alpha = 0.94f
+            keyboard.animate()
+                .translationY(0f)
+                .alpha(1f)
+                .setDuration(240L)
+                .setInterpolator(DecelerateInterpolator(1.7f))
+                .start()
+        }
     }
 
     override fun onFinishInputView(finishingInput: Boolean) {
